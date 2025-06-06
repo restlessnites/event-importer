@@ -1,7 +1,7 @@
 """Base agent class for event import agents."""
 
 from abc import ABC, abstractmethod
-from typing import Optional, Callable, Awaitable
+from typing import Optional, Callable, Awaitable, Dict, Any
 import logging
 from datetime import datetime
 
@@ -19,6 +19,7 @@ class Agent(ABC):
         self,
         config: Config,
         progress_callback: Optional[Callable[[ImportProgress], Awaitable[None]]] = None,
+        services: Dict[str, Any] = None,
     ):
         """
         Initialize agent.
@@ -26,9 +27,11 @@ class Agent(ABC):
         Args:
             config: Application configuration
             progress_callback: Optional callback for progress updates
+            services: Required shared services dict
         """
         self.config = config
         self.progress_callback = progress_callback
+        self.services = services
         self._start_time = None
 
     @property

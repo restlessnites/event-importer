@@ -1,8 +1,8 @@
-"""Main event import engine."""
+"""Main event import engine with shared services."""
 
 import asyncio
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
 
 from app.config import Config
@@ -22,6 +22,9 @@ from app.agents import (
 from app.progress import ProgressTracker
 from app.errors import UnsupportedURLError, handle_errors_async
 from app.http import get_http_service
+from app.services.claude import ClaudeService
+from app.services.image import ImageService
+from app.services.zyte import ZyteService
 
 
 logger = logging.getLogger(__name__)
@@ -36,26 +39,45 @@ class EventImportEngine:
         self.progress_tracker = ProgressTracker()
         self.http = get_http_service()
 
-        # Initialize agents with progress callback
+        # Create shared services once
+        self._services = self._create_shared_services()
+
+        # Initialize agents with shared services
         self.agents: List[Agent] = self._create_agents()
 
+    def _create_shared_services(self) -> Dict:
+        """Create services that will be shared across agents."""
+        return {
+            "http": self.http,
+            "claude": ClaudeService(self.config),
+            "image": ImageService(self.config, self.http),
+            "zyte": ZyteService(self.config, self.http),
+        }
+
     def _create_agents(self) -> List[Agent]:
-        """Create all available agents."""
+        """Create all available agents with shared services."""
         agents = []
 
-        # Always available
+        # Common callback
+        progress_callback = self.progress_tracker.send_progress
+
+        # Always available agents
         agents.extend(
             [
-                ResidentAdvisorAgent(self.config, self.progress_tracker.send_progress),
-                WebAgent(self.config, self.progress_tracker.send_progress),
-                ImageAgent(self.config, self.progress_tracker.send_progress),
+                ResidentAdvisorAgent(
+                    self.config, progress_callback, services=self._services
+                ),
+                WebAgent(self.config, progress_callback, services=self._services),
+                ImageAgent(self.config, progress_callback, services=self._services),
             ]
         )
 
         # Conditionally available
         if self.config.api.ticketmaster_key:
             agents.append(
-                TicketmasterAgent(self.config, self.progress_tracker.send_progress)
+                TicketmasterAgent(
+                    self.config, progress_callback, services=self._services
+                )
             )
 
         return agents

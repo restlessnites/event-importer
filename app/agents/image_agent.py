@@ -5,9 +5,6 @@ from typing import Optional
 
 from app.agent import Agent
 from app.schemas import EventData, ImportMethod, ImportStatus
-from app.services.claude import ClaudeService
-from app.services.image import ImageService
-from app.http import get_http_service
 
 
 logger = logging.getLogger(__name__)
@@ -18,9 +15,10 @@ class ImageAgent(Agent):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.http = get_http_service()
-        self.claude = ClaudeService(self.config)
-        self.image_service = ImageService(self.config, self.http)
+        # Use shared services
+        self.http = self.services["http"]
+        self.claude = self.services["claude"]
+        self.image_service = self.services["image"]
 
     @property
     def name(self) -> str:

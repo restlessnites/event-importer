@@ -1,4 +1,4 @@
-"""Generic web scraping agent using Zyte and Claude."""
+"""Generic web scraping agent using Zyte and Claude with improved image enhancement."""
 
 import logging
 from typing import Optional
@@ -6,10 +6,6 @@ from bs4 import BeautifulSoup
 
 from app.agent import Agent
 from app.schemas import EventData, ImportMethod, ImportStatus, ImageSearchResult
-from app.services.zyte import ZyteService
-from app.services.claude import ClaudeService
-from app.services.image import ImageService
-from app.http import get_http_service
 
 
 logger = logging.getLogger(__name__)
@@ -20,10 +16,11 @@ class WebAgent(Agent):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.http = get_http_service()
-        self.zyte = ZyteService(self.config, self.http)
-        self.claude = ClaudeService(self.config)
-        self.image_service = ImageService(self.config, self.http)
+        # Use shared services from parent
+        self.http = self.services["http"]
+        self.zyte = self.services["zyte"]
+        self.claude = self.services["claude"]
+        self.image_service = self.services["image"]
 
     @property
     def name(self) -> str:
@@ -65,12 +62,16 @@ class WebAgent(Agent):
             if not event_data:
                 raise Exception("Could not extract event data")
 
-            # Enhance image if web extraction
+            # Enhance image if web extraction and Google is enabled
             if self.image_service.google_enabled:
                 await self.send_progress(
                     request_id, ImportStatus.RUNNING, "Searching for better images", 0.9
                 )
                 event_data = await self._enhance_image(event_data)
+            else:
+                logger.info(
+                    "Google image search not configured, skipping image enhancement"
+                )
 
             await self.send_progress(
                 request_id,
@@ -147,31 +148,66 @@ class WebAgent(Agent):
 
     async def _enhance_image(self, event_data: EventData) -> EventData:
         """Try to find a better image for the event."""
+        logger.info("Starting image enhancement process")
+
         # Get original image URL if any
         original_url = None
         if event_data.images:
             original_url = event_data.images.get("full") or event_data.images.get(
                 "thumbnail"
             )
+            logger.info(f"Original image URL: {original_url}")
 
-        # Find best image
-        best = await self.image_service.find_best_image(event_data, original_url)
+        # Initialize tracking
+        search_result = ImageSearchResult()
 
+        # Rate original if exists
+        if original_url:
+            original_candidate = await self.image_service.rate_image(original_url)
+            original_candidate.source = "original"
+            search_result.original = original_candidate
+            logger.info(f"Original image score: {original_candidate.score}")
+
+        # Search for additional images
+        try:
+            logger.info(f"Searching for images for event: {event_data.title}")
+            if event_data.lineup:
+                logger.info(f"Using lineup: {event_data.lineup}")
+
+            search_candidates = await self.image_service.search_event_images(event_data)
+            logger.info(f"Found {len(search_candidates)} search candidates")
+
+            # Rate each candidate
+            for candidate in search_candidates:
+                rated = await self.image_service.rate_image(candidate.url)
+                rated.source = candidate.source
+                # Only add candidates with positive scores
+                if rated.score > 0:
+                    search_result.candidates.append(rated)
+
+        except Exception as e:
+            logger.error(f"Image search failed: {e}", exc_info=True)
+
+        # Select best image
+        best = search_result.get_best_candidate()
         if best:
-            # Track image search results
-            search_result = ImageSearchResult()
-            if original_url:
-                original = await self.image_service.rate_image(original_url)
-                original.source = "original"
-                search_result.original = original
-
+            logger.info(
+                f"Selected best image with score {best.score} from {best.source}"
+            )
             search_result.selected = best
-            event_data.image_search = search_result
 
-            # Update main image
+            # Update event images
             event_data.images = {
                 "full": best.url,
                 "thumbnail": best.url,
             }
+        else:
+            logger.warning("No suitable images found")
+            # Remove broken image data if no valid images
+            if search_result.original and search_result.original.score == 0:
+                event_data.images = None
+
+        # Always set the search result to track what happened
+        event_data.image_search = search_result
 
         return event_data

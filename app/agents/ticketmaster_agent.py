@@ -5,9 +5,7 @@ from typing import Optional
 
 from app.agent import Agent
 from app.schemas import EventData, ImportMethod, ImportStatus, EventTime, EventLocation
-from app.http import get_http_service
 from app.url_analyzer import URLAnalyzer, URLType
-from app.services.claude import ClaudeService
 
 
 logger = logging.getLogger(__name__)
@@ -21,8 +19,9 @@ class TicketmasterAgent(Agent):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.url_analyzer = URLAnalyzer()
-        self.http = get_http_service()
-        self.claude = ClaudeService(self.config)
+        # Use shared services
+        self.http = self.services["http"]
+        self.claude = self.services["claude"]
         self.api_key = self.config.api.ticketmaster_key
 
     @property
