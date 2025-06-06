@@ -11,8 +11,9 @@ A Model Context Protocol (MCP) server that imports structured event data from va
   
 - **Intelligent Enhancement**:
   - Automatic image search and quality rating for better event images
+  - AI-powered description generation when missing
   - Structured data validation with Pydantic
-  - Progress tracking for long-running imports
+  - Real-time progress tracking for long-running imports
 
 - **MCP Integration**: Full Model Context Protocol server implementation for use with AI assistants
 
@@ -97,6 +98,8 @@ Once connected, use the `import_event` tool:
   "tool": "import_event",
   "arguments": {
     "url": "https://ra.co/events/1234567",
+    "force_method": "api",  // Optional: "api", "web", or "image"
+    "include_raw_data": false,
     "timeout": 60
   }
 }
@@ -104,7 +107,7 @@ Once connected, use the `import_event` tool:
 
 ### Testing
 
-Run the test script:
+Run the test scripts:
 
 ```bash
 # Test with example URLs
@@ -112,6 +115,12 @@ uv run python scripts/test_import.py
 
 # Test specific URL
 uv run python scripts/test_import.py "https://ra.co/events/1234567"
+
+# Test URL analyzer
+uv run python scripts/test_url_analyzer.py
+
+# Test RA.co API directly
+./scripts/test_ra_api.sh
 ```
 
 ## Supported Sources
@@ -121,23 +130,27 @@ uv run python scripts/test_import.py "https://ra.co/events/1234567"
 - **URLs**: `https://ra.co/events/1234567`
 - **Method**: Direct GraphQL API
 - **No API key required**
+- **Features**: Full event details, lineup, genres, venue information
 
 ### 2. Ticketmaster & Affiliates
 
 - **URLs**: `ticketmaster.com`, `livenation.com`, `ticketweb.com`
 - **Method**: Discovery API v2
 - **Requires API key** (free tier: 5000 requests/day)
+- **Features**: Pricing, venue details, high-res images
 
 ### 3. Direct Image URLs
 
 - **Formats**: `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`
-- **Method**: Vision AI extraction
+- **Method**: Vision AI extraction using Claude
 - **Best for**: Event flyers and posters
+- **Features**: Extracts text, dates, lineup from visual content
 
 ### 4. Any Other Event Page
 
-- **Method**: Intelligent web scraping
+- **Method**: Intelligent web scraping with Zyte
 - **Process**: HTML extraction → Screenshot fallback → Image enhancement
+- **Features**: Universal fallback for any event website
 
 ## Output Schema
 
@@ -145,7 +158,7 @@ The importer returns structured event data:
 
 ```python
 {
-  "title": "Event Name",
+  "title": "Event Name",  # Required
   "venue": "Venue Name", 
   "date": "2024-12-31",  # ISO format
   "time": {
@@ -156,7 +169,7 @@ The importer returns structured event data:
   "promoters": ["Promoter Name"],
   "genres": ["Electronic", "House"],
   "long_description": "Full event description...",
-  "short_description": "Brief summary...",
+  "short_description": "Brief factual summary under 100 chars",
   "location": {
     "address": "123 Main St",
     "city": "Los Angeles",
@@ -169,8 +182,9 @@ The importer returns structured event data:
     "thumbnail": "https://..."
   },
   "image_search": {  # For web imports only
-    "original": {"url": "...", "score": 75},
-    "selected": {"url": "...", "score": 150}
+    "original": {"url": "...", "score": 75, "source": "original"},
+    "candidates": [...],
+    "selected": {"url": "...", "score": 150, "source": "google_search"}
   },
   "minimum_age": "21+",
   "cost": "$20",
@@ -185,30 +199,66 @@ The importer returns structured event data:
 ```plaintext
 event-importer/
 ├── app/
-│   ├── __init__.py          # Package exports
+│   ├── __init__.py          # Package exports and version
 │   ├── server.py            # MCP server entry point
 │   ├── config.py            # Configuration management
-│   ├── errors.py            # Error handling
-│   ├── http.py              # Shared HTTP client
+│   ├── errors.py            # Custom exceptions and error handling
+│   ├── http.py              # Centralized HTTP client with session pooling
 │   ├── schemas.py           # Pydantic data models
-│   ├── url_analyzer.py      # URL routing logic
+│   ├── url_analyzer.py      # URL type detection and routing
 │   ├── agent.py             # Base agent class
-│   ├── importer.py          # Import orchestration
-│   ├── progress.py          # Progress tracking
+│   ├── engine.py            # Import orchestration
+│   ├── progress.py          # Real-time progress tracking
 │   ├── router.py            # Request routing
+│   ├── prompts.py           # Modular Claude prompt templates
 │   ├── services/            # External service integrations
-│   │   ├── claude.py        # Claude AI extraction
-│   │   ├── image.py         # Image processing
-│   │   └── zyte.py          # Web scraping
-│   └── agents/              # Import agents
-│       ├── ra_agent.py      # Resident Advisor
-│       ├── ticketmaster_agent.py
-│       ├── web_agent.py     # Generic web
-│       └── image_agent.py   # Direct images
-├── scripts/                 # Test scripts
-├── pyproject.toml          # Project config
-└── README.md
+│   │   ├── __init__.py
+│   │   ├── claude.py        # Claude AI extraction with tools
+│   │   ├── image.py         # Image validation and search
+│   │   └── zyte.py          # Web scraping with retries
+│   └── agents/              # Import agents by source type
+│       ├── __init__.py
+│       ├── ra_agent.py      # Resident Advisor GraphQL
+│       ├── ticketmaster_agent.py # Ticketmaster Discovery API
+│       ├── web_agent.py     # Generic web scraping
+│       └── image_agent.py   # Direct image extraction
+├── scripts/                 # Utility and test scripts
+│   ├── test_custom_google_search_api.py # Confirm Google Search API works
+│   ├── test_image_search.py # Confirm image search is working
+│   ├── test_importer.py     # Main testing script
+│   ├── test_ra_api.sh       # RA.co API exploration
+│   └── test_url_analyzer.py # Test the URL analyzer
+├── pyproject.toml           # Project dependencies and metadata
+├── .gitignore               # Git ignore patterns
+├── .env.example             # Environment template
+└── README.md                # This file
 ```
+
+## Key Features
+
+### Intelligent Import Flow
+
+1. **URL Analysis**: Determines source type and best import method
+2. **Agent Selection**: Routes to appropriate specialized agent
+3. **Progressive Enhancement**:
+   - API agents: Direct data → AI description generation
+   - Web agent: HTML → Screenshot → Image search
+4. **Data Validation**: Pydantic models with smart parsing
+5. **Progress Tracking**: Real-time updates for long operations
+
+### Error Handling
+
+- **Retry Logic**: Exponential backoff for transient failures
+- **Graceful Degradation**: Falls back to simpler methods
+- **Detailed Logging**: Comprehensive error context
+- **Timeout Protection**: Configurable per-request timeouts
+
+### Data Processing
+
+- **HTML Sanitization**: Removes scripts and styles using `nh3`
+- **Smart Text Extraction**: Handles various date/time formats
+- **Description Generation**: AI creates missing descriptions
+- **Image Enhancement**: Searches for higher quality images
 
 ## Configuration
 
@@ -216,70 +266,101 @@ event-importer/
 
 ```bash
 # Required
-ANTHROPIC_API_KEY=sk-ant-...
-ZYTE_API_KEY=...
+ANTHROPIC_API_KEY=sk-ant-...    # Claude AI for extraction
+ZYTE_API_KEY=...                 # Web scraping infrastructure
 
-# Optional
-TICKETMASTER_API_KEY=...  # Enables Ticketmaster imports
-GOOGLE_API_KEY=...        # Enables image search
-GOOGLE_CSE_ID=...         # Google Custom Search Engine ID
+# Optional - Enable specific features
+TICKETMASTER_API_KEY=...         # Ticketmaster imports
+GOOGLE_API_KEY=...               # Image search
+GOOGLE_CSE_ID=...                # Google Custom Search Engine ID
 
-# Advanced
-HTTP_TIMEOUT=30                    # Request timeout in seconds
-ZYTE_USE_RESIDENTIAL_PROXY=false   # For heavily protected sites
-ZYTE_GEOLOCATION=US                # Geolocation for requests
-DEBUG=false                        # Enable debug logging
-LOG_LEVEL=INFO                     # Logging level
+# Advanced Settings
+HTTP_TIMEOUT=30                  # Request timeout in seconds
+HTTP_MAX_RETRIES=3               # Retry attempts
+ZYTE_USE_RESIDENTIAL_PROXY=false # For heavily protected sites
+ZYTE_GEOLOCATION=US              # Geolocation for requests
+ZYTE_JAVASCRIPT_WAIT=5           # Seconds to wait for JS rendering
+DEBUG=false                      # Enable debug logging
+LOG_LEVEL=INFO                   # Logging verbosity
 ```
 
 ### Features by Configuration
 
-| Feature           | Required Keys                      |
-| ----------------- | ---------------------------------- |
-| Resident Advisor  | None (always available)            |
-| Ticketmaster      | `TICKETMASTER_API_KEY`             |
-| Image Enhancement | `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` |
-| Web Scraping      | `ZYTE_API_KEY`                     |
+| Feature           | Required Keys                      | Description                      |
+| ----------------- | ---------------------------------- | -------------------------------- |
+| Resident Advisor  | None (always available)            | GraphQL API, no auth needed      |
+| Ticketmaster      | `TICKETMASTER_API_KEY`             | Official Discovery API v2        |
+| Image Enhancement | `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` | Searches for better event images |
+| Web Scraping      | `ZYTE_API_KEY`                     | Cloud browser for any website    |
+| Vision AI         | `ANTHROPIC_API_KEY`                | Extract from images/screenshots  |
 
 ## Development
 
 ### Running Tests
 
 ```bash
-# Run all tests
-uv run pytest
+# Manual testing with example URLs
+uv run python scripts/test_importer.py
 
-# Run with coverage
-uv run pytest --cov=app
+# Test specific functionality
+uv run python scripts/test_url_analyzer.py
 
-# Run specific test
-uv run pytest tests/test_importer.py
+# Explore RA.co API
+uv run scripts/test_ra_api.sh
 ```
 
-### Code Quality
+### Project Structure
 
-```bash
-# Format code
-uv run black app tests
+The codebase follows these design patterns:
 
-# Lint
-uv run ruff app tests
+- **Strategy Pattern**: Agent-based architecture for different sources
+- **Factory Pattern**: Dynamic agent creation based on configuration
+- **Singleton Pattern**: Shared HTTP client and configuration
+- **Decorator Pattern**: Error handling and retry logic
+- **Builder Pattern**: Modular prompt construction
 
-# Type check
-uv run mypy app
+## Errors
+
+The importer includes comprehensive error handling:
+
+- **Custom Exceptions**: Hierarchy for different error types
+- **Retry Logic**: Configurable retries with exponential backoff
+- **Rate Limiting**: Respects API rate limits
+- **Timeout Protection**: Per-request timeout configuration
+- **Graceful Fallbacks**: HTML → Screenshot → Error message
+
+### Common Issues
+
+1. **"No agent can handle URL"**: URL type not recognized
+2. **"Validation error"**: Missing required fields in response
+3. **"Rate limit exceeded"**: Too many API requests
+4. **"Import timed out"**: Increase timeout parameter
+
+## API Reference
+
+### MCP Tool: `import_event`
+
+**Parameters:**
+
+- `url` (string, required): Event page URL to import
+- `force_method` (string, optional): Force specific method ("api", "web", "image")
+- `include_raw_data` (boolean, optional): Include raw extracted data
+- `timeout` (integer, optional): Timeout in seconds (1-300, default: 60)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": { /* EventData object */ },
+  "method_used": "api",
+  "import_time": 2.34
+}
 ```
-
-## Error Handling
-
-The importer handles various failure scenarios:
-
-- **Invalid URLs**: Returns clear error messages
-- **Network timeouts**: Configurable timeout with retry logic
-- **API rate limits**: Respects rate limits with backoff
-- **Extraction failures**: Falls back from HTML → Screenshot → Error
 
 ## Acknowledgments
 
 - Built for the Model Context Protocol (MCP) ecosystem
 - Powered by Claude AI for intelligent extraction
 - Web scraping via Zyte's cloud browser infrastructure
+- Event data from official APIs when available
