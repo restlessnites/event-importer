@@ -1,12 +1,16 @@
 #!/usr/bin/env -S uv run python
-"""Test the URL analyzer with various URLs."""
+"""Test the URL analyzer with various URLs using CLI."""
 
 from app.url_analyzer import URLAnalyzer
+from app.cli import get_cli
 
 
 def test_url_analyzer():
     """Test URL analyzer with various URL types."""
+    cli = get_cli()
     analyzer = URLAnalyzer()
+
+    cli.header("URL Analyzer Test", "Testing URL type detection and routing")
 
     test_urls = [
         # Resident Advisor
@@ -30,21 +34,52 @@ def test_url_analyzer():
         "example.com",  # No scheme
     ]
 
+    # Prepare results for table display
+    results = []
+
+    with cli.progress("Analyzing URLs") as progress:
+        for i, url in enumerate(test_urls):
+            progress.update_progress(
+                (i / len(test_urls)) * 100, f"Analyzing {url[:50]}..."
+            )
+
+            analysis = analyzer.analyze(url)
+
+            result = {
+                "URL": url[:40] + "..." if len(url) > 40 else url,
+                "Type": analysis.type.name,
+                "Agent": analysis.agent_name,
+                "ID": analysis.extracted_id or "-",
+            }
+
+            results.append(result)
+
+    cli.section("Analysis Results")
+    cli.table(results, title="URL Analysis Summary")
+
+    # Show detailed results for URLs with extracted IDs
+    cli.section("Detailed Results")
+
     for url in test_urls:
-        print(f"\n{'='*60}")
-        print(f"URL: {url}")
-
         analysis = analyzer.analyze(url)
+        if analysis.extracted_id or analysis.query_params:
+            cli.info(f"\nURL: {url}")
+            details = {
+                "Type": analysis.type.name,
+                "Agent": analysis.agent_name,
+                "Domain": analysis.domain,
+                "Path": analysis.path,
+                "Is Image": str(analysis.is_image),
+            }
+            if analysis.extracted_id:
+                details["Extracted ID"] = analysis.extracted_id
+            if analysis.query_params:
+                details["Query Params"] = str(analysis.query_params)
 
-        print(f"Type: {analysis.type.name}")
-        print(f"Agent: {analysis.agent_name}")
-        print(f"Domain: {analysis.domain}")
-        print(f"Path: {analysis.path}")
-        print(f"Is Image: {analysis.is_image}")
-        if analysis.extracted_id:
-            print(f"Extracted ID: {analysis.extracted_id}")
-        if analysis.query_params:
-            print(f"Query Params: {analysis.query_params}")
+            for key, value in details.items():
+                cli.info(f"  {key}: {value}")
+
+    cli.success("\nURL analyzer test completed")
 
 
 if __name__ == "__main__":
