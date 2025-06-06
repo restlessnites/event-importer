@@ -55,12 +55,6 @@ async def test_import(url: str, cli, show_raw: bool = False):
         # Display results using CLI helper
         cli.import_result(result, show_raw)
 
-        # Show progress timeline
-        if len(progress_history) > 1:
-            cli.section("Progress Timeline")
-            for update in progress_history:
-                cli.progress_update(update)
-
     except asyncio.TimeoutError:
         cli.error("Import timed out")
     except Exception as e:
