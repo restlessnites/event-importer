@@ -51,11 +51,11 @@ async def main():
     """Run tests."""
     test_urls = [
         # Resident Advisor (real event)
-        "https://ra.co/events/1997137",
+        "https://ra.co/events/2147288",
         # Generic web page
         "https://dice.fm/event/53ng6k-cursive-13th-sep-zebulon-los-angeles-tickets",
         # Direct image (use a real event flyer URL)
-        "https://ra.co/images/events/flyer/2024/12/us-1231-1997137-front.jpg",
+        "https://imgproxy.ra.co/_/quality:66/w:1442/rt:fill/aHR0cHM6Ly9pbWFnZXMucmEuY28vNmEwZDhkMDNkOTFjMGJmZDE2NTFhMjgzYjI5MDVlMTc3OTQ2M2Y0OC5qcGc=",
     ]
 
     import sys
