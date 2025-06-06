@@ -110,6 +110,13 @@ class ResidentAdvisorAgent(Agent):
             endTime
             cost
             flyerFront
+            images {
+              id
+              filename
+              alt
+              type
+              crop
+            }
             venue {
               name
               area {
@@ -187,13 +194,16 @@ class ResidentAdvisorAgent(Agent):
         if event.get("genres"):
             genres = [g["name"] for g in event["genres"]]
 
-        # Build images
+        # Build images from the images array
         images = None
-        if event.get("flyerFront"):
-            images = {
-                "full": event["flyerFront"],
-                "thumbnail": event["flyerFront"],
-            }
+        if event.get("images") and isinstance(event["images"], list):
+            for img in event["images"]:
+                if img.get("filename"):
+                    images = {
+                        "full": img["filename"],
+                        "thumbnail": img["filename"],
+                    }
+                    break  # Use the first image with a filename
 
         return EventData(
             title=event["title"],
