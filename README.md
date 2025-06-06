@@ -111,16 +111,22 @@ Run the test scripts:
 
 ```bash
 # Test with example URLs
-uv run python scripts/test_import.py
+uv run python scripts/test_importer.py
 
 # Test specific URL
-uv run python scripts/test_import.py "https://ra.co/events/1234567"
+uv run python scripts/test_importer.py "https://ra.co/events/1234567"
 
 # Test URL analyzer
 uv run python scripts/test_url_analyzer.py
 
-# Test RA.co API directly
-./scripts/test_ra_api.sh
+# Confirm Google Search API works
+uv run python scripts/test_custom_google_search_api.py
+
+# Confirm image search is working
+uv run python scripts/test_image_search.py
+
+# Explore RA.co API
+uv run scripts/test_ra_api.sh
 ```
 
 ## Supported Sources
@@ -266,7 +272,7 @@ event-importer/
 
 ```bash
 # Required
-ANTHROPIC_API_KEY=sk-ant-...    # Claude AI for extraction
+ANTHROPIC_API_KEY=sk-ant-...     # Claude AI for extraction
 ZYTE_API_KEY=...                 # Web scraping infrastructure
 
 # Optional - Enable specific features
