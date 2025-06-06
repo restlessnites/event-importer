@@ -39,8 +39,11 @@ async def test_google_api():
         return
 
     cli.success("Google API credentials found")
-    cli.info(f"API Key: {api_key[:10]}..." if api_key else "None")
-    cli.info(f"CSE ID: {cse_id[:10]}..." if cse_id else "None")
+    credentials = {
+        "API Key": f"{api_key[:10]}..." if api_key else "None",
+        "CSE ID": f"{cse_id[:10]}..." if cse_id else "None",
+    }
+    cli.table([credentials], title="Credentials (masked)")
 
     http = get_http_service()
 
@@ -60,6 +63,7 @@ async def test_google_api():
     cli.section("Testing search")
     cli.info(f"Query: {query}")
     cli.info(f"API endpoint: https://www.googleapis.com/customsearch/v1")
+    cli.console.print()
 
     try:
         with cli.spinner("Making API request"):
@@ -77,27 +81,31 @@ async def test_google_api():
 
         if "items" not in response:
             cli.warning("No results found")
-            cli.json(response, title="Full API Response")
+            cli.json(response, title="API Response")
             return
 
         cli.success(f"Found {len(response['items'])} results")
 
-        # Display ALL results with full details
+        # Display results in a table
         cli.section("Search Results")
 
+        results = []
         for i, item in enumerate(response["items"], 1):
-            cli.info(f"\nResult {i}:")
-            cli.info(f"  Title: {item.get('title', 'No title')}")
-            cli.info(f"  URL: {item.get('link', 'No URL')}")
+            result = {
+                "#": str(i),
+                "Title": item.get("title", "No title")[:40],
+                "Size": "Unknown",
+                "URL": item.get("link", "No URL"),
+            }
 
-            if "image" in item:
-                img = item["image"]
-                cli.info(f"  Width: {img.get('width', 'Unknown')}")
-                cli.info(f"  Height: {img.get('height', 'Unknown')}")
-                cli.info(f"  Size: {img.get('byteSize', 'Unknown')} bytes")
+            if "image" in item and item["image"].get("width"):
+                result["Size"] = (
+                    f"{item['image']['width']}x{item['image'].get('height', '?')}"
+                )
 
-            if "displayLink" in item:
-                cli.info(f"  Source: {item['displayLink']}")
+            results.append(result)
+
+        cli.table(results, title="Image Search Results")
 
         # Show API usage info if available
         if "searchInformation" in response:
@@ -110,11 +118,11 @@ async def test_google_api():
         cli.error(f"Request failed: {e}")
         import traceback
 
-        cli.error("Full error:")
-        cli.error(traceback.format_exc())
+        cli.code(traceback.format_exc(), "python", "Traceback")
 
     await close_http_service()
-    cli.success("\nGoogle API test completed")
+    cli.console.print()
+    cli.success("Google API test completed")
 
 
 if __name__ == "__main__":

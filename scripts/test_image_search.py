@@ -44,41 +44,51 @@ async def test_image_search():
         genres=["Rock", "Indie Rock"],
     )
 
-    cli.info("Event Data:")
-    cli.info(f"  Title: {cursive_event.title}")
-    cli.info(f"  Lineup: {', '.join(cursive_event.lineup)}")
-    cli.info(f"  Genres: {', '.join(cursive_event.genres)}")
-    cli.info(f"  Venue: {cursive_event.venue}")
+    event_info = {
+        "Title": cursive_event.title,
+        "Lineup": ", ".join(cursive_event.lineup),
+        "Genres": ", ".join(cursive_event.genres),
+        "Venue": cursive_event.venue,
+    }
+    cli.table([event_info], title="Event Data")
 
     # Test query building
     queries = image_service._build_search_queries(cursive_event)
-    cli.info(f"\nGenerated {len(queries)} search queries:")
+    cli.console.print()
+    cli.info(f"Generated {len(queries)} search queries:")
     for q in queries:
         cli.info(f"  • {q}")
 
     # Search for images
+    cli.console.print()
     with cli.spinner("Searching for images"):
         candidates = await image_service.search_event_images(cursive_event)
 
     cli.success(f"Found {len(candidates)} image candidates")
 
-    # Rate ALL candidates for debugging
+    # Rate candidates
     if candidates:
-        cli.info("\nRating all candidates:")
+        cli.console.print()
+        cli.info("Rating top 5 candidates:")
+        rated_results = []
 
         with cli.progress("Rating images") as progress:
-            for i, candidate in enumerate(candidates):
+            for i, candidate in enumerate(candidates[:5]):
                 progress.update_progress(
-                    (i / len(candidates)) * 100, f"Rating image {i+1}"
+                    (i / min(5, len(candidates))) * 100, f"Rating image {i+1}"
                 )
 
                 rated = await image_service.rate_image(candidate.url)
+                rated_results.append(
+                    {
+                        "Score": rated.score,
+                        "Dimensions": rated.dimensions or "Unknown",
+                        "URL": candidate.url,
+                    }
+                )
 
-                cli.info(f"\nCandidate {i+1}:")
-                cli.info(f"  Score: {rated.score}")
-                cli.info(f"  Dimensions: {rated.dimensions or 'Unknown'}")
-                cli.info(f"  Source: {candidate.source}")
-                cli.info(f"  URL: {candidate.url}")
+        cli.console.print()
+        cli.table(rated_results, title="Image Ratings")
 
     # Test case 2: Event with no lineup
     cli.section("Test 2: Event with title only")
@@ -89,22 +99,26 @@ async def test_image_search():
         date="2024-12-31",
     )
 
-    cli.info("Event Data:")
-    cli.info(f"  Title: {title_only_event.title}")
-    cli.info(f"  Venue: {title_only_event.venue}")
-    cli.info(f"  Lineup: None")
+    event_info = {
+        "Title": title_only_event.title,
+        "Venue": title_only_event.venue,
+        "Lineup": "None",
+    }
+    cli.table([event_info], title="Event Data")
 
     # Test artist extraction
     artist = image_service._extract_artist_from_title(title_only_event.title)
-    cli.info(f"\nExtracted artist from title: {artist or 'None'}")
+    cli.console.print()
+    cli.info(f"Extracted artist from title: {artist or 'None'}")
 
     queries = image_service._build_search_queries(title_only_event)
-    cli.info(f"\nGenerated {len(queries)} search queries:")
+    cli.info(f"Generated {len(queries)} search queries:")
     for q in queries:
         cli.info(f"  • {q}")
 
     await close_http_service()
-    cli.success("\nImage search test completed")
+    cli.console.print()
+    cli.success("Image search test completed")
 
 
 async def test_specific_url():
@@ -125,15 +139,45 @@ async def test_specific_url():
     with cli.spinner("Downloading and rating image"):
         candidate = await image_service.rate_image(test_url)
 
-    # Display full results
-    cli.section("Rating Result")
-    cli.info(f"Score: {candidate.score}")
-    cli.info(f"Dimensions: {candidate.dimensions or 'Unknown'}")
-    cli.info(f"Reason: {candidate.reason or 'Valid event image'}")
-    cli.info(f"URL: {candidate.url}")
+    # Display results
+    result = {
+        "Score": candidate.score,
+        "Dimensions": candidate.dimensions or "Unknown",
+        "Reason": candidate.reason or "Valid event image",
+    }
+
+    cli.console.print()
+    cli.table([result], title="Rating Result")
+
+    # Show scoring breakdown
+    if candidate.score > 0 and candidate.dimensions:
+        cli.section("Scoring Details")
+        w, h = map(int, candidate.dimensions.split("x"))
+        aspect_ratio = h / w
+
+        cli.info(f"Base score: 50")
+
+        if w >= 1000 or h >= 1000:
+            cli.info(f"Size bonus (large): +100")
+        elif w >= 800 or h >= 800:
+            cli.info(f"Size bonus (medium): +50")
+        elif w >= 600 or h >= 600:
+            cli.info(f"Size bonus (small): +25")
+
+        if aspect_ratio >= 1.4:
+            cli.info(f"Aspect ratio (portrait): +300")
+        elif aspect_ratio >= 1.2:
+            cli.info(f"Aspect ratio (portrait): +250")
+        elif 0.9 <= aspect_ratio <= 1.1:
+            cli.info(f"Aspect ratio (square): +150")
+        elif aspect_ratio >= 0.7:
+            cli.info(f"Aspect ratio (landscape): +50")
+
+        cli.info(f"Final score: {candidate.score}")
 
     await close_http_service()
-    cli.success("\nImage rating test completed")
+    cli.console.print()
+    cli.success("Image rating test completed")
 
 
 async def main():

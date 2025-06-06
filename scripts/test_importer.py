@@ -6,14 +6,13 @@ import sys
 from datetime import datetime
 
 from app import EventImporter
-from app.schemas import ImportRequest, ImportStatus
+from app.schemas import ImportRequest
 from app.http import close_http_service
 from app.cli import get_cli
 
 
 async def test_import(url: str, cli, show_raw: bool = False):
     """Test importing an event with progress display."""
-
     cli.section(f"Import Request")
     cli.info(f"URL: {url}")
     cli.info(f"Started: {datetime.now().strftime('%H:%M:%S')}")
@@ -27,7 +26,7 @@ async def test_import(url: str, cli, show_raw: bool = False):
     # Store progress updates for display
     progress_history = []
 
-    # Track progress
+    # Track progress with our CLI
     async def handle_progress(progress):
         update = progress.model_dump()
         progress_history.append(update)
@@ -36,30 +35,25 @@ async def test_import(url: str, cli, show_raw: bool = False):
     importer.add_progress_listener(request.request_id, handle_progress)
 
     try:
-        # Run import with progress
+        # Run import with progress context
         with cli.progress(f"Importing event") as progress_cli:
+            # Start the import
             import_task = asyncio.create_task(importer.import_event(request))
 
             # Update progress bar while import runs
             while not import_task.done():
+                # Get latest progress
                 history = importer.get_progress_history(request.request_id)
                 if history:
                     latest = history[-1]
                     progress_cli.update_progress(latest.progress * 100, latest.message)
                 await asyncio.sleep(0.1)
 
+            # Get the result
             result = await import_task
 
-        # Display results
-        cli.import_summary(result.model_dump())
-
-        if result.status == ImportStatus.SUCCESS and result.event_data:
-            # Show ALL event data
-            cli.event_data(result.event_data.model_dump())
-
-            # Show raw data if requested
-            if show_raw and result.raw_data:
-                cli.json(result.raw_data, title="Raw Extracted Data")
+        # Display results using CLI helper
+        cli.import_result(result, show_raw)
 
         # Show progress timeline
         if len(progress_history) > 1:
@@ -73,7 +67,7 @@ async def test_import(url: str, cli, show_raw: bool = False):
         cli.error(f"Unexpected error: {e}")
         import traceback
 
-        cli.error(traceback.format_exc())
+        cli.code(traceback.format_exc(), "python", "Exception Traceback")
 
 
 async def main():
@@ -117,13 +111,13 @@ async def main():
 
         for i, url in enumerate(test_urls, 1):
             if len(test_urls) > 1:
-                cli.header(f"Test {i} of {len(test_urls)}")
+                cli.rule(f"Test {i} of {len(test_urls)}")
 
             start = datetime.now()
             await test_import(url, cli, show_raw)
             duration = (datetime.now() - start).total_seconds()
 
-            # Check if successful
+            # Track time
             total_time += duration
 
             if i < len(test_urls):
@@ -131,7 +125,7 @@ async def main():
                 await asyncio.sleep(1)
 
         # Summary
-        cli.header("Test Summary")
+        cli.rule("Test Summary")
         cli.info(f"Total tests: {len(test_urls)}")
         cli.info(f"Total time: {total_time:.1f}s")
         cli.info(f"Average time: {total_time/len(test_urls):.1f}s per import")

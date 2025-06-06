@@ -1,317 +1,504 @@
-"""Developer CLI for testing and debugging."""
+"""CLI interface components for test scripts and debugging."""
 
-from typing import Optional, Any
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from contextlib import contextmanager
 
-try:
-    from rich.console import Console
-    from rich.progress import (
-        Progress,
-        SpinnerColumn,
-        TextColumn,
-        BarColumn,
-        TaskProgressColumn,
-    )
-    from rich.syntax import Syntax
-
-    RICH_AVAILABLE = True
-except ImportError:
-    RICH_AVAILABLE = False
-    print("WARNING: Rich not installed. Output will be basic.")
+from rich.console import Console
+from rich.progress import (
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    BarColumn,
+    TimeElapsedColumn,
+)
+from rich.table import Table
+from rich.panel import Panel
+from rich.syntax import Syntax
+from rich import box
+from rich.columns import Columns
+from rich.tree import Tree
+from rich.text import Text
 
 
 class CLI:
-    """Developer-focused CLI for debugging."""
+    """CLI interface for event importer using Rich."""
 
-    def __init__(self):
-        """Initialize CLI."""
-        if RICH_AVAILABLE:
-            # Wide console for development
-            self.console = Console(width=160, force_terminal=True)
-        else:
-            self.console = None
+    def __init__(self, width: int = 120):
+        """Initialize CLI with Rich console."""
+        self.width = width
+        self.console = Console(width=width)
         self._progress = None
         self._task_id = None
 
-    def print(self, *args, **kwargs):
-        """Print output."""
-        if self.console:
-            self.console.print(*args, **kwargs)
-        else:
-            print(*args)
+    def _safe_str(self, value: Any) -> str:
+        """Convert any value to string safely."""
+        if hasattr(value, "__str__"):
+            return str(value)
+        return repr(value)
 
     def header(self, title: str, subtitle: Optional[str] = None) -> None:
-        """Show a header."""
-        if self.console:
-            self.console.rule(f"[bold cyan]{title}[/bold cyan]")
-            if subtitle:
-                self.console.print(f"[dim]{subtitle}[/dim]", justify="center")
-        else:
-            print(f"\n{'=' * 80}")
-            print(title)
-            if subtitle:
-                print(subtitle)
-            print("=" * 80)
+        """Display a prominent header."""
+        header_text = Text(title, style="bold white")
+        if subtitle:
+            header_text.append(f"\n{subtitle}", style="dim")
+        self.console.print("\n")
+        self.console.print(Panel(header_text, box=box.DOUBLE_EDGE, style="cyan"))
+        self.console.print()
 
     def section(self, title: str) -> None:
-        """Show a section."""
-        self.print(f"\n[bold]{title}[/bold]" if self.console else f"\n{title}")
+        """Display a section header."""
+        self.console.print()
+        self.console.rule(f"[bold blue]{title}[/bold blue]", style="blue")
+        self.console.print()
 
     def info(self, message: str) -> None:
-        """Info message."""
-        self.print(message)
+        """Display an info message."""
+        self.console.print(f"[dim]ℹ[/dim]  {message}")
 
     def success(self, message: str) -> None:
-        """Success message."""
-        if self.console:
-            self.console.print(f"[green]✓[/green] {message}")
-        else:
-            print(f"✓ {message}")
+        """Display a success message."""
+        self.console.print(f"[bold green]✓[/bold green]  {message}")
 
     def error(self, message: str) -> None:
-        """Error message."""
-        if self.console:
-            self.console.print(f"[red]✗[/red] {message}", style="red")
-        else:
-            print(f"✗ {message}")
+        """Display an error message."""
+        self.console.print(f"[bold red]✗[/bold red]  [red]{message}[/red]")
 
     def warning(self, message: str) -> None:
-        """Warning message."""
-        if self.console:
-            self.console.print(f"[yellow]⚠[/yellow]  {message}", style="yellow")
-        else:
-            print(f"⚠ {message}")
+        """Display a warning message."""
+        self.console.print(f"[bold yellow]⚠[/bold yellow]  [yellow]{message}[/yellow]")
 
     @contextmanager
     def progress(self, description: str = "Processing"):
-        """Progress bar context manager."""
-        if self.console:
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TaskProgressColumn(),
-                console=self.console,
-                transient=True,
-            ) as progress:
-                self._progress = progress
-                self._task_id = progress.add_task(description, total=100)
-                yield self
-                self._progress = None
-                self._task_id = None
-        else:
-            print(f"{description}...")
+        """Context manager for progress tracking."""
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TimeElapsedColumn(),
+            console=self.console,
+            transient=True,
+        ) as progress:
+            self._progress = progress
+            self._task_id = progress.add_task(description, total=100)
             yield self
+            self._progress = None
+            self._task_id = None
 
     def update_progress(self, percent: float, message: Optional[str] = None) -> None:
         """Update progress bar."""
         if self._progress and self._task_id is not None:
-            self._progress.update(
-                self._task_id,
-                completed=percent,
-                description=message or self._progress.tasks[self._task_id].description,
-            )
+            if message:
+                self._progress.update(self._task_id, description=message)
+            self._progress.update(self._task_id, completed=percent)
 
     @contextmanager
     def spinner(self, message: str):
-        """Show a spinner."""
-        if self.console:
-            with self.console.status(message):
-                yield
-        else:
-            print(f"{message}...", end="", flush=True)
+        """Show a spinner for indeterminate progress."""
+        with self.console.status(message, spinner="dots"):
             yield
-            print(" done")
+
+    def table(self, data: List[Dict[str, Any]], title: Optional[str] = None) -> None:
+        """Display data in a table."""
+        if not data:
+            return
+
+        table = Table(
+            title=title, box=box.ROUNDED, show_header=True, title_style="bold"
+        )
+
+        # Add columns
+        for key in data[0].keys():
+            table.add_column(key, style="cyan")
+
+        # Add rows
+        for row in data:
+            table.add_row(*[self._safe_str(v) for v in row.values()])
+
+        self.console.print(table)
 
     def json(self, data: dict, title: Optional[str] = None) -> None:
-        """Show JSON data with syntax highlighting."""
+        """Display JSON data with syntax highlighting."""
         import json
 
         if title:
-            self.section(title)
+            self.console.print(f"\n[bold]{title}[/bold]\n")
 
         json_str = json.dumps(data, indent=2, default=str)
+        syntax = Syntax(json_str, "json", theme="monokai", line_numbers=False)
+        self.console.print(syntax)
 
-        if self.console:
-            syntax = Syntax(json_str, "json", theme="monokai", line_numbers=True)
-            self.console.print(syntax)
-        else:
-            print(json_str)
+    def code(
+        self, code: str, language: str = "python", title: Optional[str] = None
+    ) -> None:
+        """Display code with syntax highlighting."""
+        if title:
+            self.console.print(f"\n[bold]{title}[/bold]\n")
 
-    def event_data(self, event: dict) -> None:
-        """Display ALL event data for debugging."""
-        self.section("Event Data")
+        syntax = Syntax(code, language, theme="monokai", line_numbers=True)
+        self.console.print(syntax)
 
-        # Basic fields
-        if event.get("title"):
-            self.info(f"Title: {event['title']}")
-        if event.get("venue"):
-            self.info(f"Venue: {event['venue']}")
-        if event.get("date"):
-            self.info(f"Date: {event['date']}")
-        if event.get("time"):
-            time = event["time"]
+    def event_card(self, event_data: dict) -> None:
+        """Display event data in a nice card format."""
+        # Title
+        title = event_data.get("title", "Untitled Event")
+        self.console.print(
+            Panel(Text(title, style="bold white"), box=box.ROUNDED, style="cyan")
+        )
+
+        # Basic info in columns
+        left_col = []
+        right_col = []
+
+        # Left column
+        if event_data.get("venue"):
+            left_col.append(f"[bold]Venue:[/bold] {event_data['venue']}")
+        if event_data.get("date"):
+            left_col.append(f"[bold]Date:[/bold] {event_data['date']}")
+        if event_data.get("time"):
+            time = event_data["time"]
             if isinstance(time, dict):
-                self.info(f"Time: {time.get('start', '?')} - {time.get('end', '?')}")
-        if event.get("cost"):
-            self.info(f"Cost: {event['cost']}")
-        if event.get("minimum_age"):
-            self.info(f"Age: {event['minimum_age']}")
+                time_str = f"{time.get('start', 'TBD')}"
+                if time.get("end"):
+                    time_str += f" - {time['end']}"
+                left_col.append(f"[bold]Time:[/bold] {time_str}")
+        if event_data.get("minimum_age"):
+            left_col.append(f"[bold]Age:[/bold] {event_data['minimum_age']}")
 
-        # Lists
-        if event.get("lineup"):
-            self.info(f"\nLineup ({len(event['lineup'])}):")
-            for artist in event["lineup"]:
-                self.info(f"  - {artist}")
+        # Right column
+        if event_data.get("cost"):
+            right_col.append(f"[bold]Cost:[/bold] {event_data['cost']}")
+        if event_data.get("promoters"):
+            right_col.append(
+                f"[bold]Promoters:[/bold] {', '.join(event_data['promoters'])}"
+            )
 
-        if event.get("promoters"):
-            self.info(f"\nPromoters: {', '.join(event['promoters'])}")
+        # Display columns
+        if left_col or right_col:
+            self.console.print(
+                Columns(["\n".join(left_col), "\n".join(right_col)], padding=(1, 4))
+            )
+            self.console.print()
 
-        if event.get("genres"):
-            self.info(f"Genres: {', '.join(event['genres'])}")
+        # Lineup - show all artists
+        if event_data.get("lineup"):
+            lineup = event_data["lineup"]
+            self.console.print(f"[bold]Lineup ({len(lineup)}):[/bold]")
+            for artist in lineup:
+                self.console.print(f"  • {artist}")
+            self.console.print()
 
-        # Location - show ALL fields
-        if event.get("location"):
-            self.info("\nLocation:")
-            loc = event["location"]
-            for key, value in loc.items():
-                if value:
-                    self.info(f"  {key}: {value}")
+        # Genres
+        if event_data.get("genres"):
+            self.console.print(
+                f"[bold]Genres:[/bold] {', '.join(event_data['genres'])}"
+            )
+            self.console.print()
 
-        # Descriptions - FULL TEXT, NO TRUNCATION
-        if event.get("short_description"):
-            self.info(f"\nShort description ({len(event['short_description'])} chars):")
-            self.info(event["short_description"])
+        # Location
+        if event_data.get("location"):
+            loc = event_data["location"]
+            loc_parts = []
+            if loc.get("city"):
+                loc_parts.append(loc["city"])
+            if loc.get("state"):
+                loc_parts.append(loc["state"])
+            if loc.get("country"):
+                loc_parts.append(loc["country"])
+            if loc_parts:
+                self.console.print(f"[bold]Location:[/bold] {', '.join(loc_parts)}")
+                self.console.print()
 
-        if event.get("long_description"):
-            self.info(f"\nFull description ({len(event['long_description'])} chars):")
-            self.info(event["long_description"])
+        # Descriptions - show full text
+        if event_data.get("short_description"):
+            desc_len = len(event_data["short_description"])
+            self.console.print(f"[bold]Short description ({desc_len} chars):[/bold]")
+            self.console.print(event_data["short_description"], style="italic")
+            self.console.print()
 
-        # URLs - FULL URLS, NO TRUNCATION
-        if event.get("ticket_url"):
-            self.info(f"\nTicket URL:")
-            self.info(event["ticket_url"])
+        if event_data.get("long_description"):
+            desc = event_data["long_description"]
+            desc_len = len(desc)
+            self.console.print(f"[bold]Full description ({desc_len} chars):[/bold]")
+            self.console.print(desc, style="dim", width=self.width - 4, overflow="fold")
+            self.console.print()
 
-        if event.get("source_url"):
-            self.info(f"\nSource URL:")
-            self.info(event["source_url"])
+        # URLs - show full URLs
+        if event_data.get("ticket_url"):
+            self.console.print(f"[bold]Ticket URL:[/bold]")
+            self.console.print(self._safe_str(event_data["ticket_url"]))
+            self.console.print()
 
-        # Images - FULL URLS
-        if event.get("images"):
-            self.info("\nImages:")
-            for key, url in event["images"].items():
-                self.info(f"  {key}: {url}")
+        if event_data.get("source_url"):
+            self.console.print(f"[bold]Source URL:[/bold]")
+            self.console.print(self._safe_str(event_data["source_url"]))
+            self.console.print()
 
-        # Image search results if present
-        if event.get("image_search"):
-            self.image_search_debug(event["image_search"])
+        # Images - show full URLs
+        if event_data.get("images"):
+            imgs = event_data["images"]
+            self.console.print(f"[bold]Images:[/bold]")
+            if imgs.get("full"):
+                self.console.print(f"  [dim]full:[/dim] {self._safe_str(imgs['full'])}")
+            if imgs.get("thumbnail"):
+                self.console.print(
+                    f"  [dim]thumbnail:[/dim] {self._safe_str(imgs['thumbnail'])}"
+                )
+            self.console.print()
 
         # Metadata
-        if event.get("imported_at"):
-            self.info(f"\nImported at: {event['imported_at']}")
-
-    def import_summary(self, result: dict) -> None:
-        """Show import result summary."""
-        self.section("Import Summary")
-
-        status = result.get("status", "UNKNOWN")
-        if status == "SUCCESS":
-            self.success("Import completed successfully")
-        else:
-            self.error(f"Import failed with status: {status}")
-
-        # All details
-        self.info(f"Method: {result.get('method_used', 'Unknown')}")
-        self.info(f"Duration: {result.get('import_time', 0):.2f}s")
-        self.info(f"Request ID: {result.get('request_id', 'None')}")
-
-        if result.get("error"):
-            self.error(f"Error: {result['error']}")
-
-    def image_search_debug(self, search_data: dict) -> None:
-        """Show detailed image search results for debugging."""
-        self.section("Image Search Results")
-
-        # Original
-        if search_data.get("original"):
-            orig = search_data["original"]
-            self.info("\nOriginal image:")
-            self.info(f"  Score: {orig['score']}")
-            self.info(f"  Dimensions: {orig.get('dimensions', 'Unknown')}")
-            self.info(f"  Reason: {orig.get('reason', 'N/A')}")
-            self.info(f"  URL: {orig['url']}")
-
-        # All candidates
-        if search_data.get("candidates"):
-            self.info(f"\nFound {len(search_data['candidates'])} candidates:")
-            # Show ALL candidates for debugging
-            for i, cand in enumerate(search_data["candidates"], 1):
-                self.info(f"\nCandidate {i}:")
-                self.info(f"  Score: {cand['score']}")
-                self.info(f"  Source: {cand.get('source', 'unknown')}")
-                self.info(f"  Dimensions: {cand.get('dimensions', 'Unknown')}")
-                self.info(f"  URL: {cand['url']}")
-
-        # Selected
-        if search_data.get("selected"):
-            sel = search_data["selected"]
-            self.success(f"\nSelected image:")
-            self.info(f"  Score: {sel['score']}")
-            self.info(f"  Source: {sel.get('source', 'unknown')}")
-            self.info(f"  URL: {sel['url']}")
+        if event_data.get("imported_at"):
+            self.console.print(f"[dim]Imported at: {event_data['imported_at']}[/dim]")
+            self.console.print()
 
     def progress_update(self, update: dict) -> None:
-        """Show a single progress update."""
-        timestamp = update.get("timestamp")
-        if timestamp:
-            if isinstance(timestamp, str):
-                dt = datetime.fromisoformat(timestamp)
-            else:
-                dt = timestamp
-            time_str = dt.strftime("%H:%M:%S")
-        else:
-            time_str = "??:??:??"
-
+        """Display a progress update from the import system."""
         status = update.get("status", "unknown")
-        progress = update.get("progress", 0) * 100
         message = update.get("message", "")
+        progress = update.get("progress", 0) * 100
 
-        # Color status
-        if self.console:
-            status_colors = {
-                "running": "blue",
-                "success": "green",
-                "failed": "red",
-                "pending": "yellow",
+        # Handle timestamp - could be string or datetime
+        timestamp_val = update.get("timestamp")
+        if isinstance(timestamp_val, str):
+            timestamp = datetime.fromisoformat(timestamp_val).strftime("%H:%M:%S")
+        elif hasattr(timestamp_val, "strftime"):
+            timestamp = timestamp_val.strftime("%H:%M:%S")
+        else:
+            timestamp = "??:??:??"
+
+        # Status styling
+        status_styles = {
+            "RUNNING": ("cyan", "⟳"),
+            "SUCCESS": ("green", "✓"),
+            "FAILED": ("red", "✗"),
+            "PENDING": ("yellow", "○"),
+            "CANCELLED": ("dim", "⊘"),
+        }
+
+        style, symbol = status_styles.get(status, ("white", "?"))
+
+        # Format progress message
+        self.console.print(
+            f"[dim]{timestamp}[/dim] [{style}]{symbol} {status:8} {progress:3.0f}%[/{style}] {message}"
+        )
+
+    def import_result(self, result, show_raw: bool = False) -> None:
+        """Display import result with all details."""
+        from app.schemas import ImportStatus
+
+        self.section("Import Summary")
+
+        if result.status == ImportStatus.SUCCESS and result.event_data:
+            self.success(f"Import successful!")
+            self.info(f"Method: {result.method_used.value}")
+            self.info(f"Duration: {result.import_time:.2f}s")
+            self.console.print()
+
+            # Show the full event data
+            self.section("Event Data")
+            self.event_card(result.event_data.model_dump())
+
+            # Show image search results if available
+            if result.event_data.image_search:
+                self.image_search_results(result.event_data.image_search.model_dump())
+
+            # Data completeness check
+            self.data_quality_check(result.event_data)
+
+            # Show raw data if requested
+            if show_raw and result.raw_data:
+                self.section("Raw Extracted Data")
+                self.raw_data(result.raw_data)
+
+        else:
+            self.error(f"Import failed: {result.error}")
+            if result.method_used:
+                self.info(f"Method attempted: {result.method_used.value}")
+            self.info(f"Duration: {result.import_time:.2f}s")
+
+    def data_quality_check(self, event_data) -> None:
+        """Display data quality/completeness check."""
+        self.section("Data Quality")
+
+        checks = []
+
+        # Required fields
+        checks.append(
+            {
+                "Field": "Title",
+                "Status": "✓" if event_data.title else "✗",
+                "Value": event_data.title or "Missing",
             }
-            color = status_colors.get(status.lower(), "white")
-            self.console.print(
-                f"{time_str} [[{color}]{status.upper()}[/{color}]] {progress:3.0f}% - {message}"
+        )
+        checks.append(
+            {
+                "Field": "Venue",
+                "Status": "✓" if event_data.venue else "✗",
+                "Value": event_data.venue or "Missing",
+            }
+        )
+        checks.append(
+            {
+                "Field": "Date",
+                "Status": "✓" if event_data.date else "✗",
+                "Value": event_data.date or "Missing",
+            }
+        )
+
+        # Optional but important fields
+        time_val = (
+            f"{event_data.time.start} - {event_data.time.end}"
+            if event_data.time and event_data.time.start
+            else "Missing"
+        )
+        checks.append(
+            {
+                "Field": "Time",
+                "Status": "✓" if event_data.time else "✗",
+                "Value": time_val,
+            }
+        )
+
+        lineup_val = (
+            f"{len(event_data.lineup)} artists" if event_data.lineup else "Missing"
+        )
+        checks.append(
+            {
+                "Field": "Lineup",
+                "Status": "✓" if event_data.lineup else "✗",
+                "Value": lineup_val,
+            }
+        )
+
+        desc_val = "Present" if event_data.long_description else "Missing"
+        checks.append(
+            {
+                "Field": "Description",
+                "Status": "✓" if event_data.long_description else "✗",
+                "Value": desc_val,
+            }
+        )
+
+        img_val = "Present" if event_data.images else "Missing"
+        checks.append(
+            {
+                "Field": "Images",
+                "Status": "✓" if event_data.images else "✗",
+                "Value": img_val,
+            }
+        )
+
+        self.table(checks, title="Field Completeness")
+        self.console.print()
+
+    def raw_data(self, data: dict, title: str = "Raw Data") -> None:
+        """Display raw data in a tree structure."""
+        tree = Tree(f"[bold]{title}[/bold]")
+
+        def add_to_tree(parent, key, value):
+            """Recursively add data to tree."""
+            if isinstance(value, dict):
+                branch = parent.add(f"[bold cyan]{key}[/bold cyan]")
+                for k, v in value.items():
+                    add_to_tree(branch, k, v)
+            elif isinstance(value, list):
+                branch = parent.add(
+                    f"[bold cyan]{key}[/bold cyan] [{len(value)} items]"
+                )
+                for i, item in enumerate(value):
+                    if isinstance(item, dict):
+                        item_branch = branch.add(f"[{i}]")
+                        for k, v in item.items():
+                            add_to_tree(item_branch, k, v)
+                    else:
+                        branch.add(f"[{i}] {self._safe_str(item)}")
+            else:
+                # Format the value
+                if value is None:
+                    formatted = "[dim]null[/dim]"
+                elif isinstance(value, bool):
+                    formatted = f"[yellow]{str(value).lower()}[/yellow]"
+                elif isinstance(value, (int, float)):
+                    formatted = f"[magenta]{value}[/magenta]"
+                else:
+                    formatted = f"[green]{self._safe_str(value)}[/green]"
+                parent.add(f"[bold]{key}:[/bold] {formatted}")
+
+        for key, value in data.items():
+            add_to_tree(tree, key, value)
+
+        self.console.print(tree)
+        self.console.print()
+
+    def image_search_results(self, search_data: dict) -> None:
+        """Display image search results in a nice format."""
+        if not search_data:
+            return
+
+        self.section("Image Enhancement Results")
+
+        # Original image
+        if search_data.get("original"):
+            orig = search_data["original"]
+            color = (
+                "green"
+                if orig["score"] > 100
+                else "yellow" if orig["score"] > 0 else "red"
             )
-        else:
-            print(f"{time_str} [{status.upper()}] {progress:3.0f}% - {message}")
 
-    def debug_data(self, data: Any, title: str = "Debug Data") -> None:
-        """Show any data structure for debugging."""
-        self.section(title)
+            self.console.print(f"[bold]Original image:[/bold]")
+            self.console.print(f"  Score: [{color}]{orig['score']}[/{color}]")
+            if orig.get("dimensions"):
+                self.console.print(f"  Dimensions: {orig['dimensions']}")
+            if orig.get("reason"):
+                self.console.print(f"  Reason: [red]{orig['reason']}[/red]")
+            self.console.print(f"  URL: {orig['url']}")
+            self.console.print()
 
-        if isinstance(data, dict):
-            for key, value in data.items():
-                self.info(f"{key}: {value}")
-        elif isinstance(data, list):
-            for i, item in enumerate(data):
-                self.info(f"[{i}] {item}")
-        else:
-            self.info(str(data))
+        # Search results summary
+        if search_data.get("candidates"):
+            self.console.print(
+                f"[bold]Found {len(search_data['candidates'])} candidates:[/bold]"
+            )
+
+            # Show all candidates
+            for i, cand in enumerate(search_data["candidates"], 1):
+                score = cand.get("score", 0)
+                color = "green" if score > 200 else "yellow" if score > 100 else "red"
+
+                self.console.print(f"\n[bold]Candidate {i}:[/bold]")
+                self.console.print(f"  Score: [{color}]{score}[/{color}]")
+                self.console.print(f"  Source: {cand.get('source', 'unknown')}")
+                if cand.get("dimensions"):
+                    self.console.print(f"  Dimensions: {cand['dimensions']}")
+                self.console.print(f"  URL: {cand['url']}")
+
+        # Selected image
+        if search_data.get("selected"):
+            sel = search_data["selected"]
+            self.console.print("\n[bold green]✓ Selected image:[/bold green]")
+            self.console.print(f"  Score: [green]{sel['score']}[/green]")
+            self.console.print(f"  Source: {sel.get('source', 'unknown')}")
+            self.console.print(f"  URL: {sel['url']}")
+
+        self.console.print()
+
+    def rule(self, title: Optional[str] = None, style: str = "dim") -> None:
+        """Draw a horizontal rule."""
+        self.console.rule(title or "", style=style)
+
+    def clear(self) -> None:
+        """Clear the terminal."""
+        self.console.clear()
 
 
-# Global instance
+# Global CLI instance
 _cli: Optional[CLI] = None
 
 
 def get_cli() -> CLI:
-    """Get CLI instance."""
+    """Get the global CLI instance."""
     global _cli
     if _cli is None:
         _cli = CLI()

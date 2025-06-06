@@ -34,17 +34,49 @@ def test_url_analyzer():
         "example.com",  # No scheme
     ]
 
-    cli.section("URL Analysis Results")
+    # Prepare results for table display
+    results = []
 
-    # Show all results
+    with cli.progress("Analyzing URLs") as progress:
+        for i, url in enumerate(test_urls):
+            progress.update_progress(
+                (i / len(test_urls)) * 100, f"Analyzing URL {i+1}/{len(test_urls)}"
+            )
+
+            analysis = analyzer.analyze(url)
+
+            result = {
+                "URL": url if len(url) <= 40 else url[:37] + "...",
+                "Type": analysis["type"],
+                "Event ID": analysis.get("event_id", "-"),
+            }
+
+            results.append(result)
+
+    cli.section("Analysis Results")
+    cli.table(results, title="URL Analysis Summary")
+
+    # Show detailed results for URLs with extracted IDs
+    detailed = []
     for url in test_urls:
         analysis = analyzer.analyze(url)
-        cli.info(f"\n{url}")
-        cli.info(f"  Type: {analysis['type']}")
         if analysis.get("event_id"):
-            cli.info(f"  Event ID: {analysis['event_id']}")
+            detailed.append(
+                {
+                    "URL": url,
+                    "Type": analysis["type"],
+                    "Event ID": analysis.get("event_id"),
+                }
+            )
 
-    cli.success("\nURL analyzer test completed")
+    if detailed:
+        cli.section("URLs with Extracted IDs")
+        for item in detailed:
+            cli.info(f"• {item['URL']}")
+            cli.info(f"  Type: {item['Type']} | ID: {item['Event ID']}")
+            cli.console.print()
+
+    cli.success("URL analyzer test completed")
 
 
 if __name__ == "__main__":
