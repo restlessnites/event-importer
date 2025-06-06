@@ -27,7 +27,7 @@ async def test_import(url: str, cli, show_raw: bool = False):
     # Store progress updates for display
     progress_history = []
 
-    # Track progress with our CLI
+    # Track progress
     async def handle_progress(progress):
         update = progress.model_dump()
         progress_history.append(update)
@@ -36,136 +36,36 @@ async def test_import(url: str, cli, show_raw: bool = False):
     importer.add_progress_listener(request.request_id, handle_progress)
 
     try:
-        # Run import with progress context
+        # Run import with progress
         with cli.progress(f"Importing event") as progress_cli:
-            # Start the import
             import_task = asyncio.create_task(importer.import_event(request))
 
             # Update progress bar while import runs
             while not import_task.done():
-                # Get latest progress
                 history = importer.get_progress_history(request.request_id)
                 if history:
                     latest = history[-1]
                     progress_cli.update_progress(latest.progress * 100, latest.message)
                 await asyncio.sleep(0.1)
 
-            # Get the result
             result = await import_task
 
         # Display results
-        cli.section("Import Summary")
+        cli.import_summary(result.model_dump())
 
-        if result.status == ImportStatus.SUCCESS:
-            cli.success(f"Status: SUCCESS")
-            cli.info(f"Method: {result.method_used.value}")
-            cli.info(f"Duration: {result.import_time:.2f}s")
-            cli.info(f"Request ID: {result.request_id}")
+        if result.status == ImportStatus.SUCCESS and result.event_data:
+            # Show ALL event data
+            cli.event_data(result.event_data.model_dump())
 
-            if result.event_data:
-                # Show the full event data
-                cli.section("Event Data")
-                cli.event_card(result.event_data.model_dump())
-
-                # Show image search results if available (for web imports)
-                if result.event_data.image_search:
-                    cli.section("Image Enhancement Results")
-                    cli.image_search_results(
-                        result.event_data.image_search.model_dump()
-                    )
-
-                # Data completeness check
-                cli.section("Data Quality")
-                event = result.event_data
-                checks = []
-
-                # Required fields
-                checks.append(
-                    {
-                        "Field": "Title",
-                        "Status": "✓" if event.title else "✗",
-                        "Value": event.title or "Missing",
-                    }
-                )
-                checks.append(
-                    {
-                        "Field": "Venue",
-                        "Status": "✓" if event.venue else "✗",
-                        "Value": event.venue or "Missing",
-                    }
-                )
-                checks.append(
-                    {
-                        "Field": "Date",
-                        "Status": "✓" if event.date else "✗",
-                        "Value": event.date or "Missing",
-                    }
-                )
-
-                # Optional but important fields
-                time_val = (
-                    f"{event.time.start} - {event.time.end}"
-                    if event.time and event.time.start
-                    else "Missing"
-                )
-                checks.append(
-                    {
-                        "Field": "Time",
-                        "Status": "✓" if event.time else "✗",
-                        "Value": time_val,
-                    }
-                )
-
-                lineup_val = (
-                    f"{len(event.lineup)} artists" if event.lineup else "Missing"
-                )
-                checks.append(
-                    {
-                        "Field": "Lineup",
-                        "Status": "✓" if event.lineup else "✗",
-                        "Value": lineup_val,
-                    }
-                )
-
-                desc_val = "Present" if event.long_description else "Missing"
-                checks.append(
-                    {
-                        "Field": "Description",
-                        "Status": "✓" if event.long_description else "✗",
-                        "Value": desc_val,
-                    }
-                )
-
-                img_val = "Present" if event.images else "Missing"
-                checks.append(
-                    {
-                        "Field": "Images",
-                        "Status": "✓" if event.images else "✗",
-                        "Value": img_val,
-                    }
-                )
-
-                cli.table(checks, title="Field Completeness")
-
-                # Show raw data if requested
-                if show_raw and result.raw_data:
-                    cli.section("Raw Extracted Data")
-                    cli.raw_data(result.raw_data)
-
-        else:
-            cli.error(f"Status: FAILED")
-            cli.error(f"Error: {result.error}")
-            if result.method_used:
-                cli.info(f"Method attempted: {result.method_used.value}")
+            # Show raw data if requested
+            if show_raw and result.raw_data:
+                cli.json(result.raw_data, title="Raw Extracted Data")
 
         # Show progress timeline
         if len(progress_history) > 1:
             cli.section("Progress Timeline")
             for update in progress_history:
-                timestamp = datetime.fromisoformat(update["timestamp"]).strftime(
-                    "%H:%M:%S"
-                )
-                cli.info(f"{timestamp} - {update['message']}")
+                cli.progress_update(update)
 
     except asyncio.TimeoutError:
         cli.error("Import timed out")
@@ -173,7 +73,7 @@ async def test_import(url: str, cli, show_raw: bool = False):
         cli.error(f"Unexpected error: {e}")
         import traceback
 
-        cli.code(traceback.format_exc(), "python", "Exception Traceback")
+        cli.error(traceback.format_exc())
 
 
 async def main():
@@ -217,7 +117,7 @@ async def main():
 
         for i, url in enumerate(test_urls, 1):
             if len(test_urls) > 1:
-                cli.rule(f"Test {i} of {len(test_urls)}")
+                cli.header(f"Test {i} of {len(test_urls)}")
 
             start = datetime.now()
             await test_import(url, cli, show_raw)
@@ -225,15 +125,13 @@ async def main():
 
             # Check if successful
             total_time += duration
-            # Note: We'd need to modify test_import to return success status
-            # For now, we'll just track time
 
             if i < len(test_urls):
                 # Brief pause between tests
                 await asyncio.sleep(1)
 
         # Summary
-        cli.rule("Test Summary")
+        cli.header("Test Summary")
         cli.info(f"Total tests: {len(test_urls)}")
         cli.info(f"Total time: {total_time:.1f}s")
         cli.info(f"Average time: {total_time/len(test_urls):.1f}s per import")
