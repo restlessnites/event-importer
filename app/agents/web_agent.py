@@ -10,7 +10,6 @@ from app.services.zyte import ZyteService
 from app.services.claude import ClaudeService
 from app.services.image import ImageService
 from app.http import get_http_service
-from app.url_analyzer import URLAnalyzer, URLType
 
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,6 @@ class WebAgent(Agent):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.url_analyzer = URLAnalyzer()
         self.http = get_http_service()
         self.zyte = ZyteService(self.config, self.http)
         self.claude = ClaudeService(self.config)
@@ -36,9 +34,11 @@ class WebAgent(Agent):
         return ImportMethod.WEB
 
     def can_handle(self, url: str) -> bool:
-        """Check if URL is a web page (not image or API-supported)."""
-        analysis = self.url_analyzer.analyze(url)
-        return analysis["type"] == URLType.WEB
+        """
+        This method is not used for WebAgent since the engine
+        routes HTML content to it by checking content-type.
+        """
+        return False
 
     async def import_event(self, url: str, request_id: str) -> Optional[EventData]:
         """Import event by scraping web page."""
@@ -150,7 +150,9 @@ class WebAgent(Agent):
         # Get original image URL if any
         original_url = None
         if event_data.images:
-            original_url = event_data.images.get_best()
+            original_url = event_data.images.get("full") or event_data.images.get(
+                "thumbnail"
+            )
 
         # Find best image
         best = await self.image_service.find_best_image(event_data, original_url)

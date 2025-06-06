@@ -91,6 +91,56 @@ class HTTPService:
             logger.error(f"{service} unexpected error for URL {url}: {e}")
             raise
 
+    async def head(
+        self,
+        url: str,
+        *,
+        service: str = "HTTP",
+        headers: Optional[Dict[str, str]] = None,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ) -> ClientResponse:
+        """
+        Perform HEAD request with error handling.
+
+        Args:
+            url: URL to request
+            service: Service name for error messages
+            headers: Additional headers
+            timeout: Override default timeout
+            **kwargs: Additional arguments for aiohttp
+
+        Returns:
+            The response object
+
+        Raises:
+            APIError: On API errors
+            TimeoutError: On timeout
+        """
+        session = await self._ensure_session()
+
+        request_headers = {}
+        if headers:
+            request_headers.update(headers)
+
+        request_timeout = ClientTimeout(total=timeout or self.config.http.timeout)
+
+        async with self._error_handler(service, url):
+            logger.debug(f"{service} HEAD: {url}")
+
+            response = await session.head(
+                url,
+                headers=request_headers,
+                timeout=request_timeout,
+                allow_redirects=True,
+                **kwargs,
+            )
+
+            if response.status >= 400:
+                self._handle_response_error(response, service)
+
+            return response
+
     async def get(
         self,
         url: str,

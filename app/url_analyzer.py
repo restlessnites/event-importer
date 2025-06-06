@@ -11,15 +11,11 @@ class URLType(str, Enum):
 
     RESIDENT_ADVISOR = "resident_advisor"
     TICKETMASTER = "ticketmaster"
-    IMAGE = "image"
-    WEB = "web"  # Everything else
+    UNKNOWN = "unknown"  # Everything else
 
 
 class URLAnalyzer:
     """Simple URL analyzer for routing."""
-
-    # Image extensions we handle
-    IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
     def analyze(self, url: str) -> Dict[str, Any]:
         """
@@ -31,10 +27,6 @@ class URLAnalyzer:
         parsed = urlparse(url.lower())
         domain = parsed.netloc.replace("www.", "")
         path = parsed.path
-
-        # Check for image
-        if any(path.endswith(ext) for ext in self.IMAGE_EXTENSIONS):
-            return {"type": URLType.IMAGE}
 
         # Check for Resident Advisor
         if domain == "ra.co":
@@ -53,5 +45,5 @@ class URLAnalyzer:
             if match:
                 return {"type": URLType.TICKETMASTER, "event_id": match.group(1)}
 
-        # Everything else is generic web
-        return {"type": URLType.WEB}
+        # Everything else is unknown (will be determined by content-type)
+        return {"type": URLType.UNKNOWN}

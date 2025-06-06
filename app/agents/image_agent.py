@@ -8,7 +8,6 @@ from app.schemas import EventData, ImportMethod, ImportStatus
 from app.services.claude import ClaudeService
 from app.services.image import ImageService
 from app.http import get_http_service
-from app.url_analyzer import URLAnalyzer, URLType
 
 
 logger = logging.getLogger(__name__)
@@ -19,7 +18,6 @@ class ImageAgent(Agent):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.url_analyzer = URLAnalyzer()
         self.http = get_http_service()
         self.claude = ClaudeService(self.config)
         self.image_service = ImageService(self.config, self.http)
@@ -33,9 +31,11 @@ class ImageAgent(Agent):
         return ImportMethod.IMAGE
 
     def can_handle(self, url: str) -> bool:
-        """Check if URL is a direct image link."""
-        analysis = self.url_analyzer.analyze(url)
-        return analysis["type"] == URLType.IMAGE
+        """
+        This method is not used for ImageAgent since the engine
+        determines if a URL is an image by checking content-type.
+        """
+        return False
 
     async def import_event(self, url: str, request_id: str) -> Optional[EventData]:
         """Import event from image URL."""

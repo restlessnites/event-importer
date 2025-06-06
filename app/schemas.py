@@ -104,29 +104,10 @@ class EventLocation(BaseModel):
         return ", ".join(parts)
 
 
-class EventImages(BaseModel):
-    """Event image URLs."""
-
-    full: Optional[HttpUrl] = None
-    thumbnail: Optional[HttpUrl] = None
-
-    def __bool__(self) -> bool:
-        """Check if any image is set."""
-        return bool(self.full or self.thumbnail)
-
-    def get_best(self) -> Optional[str]:
-        """Get the best available image URL."""
-        return (
-            str(self.full)
-            if self.full
-            else (str(self.thumbnail) if self.thumbnail else None)
-        )
-
-
 class ImageCandidate(BaseModel):
     """Information about a candidate image during import."""
 
-    url: HttpUrl
+    url: str  # Changed from HttpUrl to avoid validation issues
     score: int = 0
     source: str = "unknown"  # "original", "google_search", "page", etc.
     dimensions: Optional[str] = None  # "800x600"
@@ -178,7 +159,7 @@ class EventData(BaseModel):
     location: Optional[EventLocation] = None
 
     # Media
-    images: Optional[EventImages] = None
+    images: Optional[Dict[str, str]] = None  # Changed from EventImages to Dict
     image_search: Optional[ImageSearchResult] = None  # For non-API imports
 
     # Restrictions and pricing
