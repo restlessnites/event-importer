@@ -30,7 +30,7 @@ class ImageAgent(Agent):
 
     def can_handle(self, url: str) -> bool:
         """
-        This method is not used for ImageAgent since the engine
+        This method is not used for ImageAgent since the importer
         determines if a URL is an image by checking content-type.
         """
         return False

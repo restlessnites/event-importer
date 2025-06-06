@@ -5,7 +5,7 @@ import asyncio
 import logging
 from pprint import pprint
 
-from app import EventImportEngine
+from app import EventImporter
 from app.schemas import ImportRequest
 from app.http import close_http_service
 
@@ -18,8 +18,8 @@ async def test_import(url: str):
     print(f"\n🔍 Testing import for: {url}")
     print("-" * 80)
 
-    # Create engine
-    engine = EventImportEngine()
+    # Create importer
+    importer = EventImporter()
 
     # Create request
     request = ImportRequest(url=url)
@@ -28,11 +28,11 @@ async def test_import(url: str):
     async def print_progress(progress):
         print(f"📊 [{progress.progress:.0%}] {progress.message}")
 
-    engine.add_progress_listener(request.request_id, print_progress)
+    importer.add_progress_listener(request.request_id, print_progress)
 
     try:
         # Run import
-        result = await engine.import_event(request)
+        result = await importer.import_event(request)
 
         if result.status == "success":
             print("\n✅ SUCCESS!")

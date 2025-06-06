@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.scripts]
-event-importer = "app.server:run"
+event-importer = "app.main:run"
 
 [build-system]
 requires = ["hatchling"]

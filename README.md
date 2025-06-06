@@ -193,7 +193,7 @@ event-importer/
 │   ├── schemas.py           # Pydantic data models
 │   ├── url_analyzer.py      # URL routing logic
 │   ├── agent.py             # Base agent class
-│   ├── engine.py            # Import orchestration
+│   ├── importer.py          # Import orchestration
 │   ├── progress.py          # Progress tracking
 │   ├── router.py            # Request routing
 │   ├── services/            # External service integrations
@@ -253,7 +253,7 @@ uv run pytest
 uv run pytest --cov=app
 
 # Run specific test
-uv run pytest tests/test_engine.py
+uv run pytest tests/test_importer.py
 ```
 
 ### Code Quality

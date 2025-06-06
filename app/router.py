@@ -1,10 +1,10 @@
-"""Simple request router using the import engine."""
+"""Simple request router using the importer."""
 
 import logging
 from typing import Dict, Any
 
 from app.config import get_config
-from app.engine import EventImportEngine
+from app.importer import EventImporter
 from app.schemas import ImportRequest, ImportStatus
 from app.errors import handle_errors_async
 
@@ -13,12 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 class Router:
-    """Routes import requests to the engine."""
+    """Routes import requests to the importer."""
 
     def __init__(self):
-        """Initialize router with engine."""
+        """Initialize router with importer."""
         self.config = get_config()
-        self.engine = EventImportEngine(self.config)
+        self.importer = EventImporter(self.config)
 
     @handle_errors_async(reraise=False)
     async def route_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -38,7 +38,7 @@ class Router:
             logger.info(f"Routing import request for: {request.url}")
 
             # Execute import
-            result = await self.engine.import_event(request)
+            result = await self.importer.import_event(request)
 
             # Convert to response format
             if result.status == ImportStatus.SUCCESS and result.event_data:
@@ -64,7 +64,7 @@ class Router:
 
     async def get_progress(self, request_id: str) -> Dict[str, Any]:
         """Get progress history for a request."""
-        history = self.engine.get_progress_history(request_id)
+        history = self.importer.get_progress_history(request_id)
 
         return {
             "request_id": request_id,

@@ -1,4 +1,4 @@
-"""Main event import engine with shared services."""
+"""Main event import module with shared services."""
 
 import asyncio
 import logging
@@ -30,11 +30,11 @@ from app.services.zyte import ZyteService
 logger = logging.getLogger(__name__)
 
 
-class EventImportEngine:
+class EventImporter:
     """Coordinates event imports across different agents."""
 
     def __init__(self, config: Optional[Config] = None):
-        """Initialize the import engine."""
+        """Initialize the importer."""
         self.config = config or Config.from_env()
         self.progress_tracker = ProgressTracker()
         self.http = get_http_service()

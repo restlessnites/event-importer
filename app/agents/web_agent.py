@@ -32,7 +32,7 @@ class WebAgent(Agent):
 
     def can_handle(self, url: str) -> bool:
         """
-        This method is not used for WebAgent since the engine
+        This method is not used for WebAgent since the importer
         routes HTML content to it by checking content-type.
         """
         return False
