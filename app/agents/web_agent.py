@@ -108,7 +108,7 @@ class WebAgent(Agent):
             # Clean HTML
             cleaned_html = self._clean_html(html)
 
-            # Extract with Claude
+            # Extract with Claude - it will generate descriptions if needed
             return await self.claude.extract_from_html(cleaned_html, url)
 
         except Exception as e:
@@ -127,7 +127,7 @@ class WebAgent(Agent):
                 request_id, ImportStatus.RUNNING, "Extracting data from screenshot", 0.8
             )
 
-            # Extract with Claude
+            # Extract with Claude - it will generate descriptions if needed
             return await self.claude.extract_from_image(screenshot_data, mime_type, url)
 
         except Exception as e:

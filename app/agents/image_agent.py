@@ -60,7 +60,7 @@ class ImageAgent(Agent):
                 0.5,
             )
 
-            # Extract with Claude
+            # Extract with Claude - it will generate descriptions if needed
             event_data = await self.claude.extract_from_image(
                 image_data, mime_type, url
             )

@@ -2,7 +2,7 @@
 
 import re
 from typing import Dict, Any
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 from enum import Enum
 
 
@@ -24,12 +24,16 @@ class URLAnalyzer:
         Returns:
             Dict with 'type' and any extracted metadata
         """
+        # Ensure URL has a scheme
+        if not url.startswith(("http://", "https://")):
+            url = "https://" + url
+
         parsed = urlparse(url.lower())
         domain = parsed.netloc.replace("www.", "")
         path = parsed.path
 
         # Check for Resident Advisor
-        if domain == "ra.co":
+        if domain in ["ra.co", "residentadvisor.net"]:
             # Extract event ID if present
             match = re.search(r"/events/(\d+)", path)
             if match:
@@ -38,12 +42,26 @@ class URLAnalyzer:
         # Check for Ticketmaster family
         if any(
             domain.endswith(d)
-            for d in ["ticketmaster.com", "livenation.com", "ticketweb.com"]
+            for d in [
+                "ticketmaster.com",
+                "ticketmaster.ca",
+                "ticketmaster.co.uk",
+                "livenation.com",
+                "ticketweb.com",
+            ]
         ):
-            # Extract event ID (16 hex chars)
-            match = re.search(r"/event/([0-9A-Fa-f]{16})", url)
-            if match:
-                return {"type": URLType.TICKETMASTER, "event_id": match.group(1)}
+            # Try to extract event ID from path first
+            path_match = re.search(r"/event/([0-9A-Fa-f]{16})", url)
+            if path_match:
+                return {"type": URLType.TICKETMASTER, "event_id": path_match.group(1)}
+
+            # Also check query parameters
+            query_params = parse_qs(parsed.query)
+            if "id" in query_params and query_params["id"]:
+                event_id = query_params["id"][0]
+                # Validate it looks like a TM event ID
+                if re.match(r"^[0-9A-Fa-f]{16}$", event_id):
+                    return {"type": URLType.TICKETMASTER, "event_id": event_id}
 
         # Everything else is unknown (will be determined by content-type)
         return {"type": URLType.UNKNOWN}
