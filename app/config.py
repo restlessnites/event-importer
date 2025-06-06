@@ -2,7 +2,7 @@
 
 import os
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 from pathlib import Path
 from dotenv import load_dotenv
 

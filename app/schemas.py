@@ -5,7 +5,7 @@ from typing import Optional, List, Dict, Any
 from enum import Enum
 import uuid
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 from dateutil import parser as date_parser
 import nh3
 
