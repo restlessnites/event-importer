@@ -242,7 +242,6 @@ event-importer/
 │       ├── theme.py         # Unified theme system
 │       ├── components.py    # Reusable UI components
 │       ├── formatters.py    # Complex data formatters
-│       ├── styles.py        # Visual style utilities
 │       ├── utils.py         # Helper functions
 │       └── error_capture.py # Error capture system
 ├── scripts/                 # Utility and test scripts
