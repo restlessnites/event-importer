@@ -15,6 +15,11 @@ A Model Context Protocol (MCP) server that imports structured event data from va
   - Structured data validation with Pydantic
   - Real-time progress tracking for long-running imports
 
+- **Clean CLI Output**:
+  - Error capture system that collects log messages during execution
+  - Clean progress display without interruption from error messages
+  - Organized error display at the end of operations
+
 - **MCP Integration**: Full Model Context Protocol server implementation for use with AI assistants
 
 ## Installation
@@ -120,10 +125,13 @@ uv run python scripts/test_importer.py "https://ra.co/events/1234567"
 uv run python scripts/test_url_analyzer.py
 
 # Confirm Google Search API works
-uv run python scripts/test_custom_google_search_api.py
+uv run python scripts/test_google_custom_search_api.py
 
 # Confirm image search is working
 uv run python scripts/test_image_search.py
+
+# Test error capture system
+uv run python scripts/test_error_capture.py
 
 # Explore RA.co API
 uv run scripts/test_ra_api.sh
@@ -206,14 +214,14 @@ The importer returns structured event data:
 event-importer/
 ├── app/
 │   ├── __init__.py          # Package exports and version
-│   ├── server.py            # MCP server entry point
+│   ├── main.py              # MCP server entry point
 │   ├── config.py            # Configuration management
 │   ├── errors.py            # Custom exceptions and error handling
 │   ├── http.py              # Centralized HTTP client with session pooling
 │   ├── schemas.py           # Pydantic data models
 │   ├── url_analyzer.py      # URL type detection and routing
 │   ├── agent.py             # Base agent class
-│   ├── engine.py            # Import orchestration
+│   ├── importer.py          # Import orchestration
 │   ├── progress.py          # Real-time progress tracking
 │   ├── router.py            # Request routing
 │   ├── prompts.py           # Modular Claude prompt templates
@@ -222,22 +230,33 @@ event-importer/
 │   │   ├── claude.py        # Claude AI extraction with tools
 │   │   ├── image.py         # Image validation and search
 │   │   └── zyte.py          # Web scraping with retries
-│   └── agents/              # Import agents by source type
+│   ├── agents/              # Import agents by source type
+│   │   ├── __init__.py
+│   │   ├── ra_agent.py      # Resident Advisor GraphQL
+│   │   ├── ticketmaster_agent.py # Ticketmaster Discovery API
+│   │   ├── web_agent.py     # Generic web scraping
+│   │   └── image_agent.py   # Direct image extraction
+│   └── cli/                 # CLI interface system
 │       ├── __init__.py
-│       ├── ra_agent.py      # Resident Advisor GraphQL
-│       ├── ticketmaster_agent.py # Ticketmaster Discovery API
-│       ├── web_agent.py     # Generic web scraping
-│       └── image_agent.py   # Direct image extraction
+│       ├── core.py          # Main CLI class
+│       ├── theme.py         # Unified theme system
+│       ├── components.py    # Reusable UI components
+│       ├── formatters.py    # Complex data formatters
+│       ├── styles.py        # Visual style utilities
+│       ├── utils.py         # Helper functions
+│       └── error_capture.py # Error capture system
 ├── scripts/                 # Utility and test scripts
-│   ├── test_custom_google_search_api.py # Confirm Google Search API works
-│   ├── test_image_search.py # Confirm image search is working
 │   ├── test_importer.py     # Main testing script
-│   ├── test_ra_api.sh       # RA.co API exploration
-│   └── test_url_analyzer.py # Test the URL analyzer
+│   ├── test_url_analyzer.py # URL analyzer tests
+│   ├── test_image_search.py # Image search tests
+│   ├── test_google_custom_search_api.py # Google API verification
+│   ├── test_error_capture.py # Error capture system test
+│   └── test_ra_api.sh       # RA.co API exploration
 ├── pyproject.toml           # Project dependencies and metadata
 ├── .gitignore               # Git ignore patterns
 ├── .env.example             # Environment template
-└── README.md                # This file
+├── README.md                # This file
+└── ERROR_CAPTURE_README.md  # Error capture documentation
 ```
 
 ## Key Features
@@ -258,6 +277,7 @@ event-importer/
 - **Graceful Degradation**: Falls back to simpler methods
 - **Detailed Logging**: Comprehensive error context
 - **Timeout Protection**: Configurable per-request timeouts
+- **Clean Display**: Errors captured and shown at end, not interrupting progress
 
 ### Data Processing
 
@@ -265,6 +285,13 @@ event-importer/
 - **Smart Text Extraction**: Handles various date/time formats
 - **Description Generation**: AI creates missing descriptions
 - **Image Enhancement**: Searches for higher quality images
+
+### CLI System
+
+- **Unified Theme**: Consistent visual design across all output
+- **Progress Tracking**: Clean progress bars and status updates
+- **Error Capture**: Collects log messages and displays them organized at the end
+- **Rich Formatting**: Tables, syntax highlighting, and structured output
 
 ## Configuration
 
@@ -310,6 +337,7 @@ uv run python scripts/test_importer.py
 
 # Test specific functionality
 uv run python scripts/test_url_analyzer.py
+uv run python scripts/test_error_capture.py
 
 # Explore RA.co API
 uv run scripts/test_ra_api.sh
@@ -334,6 +362,7 @@ The importer includes comprehensive error handling:
 - **Rate Limiting**: Respects API rate limits
 - **Timeout Protection**: Per-request timeout configuration
 - **Graceful Fallbacks**: HTML → Screenshot → Error message
+- **Clean Display**: Errors are captured during execution and displayed organized at the end
 
 ### Common Issues
 
