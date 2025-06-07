@@ -25,7 +25,7 @@ A Model Context Protocol (MCP) server that imports structured event data from va
 ### Prerequisites
 
 - Python 3.10+
-- [uv](https://github.com/astral-sh/uv) package manager [installation](https://docs.astral.sh/uv/getting-started/installation/)
+- [uv](https://github.com/astral-sh/uv) package manager ([installation instructions](https://docs.astral.sh/uv/getting-started/installation/))
 
 ### Setup
 
