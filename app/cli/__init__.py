@@ -1,6 +1,7 @@
 """CLI interface for event importer."""
 
 from app.cli.core import CLI
+from app.cli.theme import Theme
 
 # Global instance
 _cli: CLI | None = None
@@ -14,4 +15,4 @@ def get_cli() -> CLI:
     return _cli
 
 
-__all__ = ["get_cli", "CLI"]
+__all__ = ["get_cli", "CLI", "Theme"]

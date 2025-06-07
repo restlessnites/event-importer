@@ -1,7 +1,7 @@
-"""Design system and theme configuration."""
+"""Unified theme system with all visual configuration in one place."""
 
-from dataclasses import dataclass
-from typing import Dict
+from dataclasses import dataclass, field
+from rich import box
 
 
 @dataclass
@@ -17,146 +17,90 @@ class Icons:
 
     # Progress
     spinner: str = "◠"
-    progress: str = "━"
-    progress_fill: str = "━"
-    progress_empty: str = "╺"
 
     # Structure
     bullet: str = "•"
     arrow: str = "→"
-    branch: str = "├"
-    corner: str = "└"
-    pipe: str = "│"
-
-    # UI elements
-    check: str = "☑"
-    uncheck: str = "☐"
-    star: str = "★"
-
-    def get_ascii_fallback(self) -> "Icons":
-        """Return ASCII-only version of icons."""
-        return Icons(
-            running=">",
-            success="[OK]",
-            error="[X]",
-            warning="[!]",
-            info="-",
-            spinner="*",
-            progress="=",
-            progress_fill="#",
-            progress_empty="-",
-            bullet="*",
-            arrow="->",
-            branch="+",
-            corner="L",
-            pipe="|",
-            check="[x]",
-            uncheck="[ ]",
-            star="*",
-        )
 
 
 @dataclass
 class Spacing:
-    """Spacing system (in lines)."""
+    """Vertical spacing system (in newlines)."""
 
-    none: int = 0
-    xs: int = 1
-    sm: int = 1
-    md: int = 2
-    lg: int = 3
-    xl: int = 4
+    # Specific contexts - adjust these to taste
+    before_header: int = 2
+    after_header: int = 1
+    before_section: int = 1
+    after_section: int = 1
+    between_items: int = 1
+    after_table: int = 1
+    # Rule spacing
+    before_rule: int = 1
+    after_rule: int = 1
 
 
 @dataclass
-class Colors:
-    """Color palette for Rich markup."""
+class Typography:
+    """Typography styles for different text elements."""
 
-    # Primary
-    primary: str = "blue"
-    primary_bright: str = "bright_blue"
+    # Headers
+    header_style: str = "bold bright_blue"
+    header_transform: str = "upper"  # upper, lower, title, none
 
-    # Semantic
-    success: str = "green"
-    success_bright: str = "bright_green"
-    error: str = "red"
-    error_bright: str = "bright_red"
-    warning: str = "yellow"
-    warning_bright: str = "bright_yellow"
-    info: str = "cyan"
-    info_bright: str = "bright_cyan"
+    subheader_style: str = "blue"
+    subheader_transform: str = "none"
 
-    # Neutral
-    text: str = "default"
-    text_muted: str = "bright_black"
-    text_dim: str = "dim"
+    # Sections
+    section_style: str = "bold cyan"
+    section_transform: str = "upper"
+    section_underline: str = "─"  # Character to repeat for underline
 
-    # Special
-    accent: str = "magenta"
-    highlight: str = "on dark_blue"
+    # Labels and values
+    label_style: str = "bold"
+    value_style: str = "default"
 
-    def style(self, style_name: str) -> str:
-        """Get style string for Rich markup."""
-        styles = {
-            # Headers
-            "header": f"bold {self.primary_bright}",
-            "subheader": f"bold {self.primary}",
-            "section": f"{self.primary}",
-            # Status
-            "success": f"{self.success_bright}",
-            "error": f"{self.error_bright}",
-            "warning": f"{self.warning_bright}",
-            "info": f"{self.info}",
-            "running": f"{self.primary}",
-            # Text
-            "muted": self.text_muted,
-            "dim": self.text_dim,
-            "code": f"{self.accent}",
-            "highlight": self.highlight,
-            # Data
-            "label": "bold",
-            "value": "default",
-            "number": f"{self.accent}",
-            "string": f"{self.success}",
-            "none": self.text_dim,
-        }
-        return styles.get(style_name, "default")
+    # Status messages
+    success_style: str = "bold green"
+    error_style: str = "bold red"
+    warning_style: str = "bold yellow"
+    info_style: str = "cyan"
+
+    # Other text
+    muted_style: str = "bright_black"
+    dim_style: str = "dim"
+
+
+@dataclass
+class Layout:
+    """Layout configuration."""
+
+    # Table
+    table_box: box.Box = field(default_factory=lambda: box.SIMPLE_HEAD)
+    table_border_style: str = "bright_black"
+
+    # URL display
+    url_style: str = "full"  # "full", "domain", "compact"
 
 
 @dataclass
 class Theme:
     """Complete theme configuration."""
 
-    icons: Icons
-    spacing: Spacing
-    colors: Colors
+    icons: Icons = field(default_factory=Icons)
+    spacing: Spacing = field(default_factory=Spacing)
+    typography: Typography = field(default_factory=Typography)
+    layout: Layout = field(default_factory=Layout)
 
-    # Layout
+    # Layout basics
     width: int = 100
     indent: str = "  "
 
-    # Features
-    use_unicode: bool = True
-    use_color: bool = True
-
-    @classmethod
-    def default(cls) -> "Theme":
-        """Get default theme."""
-        return cls(icons=Icons(), spacing=Spacing(), colors=Colors())
-
-    @classmethod
-    def minimal(cls) -> "Theme":
-        """Get minimal ASCII theme."""
-        return cls(
-            icons=Icons().get_ascii_fallback(),
-            spacing=Spacing(),
-            colors=Colors(),
-            use_unicode=False,
-        )
-
-    def format_status(self, status: str) -> str:
-        """Format a status string (remove enum cruft)."""
-        # Handle "ImportStatus.RUNNING" -> "Running"
-        if "." in status:
-            status = status.split(".")[-1]
-        return status.replace("_", " ").title()
+    def transform_text(self, text: str, transform: str) -> str:
+        """Apply text transformation."""
+        if transform == "upper":
+            return text.upper()
+        elif transform == "lower":
+            return text.lower()
+        elif transform == "title":
+            return text.title()
+        return text
