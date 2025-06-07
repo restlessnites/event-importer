@@ -18,7 +18,8 @@ A Model Context Protocol (MCP) server that imports structured event data from va
 - **CLI**:
   - Facilitates local testing
 
-- **MCP Integration**: Full Model Context Protocol server implementation for use with AI assistants
+- **MCP Integration**:
+  - Full Model Context Protocol server implementation for use with AI assistants
 
 ## Installation
 
