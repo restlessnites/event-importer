@@ -14,7 +14,7 @@ from app.cli import get_cli
 # Load environment variables
 load_dotenv()
 
-# Set logging to WARNING to reduce noise
+# Set logging to WARNING to reduce noise (but still capture them)
 logging.basicConfig(level=logging.WARNING)
 
 
@@ -187,10 +187,17 @@ async def main():
     cli = get_cli()
 
     try:
-        if len(sys.argv) > 1 and sys.argv[1] == "url":
-            await test_specific_url()
-        else:
-            await test_image_search()
+        # Start capturing errors
+        with cli.error_capture.capture():
+            if len(sys.argv) > 1 and sys.argv[1] == "url":
+                await test_specific_url()
+            else:
+                await test_image_search()
+
+        # Show any captured errors
+        if cli.error_capture.has_errors() or cli.error_capture.has_warnings():
+            cli.show_captured_errors("Issues During Test")
+
     except KeyboardInterrupt:
         cli.warning("\nTest interrupted by user")
     except Exception as e:

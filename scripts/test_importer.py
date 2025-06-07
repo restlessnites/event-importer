@@ -13,6 +13,12 @@ from app.cli import get_cli
 
 async def test_import(url: str, cli, show_raw: bool = False):
     """Test importing an event with progress display."""
+    # Clear any previous errors
+    cli.clear_errors()
+
+    # Start capturing errors during the import
+    cli.error_capture.start()
+
     cli.section(f"Import Request")
     cli.info(f"URL: {url}")
     cli.info(f"Started: {datetime.now().strftime('%H:%M:%S')}")
@@ -62,6 +68,13 @@ async def test_import(url: str, cli, show_raw: bool = False):
         import traceback
 
         cli.code(traceback.format_exc(), "python", "Exception Traceback")
+    finally:
+        # Stop capturing errors
+        cli.error_capture.stop()
+
+        # Show any captured errors at the end
+        if cli.error_capture.has_errors() or cli.error_capture.has_warnings():
+            cli.show_captured_errors("Issues During Import")
 
 
 async def main():

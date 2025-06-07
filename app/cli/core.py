@@ -7,6 +7,12 @@ import json
 from rich.console import Console
 
 from app.cli.theme import Theme
+from app.cli.formatters import (
+    ProgressUpdateFormatter,
+    ImportResultFormatter,
+    EventCardFormatter,
+)
+
 from app.cli.components import (
     Header,
     Section,
@@ -16,6 +22,7 @@ from app.cli.components import (
     CodeBlock,
     Spacer,
 )
+from app.cli.error_capture import CLIErrorDisplay, get_error_capture
 
 
 class CLI:
@@ -39,6 +46,10 @@ class CLI:
         # Progress tracking
         self._progress = None
         self._task_id = None
+
+        # Error capture
+        self.error_capture = get_error_capture()
+        self.error_display = CLIErrorDisplay(self)
 
     # ============= Core Display Methods =============
 
@@ -125,25 +136,32 @@ class CLI:
         """Clear the terminal."""
         self.console.clear()
 
+    # ============= Error Capture Methods =============
+
+    def clear_errors(self):
+        """Clear captured errors."""
+        self.error_capture.clear()
+
+    def show_captured_errors(self, title: str = "Captured Errors"):
+        """Display any captured errors."""
+        self.error_display.show_captured_errors(self.error_capture, title)
+
     # ============= Your existing event methods, now using theme =============
 
     def progress_update(self, update: dict):
         """Display a progress update from the import system."""
-        from app.cli.formatters import ProgressUpdateFormatter
 
         formatter = ProgressUpdateFormatter(self.console, self.theme)
         formatter.render(update)
 
     def import_result(self, result, show_raw: bool = False):
         """Display import result with all details."""
-        from app.cli.formatters import ImportResultFormatter
 
         formatter = ImportResultFormatter(self.console, self.theme)
         formatter.render(result, show_raw)
 
     def event_card(self, event_data: dict):
         """Display event data in a nice card format."""
-        from app.cli.formatters import EventCardFormatter
 
         formatter = EventCardFormatter(self.console, self.theme)
         formatter.render(event_data)
