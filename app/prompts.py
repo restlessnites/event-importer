@@ -10,7 +10,7 @@ class EventPrompts:
     BASE_EXTRACTION_RULES = """
 EXTRACTION RULES:
 
-1. **TIME EXTRACTION**:
+- **TIME EXTRACTION**:
    - Look for "Show time", "Event time", "Start time", "Doors at", "Doors open at", or similar phrases
    - If you see both "Doors: 7pm" and "Show: 8pm", use 7pm as the event time
    - Ignore venue opening hours, business hours, or box office hours
@@ -20,20 +20,23 @@ EXTRACTION RULES:
    - "End time" is not "show time"
    - If you can't find an end time, leave it blank
 
-2. **REMOVE TRAILING "..." FROM ALL FIELDS**:
+- **REMOVE TRAILING "..." FROM ALL FIELDS**:
    - If any text ends with "..." remove those dots completely and make it a complete sentence.
 
-3. Extract all available event information:
+- Extract all available event information:
    - Title, venue, date, time (start/end), lineup, promoters
    - Location details (address, city, state, country, coordinates)
    - Cost, age restrictions, ticket URLs, image URLs
    - Genres (multiple preferred over single)
 
-4. Be thorough - extract every piece of information available."""
+- Look for the venue name in the content:
+   - Use the most prominent venu found in the content
+
+- Be thorough - extract every piece of information available. Pay attention to the city and venue name, as they are often mentioned in the content."""
 
     # Rules for generating long descriptions when missing
     LONG_DESCRIPTION_GENERATION = """
-5. **LONG DESCRIPTION** (only if NO description exists in the source):
+- **LONG DESCRIPTION** (only if NO description exists in the source):
    - Generate a comprehensive description using ALL extracted information
    - Include: lineup/artists, venue, date, genres, promoters, location
    - Make it natural and informative, 2-4 sentences
@@ -42,7 +45,7 @@ EXTRACTION RULES:
 
     # Rules for generating short descriptions when missing
     SHORT_DESCRIPTION_GENERATION = """
-6. **SHORT DESCRIPTION** (only if NO short description exists in the source):
+- **SHORT DESCRIPTION** (only if NO short description exists in the source):
    - Generate a factual summary under 100 characters
    - NO adjectives, NO marketing language, just facts
    - Format: "[Genre] with [Artist]" or "[Type] featuring [Artists]" or "[Genre] at [Venue]"
