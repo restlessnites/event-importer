@@ -15,10 +15,8 @@ A Model Context Protocol (MCP) server that imports structured event data from va
   - Structured data validation with Pydantic
   - Real-time progress tracking for long-running imports
 
-- **Clean CLI Output**:
-  - Error capture system that collects log messages during execution
-  - Clean progress display without interruption from error messages
-  - Organized error display at the end of operations
+- **CLI**:
+  - Facilitates local testing
 
 - **MCP Integration**: Full Model Context Protocol server implementation for use with AI assistants
 
