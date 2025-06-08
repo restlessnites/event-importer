@@ -1,9 +1,7 @@
-"""Main event import module with shared services."""
-
 import asyncio
 import logging
+from datetime import datetime, timezone
 from typing import List, Optional, Dict
-from datetime import datetime
 
 from app.config import Config
 from app.schemas import (
@@ -25,6 +23,7 @@ from app.http import get_http_service
 from app.services.claude import ClaudeService
 from app.services.image import ImageService
 from app.services.zyte import ZyteService
+from app.services.genre import GenreService
 
 
 logger = logging.getLogger(__name__)
@@ -47,12 +46,133 @@ class EventImporter:
 
     def _create_shared_services(self) -> Dict:
         """Create services that will be shared across agents."""
+        claude_service = ClaudeService(self.config)
+
         return {
             "http": self.http,
-            "claude": ClaudeService(self.config),
+            "claude": claude_service,
             "image": ImageService(self.config, self.http),
             "zyte": ZyteService(self.config, self.http),
+            "genre": GenreService(self.config, self.http, claude_service),
         }
+
+    @handle_errors_async(reraise=True)
+    async def import_event(self, request: ImportRequest) -> ImportResult:
+        """
+        Import an event from a URL.
+
+        Args:
+            request: Import request with URL and options
+
+        Returns:
+            Import result with event data or error
+        """
+        start_time = datetime.now(timezone.utc)
+        url = str(request.url)
+
+        # Send initial progress
+        await self.progress_tracker.send_progress(
+            ImportProgress(
+                request_id=request.request_id,
+                status=ImportStatus.RUNNING,
+                message="Starting import",
+                progress=0.0,
+            )
+        )
+
+        try:
+            # Find capable agent
+            agent = await self._determine_agent(url, request.force_method)
+            if not agent:
+                raise UnsupportedURLError(url)
+
+            logger.info(f"Using {agent.name} for {url}")
+
+            # Run import with timeout
+            event_data = await asyncio.wait_for(
+                agent.import_event(url, request.request_id), timeout=request.timeout
+            )
+
+            if event_data and not event_data.genres:
+                await self.progress_tracker.send_progress(
+                    ImportProgress(
+                        request_id=request.request_id,
+                        status=ImportStatus.RUNNING,
+                        message="Searching for artist genres",
+                        progress=0.95,
+                    )
+                )
+
+                try:
+                    event_data = await self._services["genre"].enhance_genres(
+                        event_data
+                    )
+                except Exception as e:
+                    logger.warning(f"Genre enhancement failed: {e}")
+                    # Continue without genres rather than failing
+
+            # Create result
+            if event_data:
+                return ImportResult(
+                    request_id=request.request_id,
+                    status=ImportStatus.SUCCESS,
+                    url=request.url,
+                    method_used=agent.import_method,
+                    event_data=event_data,
+                    import_time=(
+                        datetime.now(timezone.utc) - start_time
+                    ).total_seconds(),
+                )
+            else:
+                return ImportResult(
+                    request_id=request.request_id,
+                    status=ImportStatus.FAILED,
+                    url=request.url,
+                    method_used=agent.import_method,
+                    error="No event data extracted",
+                    import_time=(
+                        datetime.now(timezone.utc) - start_time
+                    ).total_seconds(),
+                )
+
+        except asyncio.TimeoutError:
+            error = f"Import timed out after {request.timeout}s"
+            await self.progress_tracker.send_progress(
+                ImportProgress(
+                    request_id=request.request_id,
+                    status=ImportStatus.FAILED,
+                    message=error,
+                    progress=1.0,
+                    error=error,
+                )
+            )
+            return ImportResult(
+                request_id=request.request_id,
+                status=ImportStatus.FAILED,
+                url=request.url,
+                error=error,
+                import_time=(datetime.now(timezone.utc) - start_time).total_seconds(),
+            )
+
+        except Exception as e:
+            error = str(e)
+            logger.error(f"Import failed: {error}")
+            await self.progress_tracker.send_progress(
+                ImportProgress(
+                    request_id=request.request_id,
+                    status=ImportStatus.FAILED,
+                    message=f"Import failed: {error}",
+                    progress=1.0,
+                    error=error,
+                )
+            )
+            return ImportResult(
+                request_id=request.request_id,
+                status=ImportStatus.FAILED,
+                url=request.url,
+                error=error,
+                import_time=(datetime.now(timezone.utc) - start_time).total_seconds(),
+            )
 
     def _create_agents(self) -> List[Agent]:
         """Create all available agents with shared services."""
@@ -81,102 +201,6 @@ class EventImporter:
             )
 
         return agents
-
-    @handle_errors_async(reraise=True)
-    async def import_event(self, request: ImportRequest) -> ImportResult:
-        """
-        Import an event from a URL.
-
-        Args:
-            request: Import request with URL and options
-
-        Returns:
-            Import result with event data or error
-        """
-        start_time = datetime.utcnow()
-        url = str(request.url)
-
-        # Send initial progress
-        await self.progress_tracker.send_progress(
-            ImportProgress(
-                request_id=request.request_id,
-                status=ImportStatus.RUNNING,
-                message="Starting import",
-                progress=0.0,
-            )
-        )
-
-        try:
-            # Find capable agent
-            agent = await self._determine_agent(url, request.force_method)
-            if not agent:
-                raise UnsupportedURLError(url)
-
-            logger.info(f"Using {agent.name} for {url}")
-
-            # Run import with timeout
-            event_data = await asyncio.wait_for(
-                agent.import_event(url, request.request_id), timeout=request.timeout
-            )
-
-            # Create result
-            if event_data:
-                return ImportResult(
-                    request_id=request.request_id,
-                    status=ImportStatus.SUCCESS,
-                    url=request.url,
-                    method_used=agent.import_method,
-                    event_data=event_data,
-                    import_time=(datetime.utcnow() - start_time).total_seconds(),
-                )
-            else:
-                return ImportResult(
-                    request_id=request.request_id,
-                    status=ImportStatus.FAILED,
-                    url=request.url,
-                    method_used=agent.import_method,
-                    error="No event data extracted",
-                    import_time=(datetime.utcnow() - start_time).total_seconds(),
-                )
-
-        except asyncio.TimeoutError:
-            error = f"Import timed out after {request.timeout}s"
-            await self.progress_tracker.send_progress(
-                ImportProgress(
-                    request_id=request.request_id,
-                    status=ImportStatus.FAILED,
-                    message=error,
-                    progress=1.0,
-                    error=error,
-                )
-            )
-            return ImportResult(
-                request_id=request.request_id,
-                status=ImportStatus.FAILED,
-                url=request.url,
-                error=error,
-                import_time=(datetime.utcnow() - start_time).total_seconds(),
-            )
-
-        except Exception as e:
-            error = str(e)
-            logger.error(f"Import failed: {error}")
-            await self.progress_tracker.send_progress(
-                ImportProgress(
-                    request_id=request.request_id,
-                    status=ImportStatus.FAILED,
-                    message=f"Import failed: {error}",
-                    progress=1.0,
-                    error=error,
-                )
-            )
-            return ImportResult(
-                request_id=request.request_id,
-                status=ImportStatus.FAILED,
-                url=request.url,
-                error=error,
-                import_time=(datetime.utcnow() - start_time).total_seconds(),
-            )
 
     async def _determine_agent(
         self, url: str, force_method: Optional[str] = None

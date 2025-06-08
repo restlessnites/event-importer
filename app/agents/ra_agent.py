@@ -68,6 +68,16 @@ class ResidentAdvisorAgent(Agent):
             # Parse to our format
             event_data = self._parse_event(event_json, url)
 
+            if not event_data.genres and self.services.get("genre"):
+                await self.send_progress(
+                    request_id, ImportStatus.RUNNING, "Searching for genres", 0.8
+                )
+                try:
+                    event_data = await self.services["genre"].enhance_genres(event_data)
+                except Exception as e:
+                    logger.debug(f"Genre search failed: {e}")
+                    # Continue without genres
+
             # Generate descriptions if missing using Claude
             if not event_data.long_description or not event_data.short_description:
                 await self.send_progress(

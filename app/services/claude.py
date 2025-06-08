@@ -193,6 +193,29 @@ class ClaudeService:
             # Return original data if generation fails
             return event_data
 
+    async def analyze_text(self, prompt: str) -> Optional[str]:
+        """
+        Analyze text with Claude and return raw response.
+
+        Used for general analysis tasks like genre extraction.
+        """
+        try:
+            message = await self.client.messages.create(
+                model=self.model,
+                max_tokens=1024,
+                temperature=0.2,
+                messages=[{"role": "user", "content": prompt}],
+            )
+
+            if message.content and len(message.content) > 0:
+                return message.content[0].text
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Claude text analysis failed: {e}")
+            raise
+
     async def _call_with_tool(
         self, prompt: str, tool: Optional[dict] = None, tool_name: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:

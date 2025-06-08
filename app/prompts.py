@@ -27,7 +27,7 @@ EXTRACTION RULES:
    - Title, venue, date, time (start/end), lineup, promoters
    - Location details (address, city, state, country, coordinates)
    - Cost, age restrictions, ticket URLs, image URLs
-   - Genres (multiple preferred over single)
+   - At least one genre is required (multiple preferred over single)
 
 - Look for the venue name in the content:
    - Use the most prominent venu found in the content
@@ -212,3 +212,71 @@ EXTRACTION RULES:
             )
 
         return "\n".join(prompt_parts)
+
+
+class GenrePrompts:
+    """Prompts for genre identification and enhancement."""
+
+    @classmethod
+    def build_artist_verification_prompt(
+        cls, artist_name: str, search_results: str, event_context: dict
+    ) -> str:
+        """Build prompt to verify artist identity and extract genres."""
+
+        context_info = []
+        if event_context.get("venue"):
+            context_info.append(f"Venue: {event_context['venue']}")
+        if event_context.get("date"):
+            context_info.append(f"Date: {event_context['date']}")
+        if event_context.get("title"):
+            context_info.append(f"Event: {event_context['title']}")
+
+        other_artists = event_context.get("lineup", [])
+        if len(other_artists) > 1:
+            others = [a for a in other_artists if a != artist_name]
+            if others:
+                context_info.append(f"Other artists: {', '.join(others[:3])}")
+
+        context_text = (
+            "\n".join(context_info) if context_info else "No additional context"
+        )
+
+        return f"""Analyze these search results to identify if this is the correct artist and extract their music genres.
+
+ARTIST TO VERIFY: "{artist_name}"
+
+EVENT CONTEXT:
+{context_text}
+
+SEARCH RESULTS:
+{search_results}
+
+TASK:
+1. Determine if the search results are about the correct artist (use event context to help)
+2. If correct, extract the artist's PRIMARY music genres (2-4 genres max)
+3. Use standard genre names only (Rock, Electronic, Hip Hop, Jazz, etc.)
+
+VERIFICATION GUIDELINES:
+- Consider if the artist matches the event type/venue
+- Look for biographical details that align with context
+- Be conservative - if unsure, return empty list
+
+GENRE GUIDELINES:
+- Return established genre names, not descriptive phrases
+- Prefer broader categories over micro-genres
+- Examples: "Rock" not "Post-Hardcore Math Rock"
+- Maximum 4 genres to avoid clutter
+
+Return a JSON list of genres: ["Genre1", "Genre2"]
+If not the correct artist or unsure: []"""
+
+    @classmethod
+    def build_quick_genre_prompt(cls, artist_name: str, snippet: str) -> str:
+        """Build a quick prompt for simple genre extraction from a snippet."""
+        return f"""Extract music genres for "{artist_name}" from this text:
+
+{snippet}
+
+Return only a JSON list of 1-3 primary genres: ["Genre1", "Genre2"]
+Use standard genre names (Rock, Electronic, Hip Hop, Jazz, Pop, etc.)
+If no clear genres found: []"""
