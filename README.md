@@ -69,12 +69,21 @@ Claude AI generates missing event descriptions:
 
 ### Setup
 
-1. Clone the repository:
+1. Clone the repository with PAT:
 
-   ```bash
-   git clone https://github.com/restlessnites/event-importer.git
-   cd event-importer
-   ```
+    ```bash
+    git clone https://github.com/restlessnites/event-importer.git
+    cd event-importer
+    ```
+
+    or
+
+    Clone the repository with Github CLI:
+
+    ```bash
+    gh repo clone restlessnites/event-importer
+    cd event-importer
+    ```
 
 2. Install dependencies:
 
