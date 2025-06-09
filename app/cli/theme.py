@@ -28,7 +28,7 @@ class Spacing:
     """Vertical spacing system (in newlines)."""
 
     # Specific contexts - adjust these to taste
-    before_header: int = 2
+    before_header: int = 0
     after_header: int = 1
     before_section: int = 1
     after_section: int = 1
@@ -75,7 +75,7 @@ class Layout:
     """Layout configuration."""
 
     # Table
-    table_box: box.Box = field(default_factory=lambda: box.SIMPLE_HEAD)
+    table_box: box.Box = field(default_factory=lambda: box.ROUNDED)
     table_border_style: str = "bright_black"
 
     # URL display

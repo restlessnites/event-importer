@@ -141,8 +141,9 @@ class DataTable:
 
         table = Table(
             title=title,
-            box=self.theme.table_box,
-            border_style=self.theme.table_border_style,
+            title_justify="left",
+            box=self.theme.layout.table_box,
+            border_style=self.theme.layout.table_border_style,
             padding=(0, 1),
             show_header=True,
             header_style="bold",

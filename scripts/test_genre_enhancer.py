@@ -123,6 +123,7 @@ async def test_genre_service():
         for test_case in test_events:
             cli.console.print()
             cli.info(f"Testing: {test_case['name']}")
+            cli.console.print()
 
             event_info = {
                 "Title": test_case["event"].title,
@@ -166,6 +167,7 @@ async def test_individual_artist():
     }
 
     cli.info(f"Searching for genres for: {artist_name}")
+    cli.console.print()
     cli.table(
         [
             {
