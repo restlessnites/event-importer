@@ -595,4 +595,4 @@ if width > 2000: score -= 25             # Too large for web
 
 ---
 
-**Next:** [Genre Enhancer Documentation](GENRE_ENHANCER.md) | **Back:** [Main README](README.md)
+**Next:** [Genre Enhancer Documentation](GENRE_ENHANCER.md)

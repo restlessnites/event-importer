@@ -354,4 +354,4 @@ Enhanced genres are saved with the event data:
 
 ---
 
-**Next:** [Image Enhancer Documentation](IMAGE_ENHANCER.md) | **Back:** [Main README](README.md)
+**Next:** [Image Enhancer Documentation](IMAGE_ENHANCER.md)
