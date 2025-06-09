@@ -10,8 +10,8 @@ A Model Context Protocol (MCP) server that imports structured event data from va
   - **Image Import**: Extract event details from flyers and posters using vision AI
   
 - **Intelligent Enhancement**:
-  - **[Genre Enhancement](GENRE_ENHANCER.md)**: Automatic genre discovery using Claude AI + Google Search
-  - **[Image Enhancement](IMAGE_ENHANCER.md)**: Find high-quality event images using AI-powered search and rating
+  - **[Genre Enhancement](docs/GENRE_ENHANCER.md)**: Automatic genre discovery using Claude AI + Google Search
+  - **[Image Enhancement](docs/IMAGE_ENHANCER.md)**: Find high-quality event images using AI-powered search and rating
   - AI-powered description generation when missing
   - Structured data validation with Pydantic
   - Real-time progress tracking for long-running imports
