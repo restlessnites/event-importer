@@ -37,7 +37,7 @@ When events lack genre information, the system:
 
 **Example**: `"Cursive at Zebulon"` → Searches Google → Finds Wikipedia/Discogs data → Claude extracts `["indie rock", "alternative rock"]`
 
-[** Read the Genre Enhancer Documentation**](GENRE_ENHANCER.md)
+[Read the Genre Enhancer Documentation](docs/GENRE_ENHANCER.md)
 
 ### **Intelligent Image Enhancement**
 
@@ -50,7 +50,7 @@ For web-scraped events with poor images, the system:
 
 **Example**: Low-quality venue screenshot → Searches `"Artist band photo"` → Finds high-res Spotify image → Rates and selects best candidate
 
-[**Read the Image Enhancer Documentation**](IMAGE_ENHANCER.md)
+[Read the Image Enhancer Documentation](docs/IMAGE_ENHANCER.md)
 
 ### **AI-Powered Content Generation**
 
