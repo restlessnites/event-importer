@@ -140,11 +140,11 @@ class EventCardFormatter:
             # Current image
             if images:
                 if images.get("full"):
-                    full_url = format_url_for_display(images["full"], "compact")
+                    full_url = format_url_for_display(images["full"], "full")
                     self.console.print(f"{self.theme.icons.bullet} Full: {full_url}")
                 
                 if images.get("thumbnail") and images["thumbnail"] != images.get("full"):
-                    thumb_url = format_url_for_display(images["thumbnail"], "compact")
+                    thumb_url = format_url_for_display(images["thumbnail"], "full")
                     self.console.print(f"{self.theme.icons.bullet} Thumbnail: {thumb_url}")
             
             # Image search info (if available)

@@ -102,6 +102,22 @@ class ClaudeService:
         self.model = "claude-3-5-sonnet-20241022"
         self.max_tokens = 4096
 
+    def _clean_response_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Clean Claude response data to ensure Pydantic validation compatibility."""
+        if not data:
+            return data
+        
+        # Handle images field - remove None values from the dict
+        if "images" in data and data["images"]:
+            images = data["images"]
+            if isinstance(images, dict):
+                # Remove any None values from the images dict
+                cleaned_images = {k: v for k, v in images.items() if v is not None}
+                # If no valid images remain, set to None
+                data["images"] = cleaned_images if cleaned_images else None
+        
+        return data
+
     async def extract_from_html(
         self, html: str, url: str, max_length: int = 50000
     ) -> Optional[EventData]:
@@ -123,7 +139,9 @@ class ClaudeService:
             result = await self._call_with_tool(prompt)
             if result:
                 result["source_url"] = url
-                return EventData(**result)
+                # Clean the response data before validation
+                cleaned_result = self._clean_response_data(result)
+                return EventData(**cleaned_result)
         except Exception as e:
             logger.error(f"Failed to extract from HTML: {e}")
             raise APIError("Claude", str(e))
@@ -149,7 +167,9 @@ class ClaudeService:
                 result["source_url"] = url
                 # Set the image URL since we know it's an image
                 result["images"] = {"full": url, "thumbnail": url}
-                return EventData(**result)
+                # Clean the response data before validation
+                cleaned_result = self._clean_response_data(result)
+                return EventData(**cleaned_result)
         except Exception as e:
             logger.error(f"Failed to extract from image: {e}")
             raise APIError("Claude", str(e))
