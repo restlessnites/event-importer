@@ -1,14 +1,13 @@
-"""CLI interface for event importer."""
+"""CLI interface"""
 
 import asyncio
 import sys
-from typing import Optional
 
 from app.interfaces.cli.core import CLI
 from app.interfaces.cli.theme import Theme
 from app.config import get_config
 from app.core.router import Router
-from app.schemas import ImportRequest
+from app.shared.http import close_http_service 
 
 # Global instance
 _cli: CLI | None = None
@@ -58,16 +57,36 @@ async def main(args):
             cli.event_card(result["data"])
         else:
             cli.error(f"Import failed: {result.get('error', 'Unknown error')}")
-            sys.exit(1)
+            return False  # Don't exit here, let cleanup happen
+            
+        return True
             
     except Exception as e:
         cli.error(f"CLI error: {e}")
-        sys.exit(1)
+        return False
+    finally:
+        # ALWAYS clean up HTTP connections
+        try:
+            with cli.spinner("Cleaning up connections..."):
+                await close_http_service()
+        except Exception as e:
+            cli.warning(f"Cleanup warning: {e}")
 
 
 def run_cli(args):
     """Run the CLI with the given args."""
-    asyncio.run(main(args))
+    try:
+        success = asyncio.run(main(args))
+        if not success:
+            sys.exit(1)
+    except KeyboardInterrupt:
+        cli = get_cli()
+        cli.warning("\nInterrupted by user")
+        sys.exit(1)
+    except Exception as e:
+        cli = get_cli() 
+        cli.error(f"Fatal error: {e}")
+        sys.exit(1)
 
 
 __all__ = ["get_cli", "CLI", "Theme", "main", "run_cli"]

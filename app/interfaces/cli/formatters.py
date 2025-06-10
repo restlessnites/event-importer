@@ -17,7 +17,7 @@ from app.interfaces.cli.components import Message, Spacer
 
 
 class EventCardFormatter:
-    """Format event data for display."""
+    """Format event data for display with enhanced image and link support."""
 
     def __init__(self, console: Console, theme: Theme):
         self.console = console
@@ -43,8 +43,14 @@ class EventCardFormatter:
         # Descriptions
         self._render_descriptions(event_data)
 
+        # Images (NEW)
+        self._render_images(event_data)
+
         # Additional info
         self._render_additional_info(event_data)
+
+        # Links section (enhanced)
+        self._render_links(event_data)
 
     def _render_details(self, event_data: Dict[str, Any]) -> None:
         """Render key event details."""
@@ -67,7 +73,11 @@ class EventCardFormatter:
 
         # Cost & Age
         if event_data.get("cost"):
-            details.append(("Cost", event_data["cost"]))
+            cost = event_data["cost"]
+            # Handle the case where cost is "0" or 0
+            if str(cost) == "0":
+                cost = "Free"
+            details.append(("Cost", cost))
         if event_data.get("minimum_age"):
             details.append(("Age", event_data["minimum_age"]))
 
@@ -104,12 +114,49 @@ class EventCardFormatter:
 
         if event_data.get("long_description"):
             desc = event_data["long_description"]
+            # Clean up HTML entities
+            import html
+            desc = html.unescape(desc)
+            
             self.console.print(
                 f"[{self.theme.typography.label_style}]DESCRIPTION[/]",
                 style=self.theme.typography.muted_style,
             )
             # Wrap long descriptions
             self.console.print(desc, width=self.theme.width - 4)
+            self.console.print()
+
+    def _render_images(self, event_data: Dict[str, Any]) -> None:
+        """Render image information (NEW)."""
+        images = event_data.get("images")
+        image_search = event_data.get("image_search")
+        
+        if images or image_search:
+            self.console.print(
+                f"[{self.theme.typography.label_style}]IMAGES[/]",
+                style=self.theme.typography.muted_style,
+            )
+            
+            # Current image
+            if images:
+                if images.get("full"):
+                    full_url = format_url_for_display(images["full"], "compact")
+                    self.console.print(f"{self.theme.icons.bullet} Full: {full_url}")
+                
+                if images.get("thumbnail") and images["thumbnail"] != images.get("full"):
+                    thumb_url = format_url_for_display(images["thumbnail"], "compact")
+                    self.console.print(f"{self.theme.icons.bullet} Thumbnail: {thumb_url}")
+            
+            # Image search info (if available)
+            if image_search:
+                selected = image_search.get("selected")
+                if selected:
+                    score = selected.get("score", 0)
+                    source = selected.get("source", "unknown")
+                    self.console.print(
+                        f"{self.theme.icons.bullet} Quality Score: {score} (from {source})"
+                    )
+            
             self.console.print()
 
     def _render_additional_info(self, event_data: Dict[str, Any]) -> None:
@@ -138,20 +185,34 @@ class EventCardFormatter:
                     f"[{self.theme.typography.label_style}]Location:[/] {location}"
                 )
 
-        # URLs - now unified!
+    def _render_links(self, event_data: Dict[str, Any]) -> None:
+        """Render links section (enhanced)."""
+        links = []
+        
+        # Ticket URL
         if event_data.get("ticket_url"):
             url = str(event_data["ticket_url"])
             display_url = format_url_for_display(url, self.theme.layout.url_style)
-            self.console.print(
-                f"[{self.theme.typography.label_style}]Tickets:[/] {display_url}"
-            )
+            links.append(("Tickets", display_url))
 
+        # Source URL
         if event_data.get("source_url"):
             url = str(event_data["source_url"])
             display_url = format_url_for_display(url, self.theme.layout.url_style)
+            links.append(("Source", display_url))
+        
+        # Render links section if we have any
+        if links:
+            self.console.print()
             self.console.print(
-                f"[{self.theme.typography.label_style}]Source:[/] {display_url}"
+                f"[{self.theme.typography.label_style}]LINKS[/]",
+                style=self.theme.typography.muted_style,
             )
+            
+            for label, url in links:
+                self.console.print(
+                    f"{self.theme.icons.bullet} {label}: {url}"
+                )
 
 
 class ImportResultFormatter:
