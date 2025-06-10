@@ -1,3 +1,4 @@
+
 from datetime import datetime
 from typing import Any, Dict, Optional
 from sqlalchemy import Column, Integer, String, DateTime, JSON, Text, ForeignKey, Index
@@ -11,7 +12,7 @@ Base = declarative_base()
 class EventCache(Base):
     """Cache scraped event data with change detection"""
     
-    __tablename__ = "events_cache"
+    __tablename__ = "events" 
     
     id: Mapped[int] = Column(Integer, primary_key=True)
     source_url: Mapped[str] = Column(String(2048), unique=True, nullable=False)
@@ -45,7 +46,7 @@ class Submission(Base):
     
     id: Mapped[int] = Column(Integer, primary_key=True)
     event_cache_id: Mapped[int] = Column(
-        Integer, ForeignKey("events_cache.id"), nullable=False
+        Integer, ForeignKey("events.id"), nullable=False 
     )
     service_name: Mapped[str] = Column(String(100), nullable=False)
     status: Mapped[str] = Column(
@@ -70,4 +71,4 @@ class Submission(Base):
     )
     
     def __repr__(self):
-        return f"<Submission(id={self.id}, service='{self.service_name}', status='{self.status}')>" 
+        return f"<Submission(id={self.id}, service='{self.service_name}', status='{self.status}')>"

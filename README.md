@@ -186,8 +186,20 @@ Add to your Claude Desktop configuration:
 {
   "mcpServers": {
     "event-importer": {
-      "command": "event-importer-mcp",
-      "cwd": "/path/to/event-importer"
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/full/path/to/event-importer",
+        "run",
+        "event-importer-mcp"
+      ],
+      "env": {
+        "ANTHROPIC_API_KEY": "KEY",
+        "ZYTE_API_KEY": "KEY",
+        "TICKETMASTER_API_KEY": "KEY",
+        "GOOGLE_API_KEY": "KEY",
+        "GOOGLE_CSE_ID": "ID"
+      }
     }
   }
 }
@@ -234,11 +246,11 @@ curl http://localhost:8000/api/v1/statistics/detailed
     "events_today": 15,
     "events_this_week": 89,
     "events_with_submissions": 432,
-    "events_without_submissions": 818,
+    "unsubmitted_events": 818,
     "last_updated": "2024-01-15T10:30:00"
   },
   "submissions": {
-    "total_submissions": 432,
+    "total_submitted_events": 432,
     "by_status": {
       "success": 389,
       "failed": 43

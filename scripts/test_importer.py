@@ -7,8 +7,8 @@ from datetime import datetime
 
 from app import EventImporter
 from app.schemas import ImportRequest
-from app.http import close_http_service
-from app.cli import get_cli
+from app.shared.http import close_http_service
+from app.interfaces.cli import get_cli
 
 
 async def test_import(url: str, cli, show_raw: bool = False):

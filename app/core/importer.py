@@ -1,3 +1,4 @@
+
 import asyncio
 import logging
 from datetime import datetime, timezone
@@ -9,6 +10,7 @@ from app.schemas import (
     ImportResult,
     ImportStatus,
     ImportProgress,
+    EventData,
 )
 from app.shared.agent import Agent
 from app.agents import (
@@ -24,6 +26,8 @@ from app.services.claude import ClaudeService
 from app.services.image import ImageService
 from app.services.zyte import ZyteService
 from app.services.genre import GenreService
+# Add database imports
+from app.shared.database import cache_event, get_cached_event
 
 
 logger = logging.getLogger(__name__)
@@ -81,6 +85,44 @@ class EventImporter:
         )
 
         try:
+            # Check if event is already cached
+            await self.progress_tracker.send_progress(
+                ImportProgress(
+                    request_id=request.request_id,
+                    status=ImportStatus.RUNNING,
+                    message="Checking cache",
+                    progress=0.1,
+                )
+            )
+            
+            cached_event = get_cached_event(url)
+            if cached_event:
+                logger.info(f"Using cached event data for {url}")
+                
+                # Convert cached data to EventData
+                event_data = EventData(**cached_event.scraped_data)
+                
+                await self.progress_tracker.send_progress(
+                    ImportProgress(
+                        request_id=request.request_id,
+                        status=ImportStatus.SUCCESS,
+                        message="Retrieved from cache",
+                        progress=1.0,
+                        data=event_data,
+                    )
+                )
+                
+                return ImportResult(
+                    request_id=request.request_id,
+                    status=ImportStatus.SUCCESS,
+                    url=request.url,
+                    method_used="cache",  # Indicate it came from cache
+                    event_data=event_data,
+                    import_time=(
+                        datetime.now(timezone.utc) - start_time
+                    ).total_seconds(),
+                )
+
             # Find capable agent
             agent = await self._determine_agent(url, request.force_method)
             if not agent:
@@ -113,6 +155,23 @@ class EventImporter:
 
             # Create result
             if event_data:
+                # Save to cache after successful extraction
+                try:
+                    await self.progress_tracker.send_progress(
+                        ImportProgress(
+                            request_id=request.request_id,
+                            status=ImportStatus.RUNNING,
+                            message="Saving to cache",
+                            progress=0.98,
+                        )
+                    )
+                    
+                    cache_event(url, event_data.model_dump(mode="json"))
+                    logger.info(f"Cached event data for {url}")
+                except Exception as e:
+                    logger.warning(f"Failed to cache event data: {e}")
+                    # Don't fail the import if caching fails
+                
                 return ImportResult(
                     request_id=request.request_id,
                     status=ImportStatus.SUCCESS,
@@ -192,7 +251,7 @@ class EventImporter:
             ]
         )
 
-        # Conditionally available
+        # Conditionally available - check if API key is configured
         if self.config.api.ticketmaster_key:
             agents.append(
                 TicketmasterAgent(
@@ -206,53 +265,37 @@ class EventImporter:
         self, url: str, force_method: Optional[str] = None
     ) -> Optional[Agent]:
         """Determine which agent should handle the URL."""
-        # If method is forced, try to find matching agent
         if force_method:
+            # Find agent by method
+            method_mapping = {
+                "api": ["TicketmasterAgent", "ResidentAdvisorAgent"],
+                "web": ["WebAgent"],
+                "image": ["ImageAgent"],
+            }
+            
+            target_agents = method_mapping.get(force_method, [])
             for agent in self.agents:
-                if agent.import_method == force_method:
+                if agent.name in target_agents and agent.can_handle(url):
                     return agent
+            
+            # If forced method doesn't work, log warning and continue
+            logger.warning(f"Forced method '{force_method}' not available for {url}")
 
-        # Check for known API sources first
+        # Find first capable agent
         for agent in self.agents:
-            if isinstance(agent, (ResidentAdvisorAgent, TicketmasterAgent)):
-                if agent.can_handle(url):
-                    return agent
-
-        # For unknown URLs, fetch and check what it is
-        try:
-            # Try HEAD request first (faster)
-            response = await self.http.head(url, timeout=10)
-            content_type = response.headers.get("content-type", "").lower()
-
-            # If HEAD doesn't give us content-type, try GET with small range
-            if not content_type:
-                response = await self.http.get(
-                    url, headers={"Range": "bytes=0-1024"}, timeout=10
-                )
-                content_type = response.headers.get("content-type", "").lower()
-
-        except Exception as e:
-            logger.debug(f"Could not determine content type for {url}: {e}")
-            # Default to web agent if we can't determine
-            content_type = "text/html"
-
-        # Route based on content type
-        if content_type.startswith("image/"):
-            for agent in self.agents:
-                if isinstance(agent, ImageAgent):
-                    return agent
-
-        # Default to web agent for HTML or unknown
-        for agent in self.agents:
-            if isinstance(agent, WebAgent):
+            if agent.can_handle(url):
                 return agent
 
         return None
 
-    def add_progress_listener(self, request_id: str, callback) -> None:
-        """Add a progress listener for a request."""
+    def add_progress_listener(self, request_id: str, callback):
+        """Add a progress listener for a specific request."""
         self.progress_tracker.add_listener(request_id, callback)
 
-    def get_progress_history(self, request_id: str) -> List[ImportProgress]:
-        """Get progress history for a request."""
+    def remove_progress_listener(self, request_id: str):
+        """Remove progress listener for a request."""
+        self.progress_tracker.remove_listener(request_id)
+
+    def get_progress_history(self, request_id: str):
+        """Get the progress history for a request."""
         return self.progress_tracker.get_history(request_id)

@@ -10,7 +10,6 @@ This script shows how to:
 
 import asyncio
 import aiohttp
-import json
 from contextlib import asynccontextmanager
 
 # Example URLs to test with

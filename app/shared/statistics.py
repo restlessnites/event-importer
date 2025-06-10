@@ -39,25 +39,25 @@ class StatisticsService:
             
             # Events by status (based on whether they have any submissions)
             events_with_submissions = db.query(EventCache).join(Submission).distinct().count()
-            events_without_submissions = total_events - events_with_submissions
+            unsubmitted_events = total_events - events_with_submissions
             
             return {
                 "total_events": total_events,
                 "events_today": events_today,
                 "events_this_week": events_this_week,
                 "events_with_submissions": events_with_submissions,
-                "events_without_submissions": events_without_submissions,
+                "unsubmitted_events": unsubmitted_events,
                 "last_updated": datetime.now().isoformat()
             }
     
     def get_submission_statistics(self) -> Dict[str, Any]:
         """Get submission statistics (integration-related data)"""
         with self._get_session() as db:
-            total_submissions = db.query(Submission).count()
+            total_submitted_events = db.query(Submission).count()
             
-            if total_submissions == 0:
+            if total_submitted_events == 0:
                 return {
-                    "total_submissions": 0,
+                    "total_submitted_events": 0,
                     "by_status": {},
                     "by_service": {},
                     "success_rate": 0.0,
@@ -82,10 +82,10 @@ class StatisticsService:
             
             # Success rate
             successful = by_status.get('success', 0)
-            success_rate = (successful / total_submissions) * 100 if total_submissions > 0 else 0.0
+            success_rate = (successful / total_submitted_events) * 100 if total_submitted_events > 0 else 0.0
             
             return {
-                "total_submissions": total_submissions,
+                "total_submitted_events": total_submitted_events,
                 "by_status": by_status,
                 "by_service": by_service,
                 "success_rate": round(success_rate, 2),

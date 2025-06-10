@@ -8,8 +8,8 @@ from dotenv import load_dotenv
 from app.config import get_config
 from app.schemas import EventData
 from app.services.image import ImageService
-from app.http import get_http_service, close_http_service
-from app.cli import get_cli
+from app.shared.http import get_http_service, close_http_service
+from app.interfaces.cli import get_cli
 
 # Load environment variables
 load_dotenv()

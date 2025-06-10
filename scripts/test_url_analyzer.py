@@ -1,8 +1,8 @@
 #!/usr/bin/env -S uv run python
 """Test the URL analyzer with various URLs using CLI."""
 
-from app.url_analyzer import URLAnalyzer
-from app.cli import get_cli
+from app.shared.url_analyzer import URLAnalyzer
+from app.interfaces.cli import get_cli
 
 
 def test_url_analyzer():

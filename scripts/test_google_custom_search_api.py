@@ -2,12 +2,10 @@
 """Simple test to verify Google Custom Search API is working with CLI."""
 
 import asyncio
-import os
-from urllib.parse import urlencode
 from dotenv import load_dotenv
 
-from app.http import get_http_service, close_http_service
-from app.cli import get_cli
+from app.shared.http import get_http_service, close_http_service
+from app.interfaces.cli import get_cli
 
 # Load environment variables
 load_dotenv()

@@ -172,7 +172,7 @@ def show_stats(args) -> None:
         {"Metric": "Total Events", "Count": event_stats["total_events"]},
         {"Metric": "Events Today", "Count": event_stats["events_today"]},
         {"Metric": "Events This Week", "Count": event_stats["events_this_week"]},
-        {"Metric": "Events Without Submissions", "Count": event_stats["events_without_submissions"]},
+        {"Metric": "Unsubmitted Events", "Count": event_stats["unsubmitted_events"]},
     ]
     
     cli.section("Event Statistics")
@@ -180,12 +180,12 @@ def show_stats(args) -> None:
     
     # Submission statistics (only if there are any submissions)
     submission_stats = combined_stats["submissions"]
-    if submission_stats["total_submissions"] > 0:
+    if submission_stats["total_submitted_events"] > 0:
         cli.section("Integration Statistics")
         
         # Basic submission stats
         submission_data = [
-            {"Metric": "Total Submissions", "Count": submission_stats["total_submissions"]},
+            {"Metric": "Total Submitted Events", "Count": submission_stats["total_submitted_events"]},
             {"Metric": "Success Rate", "Count": f"{submission_stats['success_rate']}%"},
         ]
         

@@ -9,9 +9,9 @@ from app.config import get_config
 from app.schemas import EventData
 from app.services.genre import GenreService
 from app.services.claude import ClaudeService
-from app.http import get_http_service, close_http_service
+from app.shared.http import get_http_service, close_http_service
 from app.data.genres import MusicGenres
-from app.cli import get_cli
+from app.interfaces.cli import get_cli
 
 # Load environment variables
 load_dotenv()

@@ -4,7 +4,7 @@
 import asyncio
 import logging
 
-from app.cli import get_cli
+from app.interfaces.cli import get_cli
 
 
 async def test_error_capture():

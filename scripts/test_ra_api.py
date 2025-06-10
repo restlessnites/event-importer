@@ -4,8 +4,8 @@
 import asyncio
 from typing import Dict, Any
 
-from app.http import get_http_service, close_http_service
-from app.cli import get_cli
+from app.shared.http import get_http_service, close_http_service
+from app.interfaces.cli import get_cli
 
 
 class RAGraphQLTester:
