@@ -2,6 +2,8 @@
 
 import asyncio
 import logging
+import ssl
+import certifi
 from typing import Optional, Dict, Any
 from contextlib import asynccontextmanager
 
@@ -30,9 +32,11 @@ class HTTPService:
             async with self._lock:
                 if self._session is None or self._session.closed:
                     timeout = ClientTimeout(total=self.config.http.timeout)
+                    ssl_context = ssl.create_default_context(cafile=certifi.where())
                     connector = aiohttp.TCPConnector(
                         limit=self.config.http.max_connections,
                         limit_per_host=self.config.http.max_keepalive_connections,
+                        ssl=ssl_context,
                     )
                     self._session = ClientSession(
                         timeout=timeout,
