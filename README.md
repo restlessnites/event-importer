@@ -13,25 +13,54 @@ A tool that extracts structured event data from websites, images, and APIs. Use 
 
 ### Installation
 
-1. **Install uv** (if you don't have it):
+1. **Install Homebrew** (if you don't have it):
 
    ```bash
    # macOS/Linux
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   ```
+
+2. **Install uv** (if you don't have it):
+
+   ```bash
+   # macOS
+   brew install uv
+   
+   # Linux
    curl -LsSf https://astral.sh/uv/install.sh | sh
    
    # Windows  
    powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
    ```
 
-2. **Clone and setup**:
+3. **Install GitHub CLI** (if you don't have it and want to use it):
 
    ```bash
+   # macOS
+   brew install gh
+
+   # Ubuntu/Debian
+   sudo apt install gh
+
+   # Windows
+   winget install GitHub.cli
+   ```
+
+4. **Clone and setup**:
+
+   ```bash
+   # Using GitHub CLI
+   gh repo clone restlessnites/event-importer
+   cd event-importer
+   uv sync
+
+   # Using git
    git clone https://github.com/restlessnites/event-importer.git
    cd event-importer
    uv sync
    ```
 
-3. **Configure API keys**:
+5. **Configure API keys**:
 
    ```bash
    cp .env.example .env
