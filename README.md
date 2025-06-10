@@ -138,7 +138,7 @@ uv run event-importer api --host 0.0.0.0 --port 8000 --reload
 - **POST** `/api/v1/events/import` - Import an event
 - **GET** `/api/v1/events/import/{id}/progress` - Check import progress  
 
-#### Statistics & Analytics
+#### Statistics
 
 - **GET** `/api/v1/statistics/events` - Get event statistics (counts, recent activity)
 - **GET** `/api/v1/statistics/submissions` - Get submission/integration statistics
