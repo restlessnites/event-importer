@@ -1,6 +1,5 @@
 """Main application entry point and factory."""
 
-import sys
 import argparse
 from app import __version__
 
@@ -17,13 +16,28 @@ def main():
         version=f"event-importer {__version__}"
     )
     
-    subparsers = parser.add_subparsers(dest="interface", help="Interface to use")
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
     
-    # CLI interface
-    cli_parser = subparsers.add_parser("cli", help="Run CLI interface")
-    cli_parser.add_argument("url", nargs="?", help="URL to import")
-    cli_parser.add_argument("--method", choices=["api", "web", "image"], help="Force import method")
-    cli_parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds")
+    # Import command (replaces old "cli" interface)
+    import_parser = subparsers.add_parser("import", help="Import an event from URL")
+    import_parser.add_argument("url", help="URL to import")
+    import_parser.add_argument("--method", choices=["api", "web", "image"], help="Force import method")
+    import_parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds")
+    
+    # List command
+    list_parser = subparsers.add_parser("list", help="List imported events")
+    list_parser.add_argument("--limit", "-l", type=int, help="Limit number of results")
+    list_parser.add_argument("--search", "-s", help="Search in URL or event data")
+    list_parser.add_argument("--details", "-d", action="store_true", help="Show detailed view")
+    list_parser.add_argument("--sort", choices=["date", "url"], default="date", help="Sort by field")
+    list_parser.add_argument("--order", choices=["asc", "desc"], default="desc", help="Sort order")
+    
+    # Show command
+    show_parser = subparsers.add_parser("show", help="Show specific event details")
+    show_parser.add_argument("event_id", type=int, help="Event ID to show")
+    
+    # Stats command
+    stats_parser = subparsers.add_parser("stats", help="Show database statistics")
     
     # MCP interface  
     mcp_parser = subparsers.add_parser("mcp", help="Run MCP server")
@@ -36,18 +50,21 @@ def main():
     
     args = parser.parse_args()
     
-    if not args.interface:
+    if not args.command:
         # Default behavior - show help
         parser.print_help()
         return
     
-    if args.interface == "cli":
+    if args.command == "import":
         from app.interfaces.cli import run_cli
         run_cli(args)
-    elif args.interface == "mcp":
+    elif args.command in ["list", "show", "stats"]:
+        from app.interfaces.cli.events import run_events_cli
+        run_events_cli(args)
+    elif args.command == "mcp":
         from app.interfaces.mcp.server import run as mcp_run
         mcp_run()
-    elif args.interface == "api":
+    elif args.command == "api":
         from app.interfaces.api.server import run as api_run
         api_run(host=args.host, port=args.port, reload=args.reload)
 

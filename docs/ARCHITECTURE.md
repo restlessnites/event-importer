@@ -39,6 +39,7 @@ app/
 │   ├── cli/                    # CLI interface
 │   │   ├── __init__.py
 │   │   ├── core.py             # CLI core functionality
+│   │   ├── events.py           # Event management commands  
 │   │   ├── components.py       # UI components
 │   │   ├── formatters.py       # Data formatters
 │   │   ├── theme.py            # Visual theme
@@ -55,6 +56,7 @@ app/
 │       ├── routes/             # API route definitions  
 │       │   ├── __init__.py
 │       │   ├── events.py       # Event import endpoints
+│       │   ├── statistics.py   # Statistics and analytics endpoints
 │       │   └── health.py       # Health check endpoints
 │       ├── middleware/         # API middleware
 │       │   ├── __init__.py
@@ -69,7 +71,12 @@ app/
 │   ├── __init__.py
 │   ├── http.py                 # HTTP utilities
 │   ├── url_analyzer.py         # URL analysis
-│   └── agent.py                # Agent base class
+│   ├── agent.py                # Agent base class
+│   ├── statistics.py           # Statistics and analytics service
+│   └── database/               # Database connection and models
+│       ├── __init__.py
+│       ├── connection.py       # Database connection management
+│       └── models.py           # SQLAlchemy models
 │
 ├── agents/                     # Import agents for different sources
 │   ├── __init__.py
@@ -124,9 +131,23 @@ uv run event-importer-api --port 8000
 
 API endpoints:
 
+**Event Management:**
+
 - `POST /api/v1/events/import` - Import an event
 - `GET /api/v1/events/import/{request_id}/progress` - Get import progress
+
+**Statistics & Analytics:**
+
+- `GET /api/v1/statistics/events` - Get event statistics
+- `GET /api/v1/statistics/submissions` - Get submission statistics
+- `GET /api/v1/statistics/combined` - Get combined statistics
+- `GET /api/v1/statistics/trends?days=N` - Get event trends over time
+- `GET /api/v1/statistics/detailed` - Get comprehensive statistics with trends
+
+**System:**
+
 - `GET /api/v1/health` - Health check
+- `GET /api/v1/statistics/health` - Statistics service health check
 
 ### MCP Server Interface
 
@@ -187,5 +208,108 @@ Interfaces → Core → Services
 1. Create service class in `app/services/`
 2. Inject service into core business logic
 3. Service is available to all interfaces
+
+## Statistics & Analytics System
+
+### Overview
+
+The Event Importer includes a comprehensive statistics and analytics system that provides insights into:
+
+- **Event Statistics**: Import activity, event counts, recent activity
+- **Submission Statistics**: Integration success rates, service breakdowns
+- **Historical Trends**: Daily import patterns and activity over time
+
+### Architecture Components
+
+#### StatisticsService (`app/shared/statistics.py`)
+
+Core service providing various statistical calculations:
+
+```python  
+class StatisticsService:
+    def get_event_statistics() -> Dict[str, Any]
+    def get_submission_statistics() -> Dict[str, Any] 
+    def get_combined_statistics() -> Dict[str, Any]
+    def get_event_trends(days: int) -> Dict[str, Any]
+    def get_detailed_statistics() -> Dict[str, Any]
+```
+
+**Event Statistics:**
+
+- Total event count
+- Recent activity (today, this week)
+- Events with/without submissions
+- Timestamp tracking
+
+**Submission Statistics:**
+
+- Success rates by service and status
+- Integration performance metrics
+- Service-specific breakdowns
+
+**Trend Analysis:**
+
+- Daily activity patterns
+- Historical import volume
+- Configurable time periods (1-365 days)
+
+#### CLI Interface (`app/interfaces/cli/events.py`)
+
+```bash
+# Show comprehensive database statistics
+uv run event-importer stats
+```
+
+Displays formatted statistics tables with:
+
+- Event counts and recent activity
+- Integration success rates (when available)
+- Service breakdowns and performance metrics
+
+#### HTTP API Interface (`app/interfaces/api/routes/statistics.py`)
+
+RESTful endpoints for programmatic access:
+
+- `GET /api/v1/statistics/events` - Core event statistics
+- `GET /api/v1/statistics/submissions` - Integration performance
+- `GET /api/v1/statistics/combined` - All statistics together
+- `GET /api/v1/statistics/trends?days=N` - Historical trends
+- `GET /api/v1/statistics/detailed` - Comprehensive analytics
+- `GET /api/v1/statistics/health` - Service health check
+
+#### Database Integration
+
+Statistics are calculated from:
+
+- **EventCache table**: Stores imported event data with timestamps
+- **Submission table**: Tracks integration attempts and results
+
+The service uses SQLAlchemy queries with aggregation functions for efficient statistical calculations.
+
+### Usage Patterns
+
+#### Development & Debugging
+
+```bash
+uv run event-importer stats  # Quick overview
+```
+
+#### Monitoring & Operations
+
+```bash
+curl http://localhost:8000/api/v1/statistics/detailed
+```
+
+#### Integration Monitoring
+
+```bash
+curl http://localhost:8000/api/v1/statistics/submissions
+```
+
+#### Trend Analysis
+
+```bash
+curl http://localhost:8000/api/v1/statistics/trends?days=30
+```
 
 This architecture ensures that the Event Importer remains maintainable, testable, and scalable while supporting multiple interaction methods.

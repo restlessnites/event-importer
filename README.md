@@ -8,6 +8,7 @@ A tool that extracts structured event data from websites, images, and APIs. Use 
 - **AI-powered enhancement**: Automatically finds genres, improves images, and generates descriptions
 - **Multiple interfaces**: CLI for developers, HTTP API for web apps, MCP for AI assistants
 - **Smart extraction**: Handles APIs, web scraping, and image text extraction
+- **Analytics & insights**: Comprehensive statistics about imports, success rates, and trends
 
 ## Quick Start
 
@@ -83,15 +84,39 @@ Optional keys for more features:
 
 Perfect for testing and local development:
 
+### Import Events
+
 ```bash
 # Basic usage
-uv run event-importer cli "https://ra.co/events/1234567"
+uv run event-importer import "https://ra.co/events/1234567"
 
 # Force a specific method
-uv run event-importer cli "https://example.com/event" --method web
+uv run event-importer import "https://example.com/event" --method web
 
 # Adjust timeout
-uv run event-importer cli "https://example.com/event" --timeout 120
+uv run event-importer import "https://example.com/event" --timeout 120
+```
+
+### View Imported Events & Statistics
+
+```bash
+# Show database statistics and analytics
+uv run event-importer stats
+
+# List all events
+uv run event-importer list
+
+# List recent events with limit
+uv run event-importer list --limit 10
+
+# Search for specific events
+uv run event-importer list --search "artist name"
+
+# Show detailed view
+uv run event-importer list --details
+
+# Show specific event by ID
+uv run event-importer show 123
 ```
 
 ## HTTP API Server
@@ -108,9 +133,23 @@ uv run event-importer api --host 0.0.0.0 --port 8000 --reload
 
 ### API Endpoints
 
+#### Event Management
+
 - **POST** `/api/v1/events/import` - Import an event
 - **GET** `/api/v1/events/import/{id}/progress` - Check import progress  
+
+#### Statistics & Analytics
+
+- **GET** `/api/v1/statistics/events` - Get event statistics (counts, recent activity)
+- **GET** `/api/v1/statistics/submissions` - Get submission/integration statistics
+- **GET** `/api/v1/statistics/combined` - Get all statistics combined
+- **GET** `/api/v1/statistics/trends?days=7` - Get event trends over time
+- **GET** `/api/v1/statistics/detailed` - Get comprehensive statistics with trends
+
+#### System
+
 - **GET** `/api/v1/health` - Health check
+- **GET** `/api/v1/statistics/health` - Statistics service health check
 
 ### Example API Usage
 
@@ -119,6 +158,10 @@ uv run event-importer api --host 0.0.0.0 --port 8000 --reload
 curl -X POST http://localhost:8000/api/v1/events/import \
   -H "Content-Type: application/json" \
   -d '{"url": "https://ra.co/events/1234567"}'
+
+# Get statistics
+curl http://localhost:8000/api/v1/statistics/combined
+curl http://localhost:8000/api/v1/statistics/trends?days=30
 
 # Check health
 curl http://localhost:8000/api/v1/health
@@ -151,6 +194,67 @@ Add to your Claude Desktop configuration:
 ```
 
 Then use the `import_event` tool in Claude conversations.
+
+## Statistics & Analytics
+
+The Event Importer provides comprehensive statistics and analytics about your imported events and submission history:
+
+### Via Command Line
+
+```bash
+# Show comprehensive database statistics
+uv run event-importer stats
+```
+
+This displays:
+
+- **Event Statistics**: Total events, recent activity (today/this week), events with/without submissions
+- **Integration Statistics**: Submission success rates, breakdowns by service and status
+- **Historical Data**: When data is available from integrations
+
+### Via HTTP API
+
+```bash
+# Get combined statistics
+curl http://localhost:8000/api/v1/statistics/combined
+
+# Get event trends over time
+curl http://localhost:8000/api/v1/statistics/trends?days=30
+
+# Get detailed statistics with trends
+curl http://localhost:8000/api/v1/statistics/detailed
+```
+
+### Statistics Data Structure
+
+```json
+{
+  "events": {
+    "total_events": 1250,
+    "events_today": 15,
+    "events_this_week": 89,
+    "events_with_submissions": 432,
+    "events_without_submissions": 818,
+    "last_updated": "2024-01-15T10:30:00"
+  },
+  "submissions": {
+    "total_submissions": 432,
+    "by_status": {
+      "success": 389,
+      "failed": 43
+    },
+    "by_service": {
+      "restless_api": 432
+    },
+    "success_rate": 90.05
+  },
+  "trends": {
+    "daily_counts": [...],
+    "total_in_period": 89,
+    "average_per_day": 12.7
+  }
+}
+```
 
 ## What You Get
 

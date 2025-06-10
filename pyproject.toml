@@ -22,6 +22,9 @@ dependencies = [
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.24.0",
     "python-multipart>=0.0.6",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.12.0",
+    "httpx>=0.25.0",
 ]
 
 [project.scripts]
@@ -29,6 +32,10 @@ event-importer = "app.main:main"
 event-importer-cli = "app.interfaces.cli:run_cli"
 event-importer-mcp = "app.interfaces.mcp.server:run"
 event-importer-api = "app.interfaces.api.server:run"
+ticketfairy-submit = "app.integrations.ticketfairy.cli:main"
+
+[project.entry-points."app.integrations"]
+ticketfairy = "app.integrations.ticketfairy"
 
 [build-system]
 requires = ["hatchling"]

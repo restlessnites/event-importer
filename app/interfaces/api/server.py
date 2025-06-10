@@ -10,9 +10,10 @@ import uvicorn
 from app import __version__
 from app.config import get_config
 from app.shared.http import close_http_service
-from app.interfaces.api.routes import events, health
+from app.interfaces.api.routes import events, health, statistics
 from app.interfaces.api.middleware.cors import add_cors_middleware
 from app.interfaces.api.middleware.logging import add_logging_middleware
+from app.integrations import get_available_integrations
 
 # Configure logging
 logging.basicConfig(
@@ -56,9 +57,17 @@ def create_app() -> FastAPI:
     add_cors_middleware(app)
     add_logging_middleware(app)
     
-    # Add routes
+    # Add main routes
     app.include_router(events.router)
     app.include_router(health.router)
+    app.include_router(statistics.router)
+    
+    # Auto-register integration routes
+    integrations = get_available_integrations()
+    for name, integration in integrations.items():
+        if hasattr(integration, 'routes') and hasattr(integration.routes, 'router'):
+            logger.info(f"Registering routes for integration: {name}")
+            app.include_router(integration.routes.router)
     
     return app
 

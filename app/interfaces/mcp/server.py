@@ -14,6 +14,7 @@ from app import __version__
 from app.config import get_config
 from app.core.router import Router
 from app.shared.http import close_http_service
+from app.integrations import get_available_integrations
 
 
 # Configure logging
@@ -57,6 +58,33 @@ IMPORT_EVENT_TOOL = types.Tool(
 )
 
 
+def get_all_tools() -> list[types.Tool]:
+    """Get all available tools including integration tools"""
+    tools = [IMPORT_EVENT_TOOL]
+    
+    # Add integration tools
+    integrations = get_available_integrations()
+    for name, integration in integrations.items():
+        if hasattr(integration, 'mcp_tools') and hasattr(integration.mcp_tools, 'TOOLS'):
+            logger.info(f"Adding MCP tools for integration: {name}")
+            tools.extend(integration.mcp_tools.TOOLS)
+    
+    return tools
+
+
+def get_all_tool_handlers() -> dict:
+    """Get all tool handlers including integration handlers"""
+    handlers = {}
+    
+    # Add integration tool handlers
+    integrations = get_available_integrations()
+    for name, integration in integrations.items():
+        if hasattr(integration, 'mcp_tools') and hasattr(integration.mcp_tools, 'TOOL_HANDLERS'):
+            handlers.update(integration.mcp_tools.TOOL_HANDLERS)
+    
+    return handlers
+
+
 async def main():
     """Main entry point for the MCP server."""
     logger.info(f"Starting Event Importer MCP Server v{__version__}")
@@ -73,28 +101,39 @@ async def main():
     # Create server and router
     server = Server("event-importer")
     router = Router()
+    
+    # Get all tools and handlers
+    all_tools = get_all_tools()
+    integration_handlers = get_all_tool_handlers()
 
     @server.list_tools()
     async def handle_list_tools() -> list[types.Tool]:
         """List available tools."""
-        return [IMPORT_EVENT_TOOL]
+        return all_tools
 
     @server.call_tool()
     async def handle_call_tool(
         name: str, arguments: dict[str, Any]
     ) -> list[types.TextContent]:
         """Handle tool calls."""
-        if name != "import_event":
-            raise ValueError(f"Unknown tool: {name}")
-
+        
         try:
-            # Route the request
-            result = await router.route_request(arguments)
-
-            # Return as JSON text
-            import json
-
-            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+            # Check if it's an integration tool
+            if name in integration_handlers:
+                result = await integration_handlers[name](arguments)
+                import json
+                return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+            
+            # Handle main import tool
+            elif name == "import_event":
+                # Route the request
+                result = await router.route_request(arguments)
+                # Return as JSON text
+                import json
+                return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+            
+            else:
+                raise ValueError(f"Unknown tool: {name}")
 
         except Exception as e:
             logger.error(f"Tool call error: {e}")
