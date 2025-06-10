@@ -90,36 +90,36 @@ The application provides multiple ways to run different interfaces:
 
 ```bash
 # Main entry point with interface selection
-event-importer --help
-event-importer cli <url>
-event-importer mcp
-event-importer api --port 8000
+uv run event-importer --help
+uv run event-importer cli <url>
+uv run event-importer mcp
+uv run event-importer api --port 8000
 
 # Direct entry points
-event-importer-cli <url>
-event-importer-mcp
-event-importer-api --port 8000
+uv run event-importer-cli <url>
+uv run event-importer-mcp
+uv run event-importer-api --port 8000
 ```
 
 ### CLI Interface
 
 ```bash
 # Import an event via CLI
-event-importer cli "https://example.com/event"
-event-importer cli "https://example.com/event" --method web --timeout 120
+uv run event-importer cli "https://example.com/event"
+uv run event-importer cli "https://example.com/event" --method web --timeout 120
 
 # Using direct entry point
-event-importer-cli "https://example.com/event"
+uv run event-importer-cli "https://example.com/event"
 ```
 
 ### HTTP API Interface
 
 ```bash
 # Start the API server
-event-importer api --host 0.0.0.0 --port 8000 --reload
+uv run event-importer api --host 0.0.0.0 --port 8000 --reload
 
 # Using direct entry point
-event-importer-api --port 8000
+uv run event-importer-api --port 8000
 ```
 
 API endpoints:
@@ -132,17 +132,17 @@ API endpoints:
 
 ```bash
 # Start MCP server
-event-importer mcp
+uv run event-importer mcp
 
 # Using direct entry point  
-event-importer-mcp
+uv run event-importer-mcp
 ```
 
 ## Architecture Principles
 
 ### Dependency Flow
 
-```
+```plaintext
 Interfaces → Core → Services
      ↓        ↓        ↓
    Shared ← Shared ← Shared

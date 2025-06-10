@@ -50,31 +50,31 @@ Optional keys for more features:
 - **Ticketmaster**: Free at [developer.ticketmaster.com](https://developer.ticketmaster.com)
 - **Google Search**: Setup at [developers.google.com/custom-search](https://developers.google.com/custom-search)
 
-## 🖥️ Command Line Interface
+## Command Line Interface
 
 Perfect for testing and local development:
 
 ```bash
 # Basic usage
-event-importer cli "https://ra.co/events/1234567"
+uv run event-importer cli "https://ra.co/events/1234567"
 
 # Force a specific method
-event-importer cli "https://example.com/event" --method web
+uv run event-importer cli "https://example.com/event" --method web
 
 # Adjust timeout
-event-importer cli "https://example.com/event" --timeout 120
+uv run event-importer cli "https://example.com/event" --timeout 120
 ```
 
-## 🌐 HTTP API Server
+## HTTP API Server
 
 Run as a web service for integration with other applications:
 
 ```bash
 # Start the server
-event-importer api --port 8000
+uv run event-importer api --port 8000
 
 # With custom host and auto-reload
-event-importer api --host 0.0.0.0 --port 8000 --reload
+uv run event-importer api --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### API Endpoints
@@ -103,7 +103,7 @@ Use with Claude Desktop or other MCP-compatible AI assistants:
 
 ```bash
 # Start MCP server
-event-importer mcp
+uv run event-importer-mcp
 ```
 
 ### Claude Desktop Configuration
@@ -123,7 +123,7 @@ Add to your Claude Desktop configuration:
 
 Then use the `import_event` tool in Claude conversations.
 
-## 📊 What You Get
+## What You Get
 
 The importer returns structured JSON with enhanced data:
 
@@ -159,7 +159,7 @@ The importer returns structured JSON with enhanced data:
 - **Any event website** - Smart web scraping
 - **Image URLs** - AI extracts text from flyers/posters
 
-## 🧪 Testing
+## Testing
 
 Test the system with example scripts:
 
@@ -178,7 +178,7 @@ uv run python scripts/test_image_enhancer.py
 uv run python scripts/api_example.py
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -209,7 +209,7 @@ LOG_LEVEL=INFO                     # Logging level
 | Genre enhancement | `GOOGLE_API_KEY`, `GOOGLE_CSE_ID`   | AI-powered genre discovery |
 | Image enhancement | `GOOGLE_API_KEY`, `GOOGLE_CSE_ID`   | AI-powered image search    |
 
-## 📚 Documentation
+## Additional Documentation
 
 - **[Architecture](docs/ARCHITECTURE.md)** - Technical architecture and development guide
 - **[Genre Enhancement](docs/GENRE_ENHANCER.md)** - How AI genre discovery works
@@ -223,12 +223,12 @@ The application provides multiple entry points:
 
 ```bash
 # Main router (shows help by default)
-event-importer
+uv run event-importer
 
 # Direct interface access
-event-importer-cli "https://example.com"
-event-importer-api --port 8000  
-event-importer-mcp
+uv run event-importer-cli "https://example.com"
+uv run event-importer-api --port 8000  
+uv run event-importer-mcp
 ```
 
 ### Project Structure
