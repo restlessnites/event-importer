@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 from bs4 import BeautifulSoup
 
-from app.agent import Agent
+from app.shared.agent import Agent
 from app.schemas import EventData, ImportMethod, ImportStatus, ImageSearchResult
 
 

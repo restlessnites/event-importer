@@ -10,16 +10,16 @@ from app.schemas import (
     ImportStatus,
     ImportProgress,
 )
-from app.agent import Agent
+from app.shared.agent import Agent
 from app.agents import (
     ResidentAdvisorAgent,
     TicketmasterAgent,
     WebAgent,
     ImageAgent,
 )
-from app.progress import ProgressTracker
+from app.core.progress import ProgressTracker
 from app.errors import UnsupportedURLError, handle_errors_async
-from app.http import get_http_service
+from app.shared.http import get_http_service
 from app.services.claude import ClaudeService
 from app.services.image import ImageService
 from app.services.zyte import ZyteService

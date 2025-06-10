@@ -1,136 +1,56 @@
-"""MCP server entry point for the event importer."""
+"""Main application entry point and factory."""
 
-import asyncio
-import logging
 import sys
-from typing import Any
-
-from mcp.server import Server, NotificationOptions
-from mcp.server.models import InitializationOptions
-import mcp.server.stdio
-import mcp.types as types
-
+import argparse
 from app import __version__
-from app.config import get_config
-from app.router import Router
-from app.http import close_http_service
 
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
-
-
-# MCP Tool Schema
-IMPORT_EVENT_TOOL = types.Tool(
-    name="import_event",
-    description="Import structured event information from a URL",
-    inputSchema={
-        "type": "object",
-        "properties": {
-            "url": {
-                "type": "string",
-                "description": "URL of the event page to import",
-            },
-            "force_method": {
-                "type": "string",
-                "enum": ["api", "web", "image"],
-                "description": "Force a specific import method",
-            },
-            "include_raw_data": {
-                "type": "boolean",
-                "description": "Include raw extracted data in response",
-                "default": False,
-            },
-            "timeout": {
-                "type": "integer",
-                "description": "Timeout in seconds (default: 60)",
-                "default": 60,
-                "minimum": 1,
-                "maximum": 300,
-            },
-        },
-        "required": ["url"],
-    },
-)
-
-
-async def main():
-    """Main entry point for the MCP server."""
-    logger.info(f"Starting Event Importer MCP Server v{__version__}")
-
-    # Validate configuration
-    try:
-        config = get_config()
-        features = config.get_enabled_features()
-        logger.info(f"Enabled features: {features}")
-    except Exception as e:
-        logger.error(f"Configuration error: {e}")
-        sys.exit(1)
-
-    # Create server and router
-    server = Server("event-importer")
-    router = Router()
-
-    @server.list_tools()
-    async def handle_list_tools() -> list[types.Tool]:
-        """List available tools."""
-        return [IMPORT_EVENT_TOOL]
-
-    @server.call_tool()
-    async def handle_call_tool(
-        name: str, arguments: dict[str, Any]
-    ) -> list[types.TextContent]:
-        """Handle tool calls."""
-        if name != "import_event":
-            raise ValueError(f"Unknown tool: {name}")
-
-        try:
-            # Route the request
-            result = await router.route_request(arguments)
-
-            # Return as JSON text
-            import json
-
-            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
-
-        except Exception as e:
-            logger.error(f"Tool call error: {e}")
-            import json
-
-            return [
-                types.TextContent(
-                    type="text",
-                    text=json.dumps({"success": False, "error": str(e)}, indent=2),
-                )
-            ]
-
-    # Run the server
-    async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-        try:
-            await server.run(
-                read_stream,
-                write_stream,
-                InitializationOptions(
-                    server_name="event-importer",
-                    server_version=__version__,
-                    capabilities=server.get_capabilities(
-                        notification_options=NotificationOptions(),
-                        experimental_capabilities={},
-                    ),
-                ),
-            )
-        finally:
-            # Cleanup
-            await close_http_service()
-
-
-def run():
-    """Entry point for the script."""
-    asyncio.run(main())
+def main():
+    """Main entry point that routes to appropriate interface."""
+    parser = argparse.ArgumentParser(
+        prog="event-importer",
+        description="Event Importer - Extract structured event data from websites",
+    )
+    parser.add_argument(
+        "--version", 
+        action="version", 
+        version=f"event-importer {__version__}"
+    )
+    
+    subparsers = parser.add_subparsers(dest="interface", help="Interface to use")
+    
+    # CLI interface
+    cli_parser = subparsers.add_parser("cli", help="Run CLI interface")
+    cli_parser.add_argument("url", nargs="?", help="URL to import")
+    cli_parser.add_argument("--method", choices=["api", "web", "image"], help="Force import method")
+    cli_parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds")
+    
+    # MCP interface  
+    mcp_parser = subparsers.add_parser("mcp", help="Run MCP server")
+    
+    # API interface
+    api_parser = subparsers.add_parser("api", help="Run HTTP API server")
+    api_parser.add_argument("--host", default="127.0.0.1", help="Host to bind to")
+    api_parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
+    api_parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
+    
+    args = parser.parse_args()
+    
+    if not args.interface:
+        # Default behavior - show help
+        parser.print_help()
+        return
+    
+    if args.interface == "cli":
+        from app.interfaces.cli import run_cli
+        run_cli(args)
+    elif args.interface == "mcp":
+        from app.interfaces.mcp.server import run as mcp_run
+        mcp_run()
+    elif args.interface == "api":
+        from app.interfaces.api.server import run as api_run
+        api_run(host=args.host, port=args.port, reload=args.reload)
 
 
 if __name__ == "__main__":
-    run()
+    main()

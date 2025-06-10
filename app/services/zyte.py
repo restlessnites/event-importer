@@ -7,7 +7,7 @@ from typing import Tuple
 import aiohttp
 
 from app.config import Config
-from app.http import HTTPService
+from app.shared.http import HTTPService
 from app.errors import APIError, retry_on_error
 
 

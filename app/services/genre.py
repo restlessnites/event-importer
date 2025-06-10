@@ -6,7 +6,7 @@ import re
 from typing import List, Optional, Dict, Any
 
 from app.config import Config
-from app.http import HTTPService
+from app.shared.http import HTTPService
 from app.services.claude import ClaudeService
 from app.data.genres import MusicGenres
 from app.prompts import GenrePrompts

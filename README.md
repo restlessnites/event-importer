@@ -1,498 +1,274 @@
 # Event Importer
 
-A Model Context Protocol (MCP) server that imports structured event data from various sources including direct API access, web scraping, and image extraction.
+A tool that extracts structured event data from websites, images, and APIs. Use it as a **command-line tool**, **HTTP API server**, or **MCP server** for AI assistants.
 
-## Features
+## What It Does
 
-- **Multiple Import Methods**:
-  - **API Import**: Direct access to Resident Advisor GraphQL and Ticketmaster Discovery APIs
-  - **Web Import**: Smart web scraping with HTML and screenshot fallback
-  - **Image Import**: Extract event details from flyers and posters using vision AI
-  
-- **Intelligent Enhancement**:
-  - **[Genre Enhancement](docs/GENRE_ENHANCER.md)**: Automatic genre discovery using Claude AI + Google Search
-  - **[Image Enhancement](docs/IMAGE_ENHANCER.md)**: Find high-quality event images using AI-powered search and rating
-  - AI-powered description generation when missing
-  - Structured data validation with Pydantic
-  - Real-time progress tracking for long-running imports
+- **Import from anywhere**: Resident Advisor, Ticketmaster, any event website, or even images of flyers
+- **AI-powered enhancement**: Automatically finds genres, improves images, and generates descriptions
+- **Multiple interfaces**: CLI for developers, HTTP API for web apps, MCP for AI assistants
+- **Smart extraction**: Handles APIs, web scraping, and image text extraction
 
-- **CLI**:
-  - Facilitates local testing
+## Quick Start
 
-- **MCP Integration**:
-  - Full Model Context Protocol server implementation for use with AI assistants
+### Installation
 
-## Augmented Data Intelligence
-
-The Event Importer doesn't just extract data—it **enhances** it using AI and web search:
-
-### **Smart Genre Discovery**
-
-When events lack genre information, the system:
-
-1. **Searches Google** for artist information from authoritative music sources
-2. **Uses Claude AI** to analyze and extract primary music genres  
-3. **Validates** against a comprehensive music genre database
-4. **Enhances** events with accurate, searchable genre tags
-
-**Example**: `"Cursive at Zebulon"` → Searches Google → Finds Wikipedia/Discogs data → Claude extracts `["indie rock", "alternative rock"]`
-
-[Read the Genre Enhancer Documentation](docs/GENRE_ENHANCER.md)
-
-### **Intelligent Image Enhancement**
-
-For web-scraped events with poor images, the system:
-
-1. **Searches Google Images** using smart queries built from event data
-2. **Downloads and analyzes** multiple image candidates  
-3. **Uses AI-powered rating** considering size, aspect ratio, and source credibility
-4. **Selects the best** high-quality, event-appropriate image
-
-**Example**: Low-quality venue screenshot → Searches `"Artist band photo"` → Finds high-res Spotify image → Rates and selects best candidate
-
-[Read the Image Enhancer Documentation](docs/IMAGE_ENHANCER.md)
-
-### **AI-Powered Content Generation**
-
-Claude AI generates missing event descriptions:
-
-- **Long descriptions**: Comprehensive, natural summaries using all available event data
-- **Short descriptions**: Factual, under-100-character summaries for cards and previews
-- **Context-aware**: Incorporates lineup, venue, genres, and event details
-
-## Installation
-
-### Prerequisites
-
-- Python 3.10+
-- [uv](https://github.com/astral-sh/uv) package manager ([installation instructions](https://docs.astral.sh/uv/getting-started/installation/))
-
-### Setup
-
-1. Clone the repository with PAT:
-
-    ```bash
-    git clone https://github.com/restlessnites/event-importer.git
-    cd event-importer
-    ```
-
-    or
-
-    Clone the repository with Github CLI:
-
-    ```bash
-    gh repo clone restlessnites/event-importer
-    cd event-importer
-    ```
-
-2. Install dependencies:
+1. **Install uv** (if you don't have it):
 
    ```bash
+   # macOS/Linux
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   
+   # Windows  
+   powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+   ```
+
+2. **Clone and setup**:
+
+   ```bash
+   git clone https://github.com/restlessnites/event-importer.git
+   cd event-importer
    uv sync
    ```
 
-3. Configure environment variables:
+3. **Configure API keys**:
 
    ```bash
    cp .env.example .env
-   ```
-
-   Edit `.env` with your API keys:
-
-   ```env
-   # Required
-   ANTHROPIC_API_KEY=your_anthropic_api_key
-   ZYTE_API_KEY=your_zyte_api_key
-   
-   # Optional (enables additional features)
-   TICKETMASTER_API_KEY=your_ticketmaster_consumer_key
-   GOOGLE_API_KEY=your_google_api_key
-   GOOGLE_CSE_ID=your_google_custom_search_engine_id
+   # Edit .env with your API keys (see Getting API Keys below)
    ```
 
 ### Getting API Keys
 
-- **Anthropic**: Sign up at [console.anthropic.com](https://console.anthropic.com)
-- **Zyte**: Get web scraping API access at [zyte.com](https://www.zyte.com)
-- **Ticketmaster**: Register for free at [developer.ticketmaster.com](https://developer.ticketmaster.com)
-- **Google Search**: Set up Custom Search at [developers.google.com/custom-search](https://developers.google.com/custom-search) (enables Genre + Image Enhancement)
+You need at least these two keys to get started:
 
-## Usage
+- **Anthropic API Key** (required): Sign up at [console.anthropic.com](https://console.anthropic.com)
+- **Zyte API Key** (required): Sign up at [zyte.com](https://www.zyte.com)
 
-### As an MCP Server
+Optional keys for more features:
 
-1. Run the server directly:
+- **Ticketmaster**: Free at [developer.ticketmaster.com](https://developer.ticketmaster.com)
+- **Google Search**: Setup at [developers.google.com/custom-search](https://developers.google.com/custom-search)
 
-   ```bash
-   uv run event-importer
-   ```
+## 🖥️ Command Line Interface
 
-2. Or configure in your MCP client (e.g., Claude Desktop):
+Perfect for testing and local development:
 
-   ```json
-   {
-     "mcpServers": {
-       "event-importer": {
-         "command": "uv",
-         "args": ["run", "event-importer"],
-         "cwd": "/path/to/event-importer"
-       }
-     }
-   }
-   ```
+```bash
+# Basic usage
+event-importer cli "https://ra.co/events/1234567"
 
-### Using the MCP Tool
+# Force a specific method
+event-importer cli "https://example.com/event" --method web
 
-Once connected, use the `import_event` tool:
+# Adjust timeout
+event-importer cli "https://example.com/event" --timeout 120
+```
+
+## 🌐 HTTP API Server
+
+Run as a web service for integration with other applications:
+
+```bash
+# Start the server
+event-importer api --port 8000
+
+# With custom host and auto-reload
+event-importer api --host 0.0.0.0 --port 8000 --reload
+```
+
+### API Endpoints
+
+- **POST** `/api/v1/events/import` - Import an event
+- **GET** `/api/v1/events/import/{id}/progress` - Check import progress  
+- **GET** `/api/v1/health` - Health check
+
+### Example API Usage
+
+```bash
+# Import an event
+curl -X POST http://localhost:8000/api/v1/events/import \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://ra.co/events/1234567"}'
+
+# Check health
+curl http://localhost:8000/api/v1/health
+```
+
+**Python example**: See `scripts/api_example.py` for a complete example.
+
+## 🤖 MCP Server (for AI Assistants)
+
+Use with Claude Desktop or other MCP-compatible AI assistants:
+
+```bash
+# Start MCP server
+event-importer mcp
+```
+
+### Claude Desktop Configuration
+
+Add to your Claude Desktop configuration:
 
 ```json
 {
-  "tool": "import_event",
-  "arguments": {
-    "url": "https://ra.co/events/1234567",
-    "force_method": "api",  // Optional: "api", "web", or "image"
-    "include_raw_data": false,
-    "timeout": 60
+  "mcpServers": {
+    "event-importer": {
+      "command": "event-importer-mcp",
+      "cwd": "/path/to/event-importer"
+    }
   }
 }
 ```
 
-### Testing
+Then use the `import_event` tool in Claude conversations.
 
-Run the test scripts:
+## 📊 What You Get
 
-```bash
-# Test with example URLs
-uv run python scripts/test_importer.py
+The importer returns structured JSON with enhanced data:
 
-# Test specific URL
-uv run python scripts/test_importer.py "https://ra.co/events/1234567"
-
-# Test URL analyzer
-uv run python scripts/test_url_analyzer.py
-
-# Test Genre Enhancement (requires Google Search API)
-uv run python scripts/test_genre_enhancer.py
-
-# Test Image Enhancement (requires Google Search API)  
-uv run python scripts/test_image_enhancer.py
-
-# Confirm Google Search API works
-uv run python scripts/test_google_custom_search_api.py
-
-# Test error capture system
-uv run python scripts/test_error_capture.py
-
-# Explore RA.co API
-uv run scripts/test_ra_api.sh
+```json
+{
+  "title": "Artist Name at Venue",
+  "venue": "The Venue Name",
+  "date": "2024-12-31",
+  "time": {"start": "22:00", "end": "04:00"},
+  "lineup": ["Main Artist", "Support Act"],
+  "genres": ["Electronic", "House"],
+  "description": "AI-generated event description...",
+  "images": {
+    "full": "https://high-quality-image.jpg",
+    "thumbnail": "https://thumbnail.jpg"
+  },
+  "location": {
+    "city": "Los Angeles",
+    "state": "CA",
+    "coordinates": {"lat": 34.0522, "lng": -118.2437}
+  },
+  "cost": "$20",
+  "minimum_age": "21+",
+  "ticket_url": "https://tickets.com/event",
+  "source_url": "https://original-event-page.com"
+}
 ```
 
 ## Supported Sources
 
-### 1. Resident Advisor (RA.co)
+- **Resident Advisor** (`ra.co`) - Full API access, no key needed
+- **Ticketmaster** family (`ticketmaster.com`, `livenation.com`) - Requires free API key
+- **Any event website** - Smart web scraping
+- **Image URLs** - AI extracts text from flyers/posters
 
-- **URLs**: `https://ra.co/events/1234567`
-- **Method**: Direct GraphQL API
-- **No API key required**
-- **Features**: Full event details, lineup, genres, venue information
-- **Enhancement**: Genre and description generation when data is missing
+## 🧪 Testing
 
-### 2. Ticketmaster & Affiliates
+Test the system with example scripts:
 
-- **URLs**: `ticketmaster.com`, `livenation.com`, `ticketweb.com`
-- **Method**: Discovery API v2
-- **Requires API key** (free tier: 5000 requests/day)
-- **Features**: Pricing, venue details, high-res images
-- **Enhancement**: Genre discovery and description generation
+```bash
+# Test basic functionality
+uv run python scripts/test_importer.py
 
-### 3. Direct Image URLs
+# Test with a specific URL
+uv run python scripts/test_importer.py "https://ra.co/events/1234567"
 
-- **Formats**: `.jpg`, `.jpeg`, `.png`, `.gif`, `.webp`
-- **Method**: Vision AI extraction using Claude
-- **Best for**: Event flyers and posters
-- **Features**: Extracts text, dates, lineup from visual content
-- **Enhancement**: Automatic description generation from extracted data
+# Test AI enhancements (requires Google API keys)
+uv run python scripts/test_genre_enhancer.py
+uv run python scripts/test_image_enhancer.py
 
-### 4. Any Other Event Page
-
-- **Method**: Intelligent web scraping with Zyte
-- **Process**: HTML extraction → Screenshot fallback → **Image enhancement** → **Genre discovery**
-- **Features**: Universal fallback for any event website
-- **Enhancement**: Full AI-powered enhancement pipeline
-
-## Output Schema
-
-The importer returns structured event data with intelligent enhancements:
-
-```python
-{
-  "title": "Event Name",  # Required
-  "venue": "Venue Name", 
-  "date": "2024-12-31",  # ISO format
-  "time": {
-    "start": "22:00",
-    "end": "04:00"
-  },
-  "lineup": ["Artist 1", "Artist 2"],
-  "promoters": ["Promoter Name"],
-  "genres": ["Electronic", "House"],  # ← Enhanced via AI + Google Search
-  "long_description": "Full event description...",  # ← Generated by Claude AI
-  "short_description": "Brief factual summary under 100 chars",  # ← Generated by Claude AI
-  "location": {
-    "address": "123 Main St",
-    "city": "Los Angeles",
-    "state": "CA",
-    "country": "United States",
-    "coordinates": {"lat": 34.0522, "lng": -118.2437}
-  },
-  "images": {  # ← Enhanced via AI + Google Search
-    "full": "https://high-quality-image-found-by-ai.jpg",
-    "thumbnail": "https://high-quality-image-found-by-ai.jpg"
-  },
-  "image_search": {  # Enhancement tracking
-    "original": {"url": "...", "score": 75, "source": "original"},
-    "candidates": [...],
-    "selected": {"url": "...", "score": 150, "source": "google_search"}
-  },
-  "minimum_age": "21+",
-  "cost": "$20",
-  "ticket_url": "https://...",
-  "source_url": "https://...",
-  "imported_at": "2024-01-01T00:00:00Z"
-}
+# Test API integration
+uv run python scripts/api_example.py
 ```
 
-## Architecture
-
-```plaintext
-event-importer/
-├── app/
-│   ├── __init__.py          # Package exports and version
-│   ├── main.py              # MCP server entry point
-│   ├── config.py            # Configuration management
-│   ├── errors.py            # Custom exceptions and error handling
-│   ├── http.py              # Centralized HTTP client with session pooling
-│   ├── schemas.py           # Pydantic data models
-│   ├── url_analyzer.py      # URL type detection and routing
-│   ├── agent.py             # Base agent class
-│   ├── importer.py          # Import orchestration
-│   ├── progress.py          # Real-time progress tracking
-│   ├── router.py            # Request routing
-│   ├── prompts.py           # Modular Claude prompt templates
-│   ├── services/            # External service integrations
-│   │   ├── __init__.py
-│   │   ├── claude.py        # Claude AI extraction with tools
-│   │   ├── image.py         # Image validation, search & enhancement 🤖
-│   │   ├── genre.py         # Genre discovery & enhancement 🤖
-│   │   └── zyte.py          # Web scraping with retries
-│   ├── agents/              # Import agents by source type
-│   │   ├── __init__.py
-│   │   ├── ra_agent.py      # Resident Advisor GraphQL
-│   │   ├── ticketmaster_agent.py # Ticketmaster Discovery API
-│   │   ├── web_agent.py     # Generic web scraping + enhancement 🤖
-│   │   └── image_agent.py   # Direct image extraction
-│   ├── data/                # Reference data and utilities
-│   │   ├── __init__.py
-│   │   └── genres.py        # Music genre validation & normalization 🤖
-│   └── cli/                 # CLI interface system
-│       ├── __init__.py
-│       ├── core.py          # Main CLI class
-│       ├── theme.py         # Unified theme system
-│       ├── components.py    # Reusable UI components
-│       ├── formatters.py    # Complex data formatters
-│       ├── utils.py         # Helper functions
-│       └── error_capture.py # Error capture system
-├── scripts/                 # Utility and test scripts
-│   ├── test_importer.py     # Main testing script
-│   ├── test_url_analyzer.py # URL analyzer tests
-│   ├── test_genre_enhancer.py # Genre enhancement tests 🤖
-│   ├── test_image_enhancer.py # Image enhancement tests 🤖
-│   ├── test_google_custom_search_api.py # Google API verification
-│   ├── test_error_capture.py # Error capture system test
-│   └── test_ra_api.sh       # RA.co API exploration
-├── docs/                    # Additional documentation
-│   ├── GENRE_ENHANCER.md    # Genre enhancement deep dive 🤖
-│   └── IMAGE_ENHANCER.md    # Image enhancement deep dive 🤖
-├── pyproject.toml           # Project dependencies and metadata
-├── .gitignore               # Git ignore patterns
-├── .env.example             # Environment template
-└── README.md                # This file
- 
-```
-
-🤖 = AI Enhancement Features
-
-## Key Features
-
-### Intelligent Import Flow
-
-1. **URL Analysis**: Determines source type and best import method
-2. **Agent Selection**: Routes to appropriate specialized agent
-3. **Progressive Enhancement**:
-   - API agents: Direct data → **AI description generation** → **Genre discovery**
-   - Web agent: HTML → Screenshot → **Image enhancement** → **Genre discovery**
-4. **Data Validation**: Pydantic models with smart parsing
-5. **Progress Tracking**: Real-time updates for long operations
-
-### AI-Powered Enhancement Pipeline
-
-```mermaid
-graph LR
-    A[Raw Event Data] --> B{Missing Genres?}
-    B -->|Yes| C[Google Search API]
-    C --> D[Claude AI Analysis]
-    D --> E[Genre Validation]
-    E --> F[Enhanced Event]
-    
-    A --> G{Poor Image?}
-    G -->|Yes| H[Google Image Search]
-    H --> I[AI Image Rating]
-    I --> J[Best Image Selection]
-    J --> F
-    
-    A --> K{Missing Description?}
-    K -->|Yes| L[Claude AI Generation]
-    L --> F
-    
-    B -->|No| F
-    G -->|No| F
-    K -->|No| F
-```
-
-### Error Handling
-
-- **Retry Logic**: Exponential backoff for transient failures
-- **Graceful Degradation**: Falls back to simpler methods
-- **Enhancement Isolation**: Core import succeeds even if enhancement fails
-- **Detailed Logging**: Comprehensive error context
-- **Timeout Protection**: Configurable per-request timeouts
-- **Clean Display**: Errors captured and shown at end, not interrupting progress
-
-### Data Processing
-
-- **HTML Sanitization**: Removes scripts and styles using `nh3`
-- **Smart Text Extraction**: Handles various date/time formats
-- **AI Description Generation**: Claude creates missing descriptions using all available data
-- **Genre Discovery**: Searches and validates music genres automatically
-- **Image Enhancement**: Finds and rates high-quality event images
-
-### CLI System
-
-- **Unified Theme**: Consistent visual design across all output
-- **Progress Tracking**: Clean progress bars and status updates
-- **Error Capture**: Collects log messages and displays them organized at the end
-- **Rich Formatting**: Tables, syntax highlighting, and structured output
-
-## Configuration
+## ⚙️ Configuration
 
 ### Environment Variables
 
 ```bash
-# Required for all imports
-ANTHROPIC_API_KEY=sk-ant-...     # Claude AI for extraction and enhancement
-ZYTE_API_KEY=...                 # Web scraping infrastructure
+# Required
+ANTHROPIC_API_KEY=sk-ant-...
+ZYTE_API_KEY=...
 
-# Optional - Enable specific features
-TICKETMASTER_API_KEY=...         # Ticketmaster imports
-GOOGLE_API_KEY=...               # Genre + Image enhancement
-GOOGLE_CSE_ID=...                # Google Custom Search Engine ID
+# Optional - enables more features  
+TICKETMASTER_API_KEY=...
+GOOGLE_API_KEY=...
+GOOGLE_CSE_ID=...
 
-# Advanced Settings
-HTTP_TIMEOUT=30                  # Request timeout in seconds
-HTTP_MAX_RETRIES=3               # Retry attempts
-ZYTE_USE_RESIDENTIAL_PROXY=false # For heavily protected sites
-ZYTE_GEOLOCATION=US              # Geolocation for requests
-ZYTE_JAVASCRIPT_WAIT=5           # Seconds to wait for JS rendering
-DEBUG=false                      # Enable debug logging
-LOG_LEVEL=INFO                   # Logging verbosity
+# Advanced settings
+HTTP_TIMEOUT=30                    # Request timeout in seconds
+ZYTE_USE_RESIDENTIAL_PROXY=false   # For heavily protected sites
+ZYTE_GEOLOCATION=US                # Geolocation for requests
+DEBUG=false                        # Enable debug logging
+LOG_LEVEL=INFO                     # Logging level
 ```
 
-### Features by Configuration
+### Feature Requirements
 
-| Feature           | Required Keys                                            | Description                                     |
-| ----------------- | -------------------------------------------------------- | ----------------------------------------------- |
-| Resident Advisor  | None (always available)                                  | GraphQL API, no auth needed                     |
-| Ticketmaster      | `TICKETMASTER_API_KEY`                                   | Official Discovery API v2                       |
-| Genre Enhancement | `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` + `ANTHROPIC_API_KEY` | AI-powered genre discovery using web search     |
-| Image Enhancement | `GOOGLE_API_KEY` + `GOOGLE_CSE_ID` + `ANTHROPIC_API_KEY` | AI-powered high-quality image search and rating |
-| Web Scraping      | `ZYTE_API_KEY`                                           | Cloud browser for any website                   |
-| Vision AI         | `ANTHROPIC_API_KEY`                                      | Extract from images/screenshots                 |
+| Feature           | Required Keys                       | Description                |
+|-------------------|-------------------------------------|----------------------------|
+| Basic imports     | `ANTHROPIC_API_KEY`, `ZYTE_API_KEY` | Core functionality         |
+| Ticketmaster      | `TICKETMASTER_API_KEY`              | Official API access        |
+| Genre enhancement | `GOOGLE_API_KEY`, `GOOGLE_CSE_ID`   | AI-powered genre discovery |
+| Image enhancement | `GOOGLE_API_KEY`, `GOOGLE_CSE_ID`   | AI-powered image search    |
+
+## 📚 Documentation
+
+- **[Architecture](docs/ARCHITECTURE.md)** - Technical architecture and development guide
+- **[Genre Enhancement](docs/GENRE_ENHANCER.md)** - How AI genre discovery works
+- **[Image Enhancement](docs/IMAGE_ENHANCER.md)** - How AI image enhancement works
 
 ## Development
 
-### Running Tests
+### Entry Points
+
+The application provides multiple entry points:
 
 ```bash
-# Manual testing with example URLs
-uv run python scripts/test_importer.py
+# Main router (shows help by default)
+event-importer
 
-# Test specific functionality
-uv run python scripts/test_url_analyzer.py
-uv run python scripts/test_error_capture.py
-
-# Test AI Enhancement Features 🤖
-uv run python scripts/test_genre_enhancer.py     # Genre discovery
-uv run python scripts/test_image_enhancer.py     # Image enhancement
-
-# Explore RA.co API
-uv run scripts/test_ra_api.sh
+# Direct interface access
+event-importer-cli "https://example.com"
+event-importer-api --port 8000  
+event-importer-mcp
 ```
 
 ### Project Structure
 
-The codebase follows these design patterns:
+```plaintext
+app/
+├── core/                # Business logic
+├── interfaces/          # CLI, API, MCP interfaces  
+├── services/           # External service integrations
+├── agents/             # Import agents for different sources
+├── shared/             # Shared utilities
+└── data/               # Reference data
+```
 
-- **Strategy Pattern**: Agent-based architecture for different sources
-- **Factory Pattern**: Dynamic agent creation based on configuration
-- **Singleton Pattern**: Shared HTTP client and configuration
-- **Decorator Pattern**: Error handling and retry logic
-- **Builder Pattern**: Modular prompt construction
-- **Service Layer**: Shared AI enhancement services across agents
+For detailed architecture information, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Additional Documentation
+## AI Enhancement Features
 
-- **[Genre Enhancer](docs/GENRE_ENHANCER.md)**: Deep dive into AI-powered genre discovery using Claude + Google Search
-- **[Image Enhancer](docs/IMAGE_ENHANCER.md)**: Complete guide to intelligent image search and AI-powered rating system
+The Event Importer goes beyond basic extraction:
 
-## Errors
+- **Genre Discovery**: Uses Google Search + Claude AI to find accurate music genres
+- **Image Enhancement**: Finds high-quality event images using AI-powered search  
+- **Description Generation**: Creates natural event descriptions when missing
+- **Smart Extraction**: Handles complex event pages with fallback methods
 
-The importer includes comprehensive error handling:
-
-- **Custom Exceptions**: Hierarchy for different error types
-- **Retry Logic**: Configurable retries with exponential backoff
-- **Rate Limiting**: Respects API rate limits
-- **Enhancement Isolation**: Core import succeeds even if AI enhancement fails
-- **Timeout Protection**: Per-request timeout configuration
-- **Graceful Fallbacks**: HTML → Screenshot → Error message
-- **Clean Display**: Errors are captured during execution and displayed organized at the end
+## Troubleshooting
 
 ### Common Issues
 
-1. **"No agent can handle URL"**: URL type not recognized
-2. **"Validation error"**: Missing required fields in response
-3. **"Rate limit exceeded"**: Too many API requests
-4. **"Import timed out"**: Increase timeout parameter
-5. **"Genre enhancement failed"**: Check Google Search API configuration
-6. **"Image enhancement failed"**: Verify Google Custom Search setup
+1. **Import fails**: Check that required API keys are set in `.env`
+2. **Timeout errors**: Increase timeout with `--timeout 120`  
+3. **API server won't start**: Make sure the port isn't already in use
+4. **MCP connection issues**: Verify the working directory path in MCP client config
 
-## API Reference
+### Getting Help
 
-### MCP Tool: `import_event`
+- Check the test scripts in `scripts/` for working examples
+- Review the [Architecture documentation](docs/ARCHITECTURE.md) for technical details
+- Examine log output for specific error messages
 
-**Parameters:**
+---
 
-- `url` (string, required): Event page URL to import
-- `force_method` (string, optional): Force specific method ("api", "web", "image")
-- `include_raw_data` (boolean, optional): Include raw extracted data
-- `timeout` (integer, optional): Timeout in seconds (1-300, default: 60)
-
-**Response:**
-
-```json
-{
-  "success": true,
-  "data": { /* EventData object with AI enhancements */ },
-  "method_used": "api",
-  "import_time": 2.34
-}
-```
+Built for the Restless events community. Extract structured data from anywhere, enhance it with AI, and use it however you need.

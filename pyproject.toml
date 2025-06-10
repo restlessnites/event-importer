@@ -18,10 +18,16 @@ dependencies = [
     "nh3>=0.2.20",
     "python-dateutil>=2.9.0",
     "price-parser>=0.3.4",
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "python-multipart>=0.0.6",
 ]
 
 [project.scripts]
-event-importer = "app.main:run"
+event-importer = "app.main:main"
+event-importer-cli = "app.interfaces.cli:run_cli"
+event-importer-mcp = "app.interfaces.mcp.server:run"
+event-importer-api = "app.interfaces.api.server:run"
 
 [build-system]
 requires = ["hatchling"]

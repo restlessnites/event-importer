@@ -5,15 +5,15 @@ from typing import Dict, Any, Optional, List
 from rich.console import Console
 from rich.text import Text
 
-from app.cli.theme import Theme
-from app.cli.utils import (
+from app.interfaces.cli.theme import Theme
+from app.interfaces.cli.utils import (
     format_timestamp,
     truncate,
     pluralize,
     format_status,
     format_url_for_display,
 )
-from app.cli.components import Message, Spacer
+from app.interfaces.cli.components import Message, Spacer
 
 
 class EventCardFormatter:

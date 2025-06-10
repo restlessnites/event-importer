@@ -5,7 +5,7 @@ __author__ = "Event Importer Contributors"
 
 # Package-level imports for convenience
 from app.schemas import EventData, ImportResult
-from app.importer import EventImporter
+from app.core.importer import EventImporter
 from app.config import Config
 
 __all__ = [

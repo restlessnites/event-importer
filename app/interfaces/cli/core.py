@@ -6,14 +6,14 @@ import json
 
 from rich.console import Console
 
-from app.cli.theme import Theme
-from app.cli.formatters import (
+from app.interfaces.cli.theme import Theme
+from app.interfaces.cli.formatters import (
     ProgressUpdateFormatter,
     ImportResultFormatter,
     EventCardFormatter,
 )
 
-from app.cli.components import (
+from app.interfaces.cli.components import (
     Header,
     Section,
     Message,
@@ -22,7 +22,7 @@ from app.cli.components import (
     CodeBlock,
     Spacer,
 )
-from app.cli.error_capture import CLIErrorDisplay, get_error_capture
+from app.interfaces.cli.error_capture import CLIErrorDisplay, get_error_capture
 
 
 class CLI:

@@ -9,7 +9,7 @@ import re
 from PIL import Image
 
 from app.config import Config
-from app.http import HTTPService
+from app.shared.http import HTTPService
 from app.schemas import EventData, ImageCandidate
 from app.errors import retry_on_error
 

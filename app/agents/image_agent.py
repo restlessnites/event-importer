@@ -3,7 +3,7 @@
 import logging
 from typing import Optional
 
-from app.agent import Agent
+from app.shared.agent import Agent
 from app.schemas import EventData, ImportMethod, ImportStatus
 
 

@@ -14,7 +14,7 @@ from rich.progress import (
 )
 from rich.syntax import Syntax
 
-from app.cli.theme import Theme
+from app.interfaces.cli.theme import Theme
 
 
 class Spacer:
