@@ -97,7 +97,7 @@ curl http://localhost:8000/api/v1/health
 
 **Python example**: See `scripts/api_example.py` for a complete example.
 
-## 🤖 MCP Server (for AI Assistants)
+## MCP Server (for AI Assistants)
 
 Use with Claude Desktop or other MCP-compatible AI assistants:
 
