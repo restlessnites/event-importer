@@ -1,7 +1,16 @@
-"""Main application entry point and factory."""
+"""Main application entry point and factory with database initialization."""
 
 import argparse
+import logging
 from app import __version__
+from app.startup import startup_checks
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 
 def main():
@@ -55,19 +64,36 @@ def main():
         parser.print_help()
         return
     
-    if args.command == "import":
-        from app.interfaces.cli import run_cli
-        run_cli(args)
-    elif args.command in ["list", "show", "stats"]:
-        from app.interfaces.cli.events import run_events_cli
-        run_events_cli(args)
-    elif args.command == "mcp":
-        from app.interfaces.mcp.server import run as mcp_run
-        mcp_run()
-    elif args.command == "api":
-        from app.interfaces.api.server import run as api_run
-        api_run(host=args.host, port=args.port, reload=args.reload)
+    # Run startup checks and database initialization for all commands
+    try:
+        startup_checks()
+    except Exception as e:
+        logger.error(f"Startup failed: {e}")
+        return 1
+    
+    # Route to appropriate interface
+    try:
+        if args.command == "import":
+            from app.interfaces.cli import run_cli
+            run_cli(args)
+        elif args.command in ["list", "show", "stats"]:
+            from app.interfaces.cli.events import run_events_cli
+            run_events_cli(args)
+        elif args.command == "mcp":
+            from app.interfaces.mcp.server import run as mcp_run
+            mcp_run()
+        elif args.command == "api":
+            from app.interfaces.api.server import run as api_run
+            api_run(host=args.host, port=args.port, reload=args.reload)
+    except KeyboardInterrupt:
+        logger.info("Operation cancelled by user")
+        return 0
+    except Exception as e:
+        logger.error(f"Command failed: {e}")
+        return 1
+    
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    exit(main())

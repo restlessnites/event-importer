@@ -1,4 +1,4 @@
-"""FastAPI application for the event importer."""
+"""FastAPI application for the event importer with database initialization."""
 
 import logging
 import sys
@@ -14,6 +14,7 @@ from app.interfaces.api.routes import events, health, statistics
 from app.interfaces.api.middleware.cors import add_cors_middleware
 from app.interfaces.api.middleware.logging import add_logging_middleware
 from app.integrations import get_available_integrations
+from app.startup import startup_checks
 
 # Configure logging
 logging.basicConfig(
@@ -30,11 +31,14 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting Event Importer API v{__version__}")
     
     try:
+        # Run startup checks including database initialization
+        startup_checks()
+        
         config = get_config()
         features = config.get_enabled_features()
         logger.info(f"Enabled features: {features}")
     except Exception as e:
-        logger.error(f"Configuration error: {e}")
+        logger.error(f"Startup failed: {e}")
         sys.exit(1)
     
     yield
@@ -74,6 +78,14 @@ def create_app() -> FastAPI:
 
 def run(host: str = "127.0.0.1", port: int = 8000, reload: bool = False):
     """Run the API server."""
+    # For standalone API server (not called via main.py), run startup checks
+    if not reload:  # Skip during development reload to avoid duplicate checks
+        try:
+            startup_checks()
+        except Exception as e:
+            logger.error(f"Startup failed: {e}")
+            sys.exit(1)
+    
     app = create_app()
     
     uvicorn.run(
@@ -86,4 +98,4 @@ def run(host: str = "127.0.0.1", port: int = 8000, reload: bool = False):
 
 
 if __name__ == "__main__":
-    run() 
+    run()
