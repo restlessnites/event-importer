@@ -44,13 +44,13 @@ Next, you need to tell your AI assistant how to connect to the Event Importer. I
 
 **Replace `/full/path/to/event-importer` with your actual path:**
 
-### For Mac:
+### For Mac
 
 1. Press Cmd+Space, type "terminal", press Enter
 2. A black window opens - this is Terminal
-3. Type `cd ` (with a space after cd)
+3. Type `cd` (with a space after cd), and DO NOT PRESS ENTER YET
 4. **Find the event-importer folder:**
-   - Click the magnifying glass (🔍) in top-right corner
+   - Click the magnifying glass (🔍) in top-right corner of your screen to open Spotlight Search
    - Type "event-importer" and press Enter
    - If nothing shows up, you need to download it first
 5. Drag the event-importer folder from your search results into the Terminal window
@@ -59,7 +59,7 @@ Next, you need to tell your AI assistant how to connect to the Event Importer. I
 8. Copy the text that appears
 9. Replace `/full/path/to/event-importer` with what you copied
 
-### For Windows:
+### For Windows
 
 1. Press Windows key, type "cmd", press Enter
 2. A black window opens
