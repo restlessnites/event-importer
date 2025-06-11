@@ -4,6 +4,7 @@
 import asyncio
 import logging
 
+from app.shared.http import get_http_service, close_http_service
 from app.interfaces.cli import get_cli
 
 
@@ -23,9 +24,6 @@ async def test_error_capture():
     logger = logging.getLogger("app.test")
     logger.warning("This is a warning message")
     logger.error("This is an error message")
-
-    # Try to trigger a real error
-    from app.http import get_http_service
 
     http = get_http_service()
 
@@ -54,8 +52,6 @@ async def test_error_capture():
     cli.show_captured_errors("Captured in Context")
 
     # Clean up
-    from app.http import close_http_service
-
     await close_http_service()
 
 
