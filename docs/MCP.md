@@ -108,7 +108,7 @@ Here are the tools you can now use in your conversations with the AI.
 > **Claude**: *(uses the `list_events` tool with `limit: 5`)*
 >
 > **Claude**: Here are the last 5 events you imported: ...
-
+>
 > **You**: Find any events with "Cursive"
 >
 > **Claude**: *(uses `list_events` with `search: "Cursive"`)*
