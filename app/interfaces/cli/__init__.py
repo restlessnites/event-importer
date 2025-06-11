@@ -40,12 +40,19 @@ async def main(args):
         request_data = {
             "url": args.url,
             "timeout": args.timeout,
+            "ignore_cache": getattr(args, 'ignore_cache', False),  # Handle CLI flag
         }
         
         if args.method:
             request_data["force_method"] = args.method
         
         cli.header("Event Importer", f"Importing from: {args.url}")
+        
+        # Show cache status
+        if request_data.get("ignore_cache"):
+            cli.info("🔄 Cache ignored - forcing fresh import")
+        else:
+            cli.info("💾 Cache enabled - will use cached data if available")
         
         # Show progress
         with cli.progress("Importing event data..."):

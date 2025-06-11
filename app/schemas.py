@@ -188,7 +188,6 @@ class EventData(BaseModel):
 
         try:
             # Use current year as default when year is missing
-            from datetime import datetime
             current_year = datetime.now().year
             default_date = datetime(current_year, 1, 1)
             
@@ -342,6 +341,7 @@ class ImportRequest(BaseModel):
     force_method: Optional[ImportMethod] = None
     include_raw_data: bool = False
     timeout: int = Field(default=60, ge=1, le=300)
+    ignore_cache: bool = Field(default=False, description="Skip cache and force fresh import")
 
 
 class ImportProgress(BaseModel):

@@ -32,6 +32,7 @@ def main():
     import_parser.add_argument("url", help="URL to import")
     import_parser.add_argument("--method", choices=["api", "web", "image"], help="Force import method")
     import_parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds")
+    import_parser.add_argument("--ignore-cache", action="store_true", help="Skip cache and force fresh import")
     
     # List command
     list_parser = subparsers.add_parser("list", help="List imported events")

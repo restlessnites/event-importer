@@ -19,4 +19,8 @@ class ImportEventRequest(BaseModel):
         description="Timeout in seconds",
         ge=1,
         le=300
-    ) 
+    )
+    ignore_cache: bool = Field(
+        False, 
+        description="Skip cache and force fresh import"
+    )

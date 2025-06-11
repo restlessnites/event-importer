@@ -61,6 +61,11 @@ class CoreMCPTools:
                         "minimum": 1,
                         "maximum": 300,
                     },
+                    "ignore_cache": {
+                        "type": "boolean",
+                        "description": "Skip cache and force fresh import",
+                        "default": False,
+                    },
                 },
                 "required": ["url"],
             },
