@@ -18,7 +18,7 @@ uv run event-importer-mcp
 
 This command starts a server that listens for requests from your AI assistant. You must keep this terminal window open while you want to use the tools.
 
-### Step 2: Configure Your AI Assistant (Claude Desktop)
+## Step 2: Configure Your AI Assistant (Claude Desktop)
 
 Next, you need to tell your AI assistant how to connect to the Event Importer. In Claude Desktop, you can do this by editing its configuration file.
 
@@ -42,12 +42,33 @@ Next, you need to tell your AI assistant how to connect to the Event Importer. I
 }
 ```
 
-**Important Notes**:
+**Replace `/full/path/to/event-importer` with your actual path:**
 
-- **`/full/path/to/event-importer`**: You **must** replace this with the absolute path to where you cloned the `event-importer` project on your computer.
-  - On macOS/Linux, you can get this path by navigating to the directory in your terminal and running `pwd`.
-  - On Windows, you can get it from the address bar in File Explorer.
-- **API Keys**: Replace `YOUR_KEY` with your actual API keys. These are required for the importer to work. See the main `README.md` for instructions on how to get them.
+### For Mac:
+
+1. Press Cmd+Space, type "terminal", press Enter
+2. A black window opens - this is Terminal
+3. Type `cd ` (with a space after cd)
+4. **Find the event-importer folder:**
+   - Click the magnifying glass (🔍) in top-right corner
+   - Type "event-importer" and press Enter
+   - If nothing shows up, you need to download it first
+5. Drag the event-importer folder from your search results into the Terminal window
+6. Press Enter
+7. Type `pwd` and press Enter
+8. Copy the text that appears
+9. Replace `/full/path/to/event-importer` with what you copied
+
+### For Windows:
+
+1. Press Windows key, type "cmd", press Enter
+2. A black window opens
+3. **Find the event-importer folder:**
+   - Press Windows key, type "event-importer", press Enter
+   - If nothing shows up, you need to download it first
+4. Right-click the event-importer folder from your search results
+5. Select "Copy as path"
+6. Replace `/full/path/to/event-importer` with what you copied
 
 Once configured, restart your AI assistant. You can now use the Event Importer tools.
 
