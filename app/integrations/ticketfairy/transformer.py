@@ -5,6 +5,15 @@ from ..base import BaseTransformer
 
 logger = logging.getLogger(__name__)
 
+def _get_meaningful_url(url_value):
+    """Check if a URL value is meaningful (not empty, None, or just whitespace)"""
+    if not url_value:
+        return None
+    
+    url_str = str(url_value).strip()
+    if not url_str or url_str.lower() in ['n/a', 'na', 'none', 'null', '']:
+        return None
+
 def _format_list_or_string(data: Any) -> str:
     """Helper to format data that could be a list or a string."""
     if isinstance(data, list):
@@ -121,8 +130,13 @@ class TicketFairyTransformer(BaseTransformer):
         if isinstance(images, dict):
             image_url = images.get("full") or images.get("thumbnail") or "N/A"
         
-        # Handle ticket URL
-        ticket_url = event_data.get("ticket_url") or event_data.get("source_url") or "N/A"
+        # Handle ticket URL with proper fallback
+        ticket_url_raw = event_data.get("ticket_url")
+        source_url_raw = event_data.get("source_url") 
+
+        ticket_url = (_get_meaningful_url(ticket_url_raw) or 
+                      _get_meaningful_url(source_url_raw) or 
+                      "N/A")
         
         # Handle datetime - combine date and time into TicketFairy format
         # Determine timezone from location

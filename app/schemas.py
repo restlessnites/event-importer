@@ -187,7 +187,12 @@ class EventData(BaseModel):
             return None
 
         try:
-            parsed = date_parser.parse(str(v), fuzzy=True)
+            # Use current year as default when year is missing
+            from datetime import datetime
+            current_year = datetime.now().year
+            default_date = datetime(current_year, 1, 1)
+            
+            parsed = date_parser.parse(str(v), fuzzy=True, default=default_date)
             return parsed.date().isoformat()
         except Exception:
             return None
