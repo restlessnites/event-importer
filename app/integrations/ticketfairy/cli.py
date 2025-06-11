@@ -5,6 +5,7 @@ from typing import Optional
 
 from .submitter import TicketFairySubmitter
 from ...shared.database.connection import init_db
+from ...interfaces.cli.core import CLI
 
 
 async def submit_command(
@@ -14,31 +15,46 @@ async def submit_command(
 ) -> None:
     """Submit events to TicketFairy"""
     submitter = TicketFairySubmitter()
+    cli = CLI()
     
     try:
         if url:
-            print(f"Submitting specific URL: {url}")
+            cli.info(f"Submitting specific URL: {url}")
             result = await submitter.submit_by_url(url, dry_run=dry_run)
         else:
-            print(f"Submitting events with filter: {filter_type}")
+            cli.info(f"Submitting events with filter: {filter_type}")
             result = await submitter.submit_events(filter_type, dry_run=dry_run)
         
-        # Print results
-        print(json.dumps(result, indent=2))
-        
         # Summary
-        print(f"\nSummary:")
-        print(f"Total events processed: {result['total']}")
-        print(f"Successfully submitted: {len(result['submitted'])}")
-        print(f"Errors: {len(result['errors'])}")
+        cli.header(f"Submission Results for '{submitter.service_name}'")
+        cli.info(f"Selector: {result['selector']}")
+        cli.info(f"Total events processed: {result['total']}")
         
+        if result['submitted']:
+            cli.success(f"Successfully submitted: {len(result['submitted'])}")
+            if dry_run:
+                cli.section("Dry Run - Would be submitted")
+                # Prepare data for the table
+                table_data = [
+                    {"ID": s["event_id"], "URL": s["url"]}
+                    for s in result["submitted"]
+                ]
+                cli.table(table_data)
+
         if result['errors']:
-            print("\nErrors:")
-            for error in result['errors']:
-                print(f"  - Event {error['event_id']}: {error['error']}")
-    
+            cli.error(f"Errors: {len(result['errors'])}")
+            cli.section("Error Details")
+            table_data = [
+                {"Event ID": e["event_id"], "URL": e["url"], "Error": e["error"]}
+                for e in result["errors"]
+            ]
+            cli.table(table_data)
+        
+        if not result['submitted'] and not result['errors']:
+            cli.warning("No events found to submit.")
+            
     except Exception as e:
-        print(f"Error: {e}")
+        cli.error(f"An unexpected error occurred: {e}")
         return
 
 

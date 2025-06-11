@@ -17,11 +17,6 @@ from .config import (
 class TicketFairyClient(BaseClient):
     """HTTP client for TicketFairy API"""
     
-    def __init__(self):
-        self.api_key = TICKETFAIRY_API_KEY
-        self.api_url = TICKETFAIRY_API_URL
-        self.origin = TICKETFAIRY_ORIGIN
-        
     @retry(
         stop=stop_after_attempt(MAX_RETRIES),
         wait=wait_exponential(multiplier=RETRY_DELAY, min=1, max=10)
@@ -30,14 +25,14 @@ class TicketFairyClient(BaseClient):
         """Submit event data to TicketFairy API"""
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}",
-            "Origin": self.origin,
+            "Authorization": f"Bearer {TICKETFAIRY_API_KEY}",
+            "Origin": TICKETFAIRY_ORIGIN,
         }
         
         async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
             try:
                 response = await client.post(
-                    self.api_url,
+                    TICKETFAIRY_API_URL,
                     headers=headers,
                     json=data
                 )

@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
+import traceback
+from tenacity import RetryError
 
 from ..shared.database.models import EventCache, Submission
 
@@ -129,20 +131,37 @@ class BaseSubmitter(ABC):
                     except Exception as submit_error:
                         # Update submission with error
                         submission.status = "failed"
-                        submission.error_message = str(submit_error)
                         
+                        # Get traceback
+                        tb_str = traceback.format_exc()
+                        
+                        # Log detailed error and traceback
+                        error_details = f"Error: {submit_error}\nTraceback:\n{tb_str}"
+                        submission.error_message = error_details
+                        
+                        # Use the real error message if it's a retry error
+                        error_to_show = str(submit_error)
+                        if isinstance(submit_error, RetryError):
+                            # Get the last exception that caused the failure
+                            last_attempt_exc = submit_error.last_attempt.exception()
+                            if last_attempt_exc:
+                                error_to_show = f"{type(last_attempt_exc).__name__}: {last_attempt_exc}"
+
                         results["errors"].append({
                             "event_id": event.id,
                             "submission_id": submission.id,
                             "url": event.source_url,
-                            "error": str(submit_error)
+                            "error": error_to_show
                         })
                 
                 except Exception as event_error:
+                    tb_str = traceback.format_exc()
+                    error_details = f"Error: {event_error}\nTraceback:\n{tb_str}"
+                    
                     results["errors"].append({
                         "event_id": event.id,
                         "url": event.source_url,
-                        "error": str(event_error)
+                        "error": error_details
                     })
         
         return results 

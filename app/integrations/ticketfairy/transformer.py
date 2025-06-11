@@ -1,113 +1,67 @@
-import json
-from typing import Dict, Any
-from datetime import datetime
+from typing import Dict, Any, List
 
 from ..base import BaseTransformer
 
+def _format_list_or_string(data: Any) -> str:
+    """Helper to format data that could be a list or a string."""
+    if isinstance(data, list):
+        return ", ".join(map(str, data))
+    return str(data) if data is not None else ""
 
 class TicketFairyTransformer(BaseTransformer):
-    """Transform event data to TicketFairy API format"""
-    
-    def __init__(self):
-        # TicketFairy template based on the provided JSON
-        self.template = {
-            "data": {
-                "longDescription": {
-                    "en": "{long_description}\n\nPromoters: {promoters}, Genres: {event_genre}\n\nLineup: {lineup}\n\nTicket price: {ticket_price}"
-                },
-                "shortDescription": {
-                    "en": "{short_description}"
-                },
-                "externalTicketingUrl": "{ticket_url}",
-                "minimumAge": "{minimum_age}",
-                "displayName": "{title}",
-                "imageURLs": {
-                    "en": "{event_image_url}"
-                },
-                "startDate": "{datetime_ISO8601_UTC}",
-                "endDate": "{datetime_ISO8601_UTC}",
-                "searchValue": "{venue}"
-            }
-        }
-    
+    """
+    Transforms a normalized event data dictionary into the format required
+    by the TicketFairy API.
+    """
+
     def transform(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Transform scraped event data to TicketFairy format"""
+        """
+        Transforms the scraped event data into the format expected by the
+        TicketFairy /api/draft-events endpoint.
+        """
         
-        # Extract values with fallbacks
-        title = event_data.get("title", "")
-        long_description = event_data.get("description", event_data.get("long_description", ""))
-        short_description = event_data.get("short_description", title)
+        # --- Extract data using canonical keys ---
+        title = event_data.get("title", "N/A")
+        description = event_data.get("description", "")
+        venue = event_data.get("venue", "N/A")
+        address = event_data.get("address", "N/A")
+        image_url = event_data.get("image_url", "N/A")
+        ticket_url = event_data.get("url", "N/A")
         
-        # Handle lineup/artists
-        lineup = ""
-        if "lineup" in event_data:
-            if isinstance(event_data["lineup"], list):
-                lineup = ", ".join(event_data["lineup"])
-            else:
-                lineup = str(event_data["lineup"])
-        elif "artists" in event_data:
-            if isinstance(event_data["artists"], list):
-                lineup = ", ".join(event_data["artists"])
-            else:
-                lineup = str(event_data["artists"])
+        start_date = event_data.get("datetime_utc", "")
+        end_date = event_data.get("end_datetime_utc", start_date)
+
+        lineup = _format_list_or_string(event_data.get("lineup", []))
+        promoters = _format_list_or_string(event_data.get("promoters", []))
+        genres = _format_list_or_string(event_data.get("genres", []))
+
+        # --- Combine details into a single field ---
+        details_parts = [description]
+        if lineup:
+            details_parts.append(f"Lineup: {lineup}")
+        if promoters:
+            details_parts.append(f"Promoters: {promoters}")
+        if genres:
+            details_parts.append(f"Genres: {genres}")
         
-        # Handle promoters
-        promoters = ""
-        if "promoters" in event_data:
-            if isinstance(event_data["promoters"], list):
-                promoters = ", ".join(event_data["promoters"])
-            else:
-                promoters = str(event_data["promoters"])
-        
-        # Handle genres
-        event_genre = ""
-        if "genres" in event_data:
-            if isinstance(event_data["genres"], list):
-                event_genre = ", ".join(event_data["genres"])
-            else:
-                event_genre = str(event_data["genres"])
-        elif "genre" in event_data:
-            event_genre = str(event_data["genre"])
-        
-        # Handle datetime
-        datetime_iso = ""
-        if "datetime" in event_data:
-            try:
-                # Try to parse and format as ISO8601 UTC
-                if isinstance(event_data["datetime"], str):
-                    # Assume it's already in ISO format or parse it
-                    datetime_iso = event_data["datetime"]
-                elif isinstance(event_data["datetime"], datetime):
-                    datetime_iso = event_data["datetime"].isoformat() + "Z"
-            except Exception:
-                datetime_iso = ""
-        
-        # Handle ticket price
-        ticket_price = ""
-        if "ticket_price" in event_data:
-            ticket_price = str(event_data["ticket_price"])
-        elif "price" in event_data:
-            ticket_price = str(event_data["price"])
-        
-        # Create the transformed data
-        transformed = {
+        details = "\n\n".join(filter(None, details_parts)) or "N/A"
+
+        # --- Construct the final payload ---
+        return {
             "data": {
-                "longDescription": {
-                    "en": f"{long_description}\n\nPromoters: {promoters}, Genres: {event_genre}\n\nLineup: {lineup}\n\nTicket price: {ticket_price}"
-                },
-                "shortDescription": {
-                    "en": short_description
-                },
-                "externalTicketingUrl": event_data.get("ticket_url", event_data.get("url", "")),
-                "minimumAge": str(event_data.get("minimum_age", event_data.get("age_restriction", ""))),
-                "displayName": title,
-                "imageURLs": {
-                    "en": event_data.get("image_url", event_data.get("event_image_url", ""))
-                },
-                "startDate": datetime_iso,
-                "endDate": datetime_iso,  # Same as start date for now
-                "searchValue": event_data.get("venue", event_data.get("location", ""))
+                "attributes": {
+                    "title": title,
+                    "url": ticket_url,
+                    "image": image_url,
+                    "hostedBy": True,
+                    "startDate": start_date,
+                    "endDate": end_date,
+                    "timezone": "UTC",
+                    "isOnline": 0,
+                    "status": "Public",
+                    "address": address,
+                    "venue": venue,
+                    "details": details,
+                }
             }
-        }
-        
-        return transformed 
+        } 
