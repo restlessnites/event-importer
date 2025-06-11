@@ -23,8 +23,8 @@ This command starts a server that listens for requests from your AI assistant. Y
 Next, you need to tell your AI assistant how to connect to the Event Importer. In Claude Desktop, you can do this by editing its configuration file.
 
 1. Open your Claude Desktop configuration.
-2. Find the `mcpServers` section (or add it if it doesn't exist).
-3. Add the following JSON block inside `mcpServers`:
+2. Find the `Edit Config` button in Claude > Settings > Developer.
+3. Edit the file it points you to to include the following:
 
 ```json
 {
@@ -36,14 +36,7 @@ Next, you need to tell your AI assistant how to connect to the Event Importer. I
         "/full/path/to/event-importer",
         "run",
         "event-importer-mcp"
-      ],
-      "env": {
-        "ANTHROPIC_API_KEY": "YOUR_KEY",
-        "ZYTE_API_KEY": "YOUR_KEY",
-        "TICKETMASTER_API_KEY": "YOUR_KEY (Optional)",
-        "GOOGLE_API_KEY": "YOUR_KEY (Optional)",
-        "GOOGLE_CSE_ID": "YOUR_ID (Optional)"
-      }
+      ]
     }
   }
 }
