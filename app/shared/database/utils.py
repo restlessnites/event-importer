@@ -41,11 +41,14 @@ def cache_event(url: str, event_data: Dict[str, Any]) -> EventCache:
             return cached_event
 
 
-def get_cached_event(url: str) -> Optional[EventCache]:
-    """Get cached event by URL"""
+def get_cached_event(url: str) -> Optional[Dict[str, Any]]:
+    """Get cached event data by URL"""
     with get_db_session() as db:
-        return db.query(EventCache).filter(EventCache.source_url == url).first()
-
+        event_cache = db.query(EventCache).filter(EventCache.source_url == url).first()
+        if event_cache:
+            # Return the scraped_data dict instead of the SQLAlchemy object
+            return event_cache.scraped_data
+        return None
 
 def get_submission_status(event_id: int, service_name: str) -> Optional[Submission]:
     """Get the latest submission status for an event and service"""

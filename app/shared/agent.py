@@ -46,8 +46,6 @@ class Agent(ABC):
         """The import method this agent uses."""
         pass
 
-    # REMOVED: can_handle() method - no longer needed with content-type routing
-
     @abstractmethod
     async def import_event(self, url: str, request_id: str) -> Optional[EventData]:
         """
