@@ -58,6 +58,7 @@ Next, you need to tell your AI assistant how to connect to the Event Importer. I
 7. Type `pwd` and press Enter
 8. Copy the text that appears
 9. Replace `/full/path/to/event-importer` with what you copied
+10. Save the file and restart your AI assistant.
 
 ### For Windows
 
@@ -69,8 +70,7 @@ Next, you need to tell your AI assistant how to connect to the Event Importer. I
 4. Right-click the event-importer folder from your search results
 5. Select "Copy as path"
 6. Replace `/full/path/to/event-importer` with what you copied
-
-Once configured, restart your AI assistant. You can now use the Event Importer tools.
+7. Save the file and restart your AI assistant.
 
 ## Available Tools
 
