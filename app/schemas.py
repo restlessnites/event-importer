@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 from enum import Enum
 import uuid
+import re
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from dateutil import parser as date_parser
@@ -43,8 +44,6 @@ class EventTime(BaseModel):
         v = str(v).strip()
 
         # Clean common prefixes
-        import re
-
         v = re.sub(
             r"^\s*(doors?|show|start|begin|end)s?\s*:?\s*", "", v, flags=re.IGNORECASE
         )
@@ -225,8 +224,6 @@ class EventData(BaseModel):
         cleaned = nh3.clean(str(v), tags=set()).strip()
 
         # Remove excessive whitespace
-        import re
-
         cleaned = re.sub(r"\s+", " ", cleaned).strip()
 
         # Remove trailing ellipsis
@@ -236,21 +233,63 @@ class EventData(BaseModel):
 
     @field_validator("cost", mode="before")
     def parse_cost(cls, v: Any) -> Optional[str]:
-        """Parse and standardize cost information."""
+        """Parse and standardize cost information with comprehensive normalization."""
         if not v:
             return None
 
-        v = str(v).strip()
-
-        # Check for free events
-        if any(
-            word in v.lower()
-            for word in ["free", "gratis", "no cover", "complimentary"]
-        ):
-            return "Free"
-
-        # Otherwise just clean it
-        return nh3.clean(v, tags=set()).strip() or None
+        # Convert to string and clean
+        v_str = str(v).strip().lower()
+        
+        # Remove common HTML entities and extra whitespace
+        v_clean = nh3.clean(v_str, tags=set()).strip()
+        
+        # Check for free indicators (case insensitive)
+        free_indicators = [
+            # Direct free terms
+            "free", "gratis", "no cover", "complimentary", "admission free",
+            "free admission", "free entry", "no charge", "gratuito", "gratuit",
+            
+            # Zero values
+            "0", "0.00", "$0", "$0.00", "£0", "€0", "¥0",
+            "usd 0", "gbp 0", "eur 0", "cad 0",
+            
+            # None/null indicators  
+            "none", "null", "n/a", "na", "no cost", "no fee",
+            
+            # Special free event phrases
+            "free w/ rsvp", "free with rsvp", "free w/rsvp",
+            "donation", "donation only", "donations", "suggested donation",
+            "pay what you want", "pwyw", "by donation"
+        ]
+        
+        # Check if it's a free event
+        for indicator in free_indicators:
+            if indicator in v_clean:
+                return "Free"
+        
+        # Check for numeric zero values with various formats
+        # Match patterns like "0", "$0", "0.00", "$0.00", etc.
+        zero_patterns = [
+            r'^0+$',                    # Just zeros
+            r'^0+\.0+$',               # 0.00, 0.000, etc.
+            r'^[\$£€¥]?\s*0+$',        # Currency + zeros
+            r'^[\$£€¥]?\s*0+\.0+$',    # Currency + 0.00
+            r'^\s*0+\s*(usd|gbp|eur|cad|dollars?|pounds?|euros?)\s*$',  # 0 USD, etc.
+        ]
+        
+        for pattern in zero_patterns:
+            if re.match(pattern, v_clean):
+                return "Free"
+        
+        # If we get here, it's not free - clean up the original value
+        original_clean = nh3.clean(str(v), tags=set()).strip()
+        
+        # Return the cleaned cost if it has meaningful content
+        if original_clean and original_clean.lower() not in ["", "n/a", "na", "none", "null", "tbd", "tba"]:
+            return original_clean
+        
+        # Default to None if no meaningful cost information
+        return None
 
     @field_validator("minimum_age", mode="before")
     def standardize_age(cls, v: Any) -> Optional[str]:
@@ -265,8 +304,6 @@ class EventData(BaseModel):
             return "All Ages"
 
         # Extract age number
-        import re
-
         match = re.search(r"(\d+)\s*\+?", v)
         if match:
             age = int(match.group(1))

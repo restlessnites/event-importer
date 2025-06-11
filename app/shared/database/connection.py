@@ -7,8 +7,8 @@ from typing import Generator
 
 from .models import Base
 
-# Database configuration
-DB_PATH = Path("data/events.db")
+# Database configuration 
+DB_PATH = Path("data") / "events.db"  # This creates data/events.db
 DB_URL = f"sqlite:///{DB_PATH}"
 
 # Create engine with SQLite optimizations
@@ -27,8 +27,13 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db() -> None:
     """Initialize the database, creating tables if they don't exist"""
-    # Ensure data directory exists
+    # Ensure data directory exists (not nested)
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Log the actual database path for debugging
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Database path: {DB_PATH.absolute()}")
     
     # Create all tables
     Base.metadata.create_all(bind=engine)
@@ -48,4 +53,4 @@ def get_db_session() -> Generator[Session, None, None]:
 
 def get_db_session_sync() -> Session:
     """Get a database session (for dependency injection)"""
-    return SessionLocal() 
+    return SessionLocal()

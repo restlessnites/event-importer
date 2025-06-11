@@ -1,5 +1,5 @@
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 
@@ -31,8 +31,8 @@ class StatisticsService:
                 EventCache.scraped_at >= today_start
             ).count()
             
-            # This week
-            week_start = today_start.replace(day=today_start.day - today_start.weekday())
+            # This week - use timedelta for proper date arithmetic
+            week_start = today_start - timedelta(days=today_start.weekday())
             events_this_week = db.query(EventCache).filter(
                 EventCache.scraped_at >= week_start
             ).count()
@@ -106,14 +106,14 @@ class StatisticsService:
     def get_event_trends(self, days: int = 7) -> Dict[str, Any]:
         """Get event trends over the specified number of days"""
         with self._get_session() as db:
-            start_date = datetime.now().replace(
-                hour=0, minute=0, second=0, microsecond=0
-            )
+            # Use proper date arithmetic with timedelta
+            today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             
             daily_counts = []
             for i in range(days):
-                day_start = start_date.replace(day=start_date.day - i)
-                day_end = day_start.replace(hour=23, minute=59, second=59, microsecond=999999)
+                # Calculate the date properly using timedelta
+                day_start = today - timedelta(days=i)
+                day_end = day_start + timedelta(days=1) - timedelta(microseconds=1)
                 
                 count = db.query(EventCache).filter(
                     and_(
@@ -127,9 +127,12 @@ class StatisticsService:
                     "count": count
                 })
             
+            # Reverse to show oldest first
+            daily_counts.reverse()
+            
             return {
                 "period_days": days,
-                "daily_counts": list(reversed(daily_counts)),
+                "daily_counts": daily_counts,
                 "total_in_period": sum(day["count"] for day in daily_counts),
                 "average_per_day": sum(day["count"] for day in daily_counts) / days if days > 0 else 0,
                 "generated_at": datetime.now().isoformat()
@@ -141,4 +144,4 @@ class StatisticsService:
             **self.get_combined_statistics(),
             "trends": self.get_event_trends(),
             "trends_30_days": self.get_event_trends(30)
-        } 
+        }

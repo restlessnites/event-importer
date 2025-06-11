@@ -36,7 +36,8 @@ Next, you need to tell your AI assistant how to connect to the Event Importer. I
         "/full/path/to/event-importer",
         "run",
         "event-importer-mcp"
-      ]
+      ],
+      "cwd": "/full/path/to/event-importer"
     }
   }
 }
