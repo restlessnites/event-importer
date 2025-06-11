@@ -80,6 +80,16 @@ Optional keys for more features:
 - **Ticketmaster**: Free at [developer.ticketmaster.com](https://developer.ticketmaster.com)
 - **Google Search**: Setup at [developers.google.com/custom-search](https://developers.google.com/custom-search)
 
+## Interfaces
+
+This tool provides multiple ways to interact with it, depending on your needs.
+
+- **[Command Line Interface](#command-line-interface)**: Best for developers, testing, and manual imports.
+- **[HTTP API Server](docs/API.md)**: Ideal for integrating the importer into a web application or another service.
+- **[MCP Server for AI Assistants](docs/MCP.md)**: Perfect for using the importer conversationally within AI assistants like Claude Desktop.
+
+For detailed documentation on the API and MCP interfaces, please see the `docs` folder.
+
 ## Command Line Interface
 
 Perfect for testing and local development:
@@ -357,6 +367,8 @@ LOG_LEVEL=INFO                     # Logging level
 ## Additional Documentation
 
 - **[Architecture](docs/ARCHITECTURE.md)** - Technical architecture and development guide
+- **[HTTP API Guide](docs/API.md)** - How to use the HTTP API for web integration
+- **[MCP Assistant Guide](docs/MCP.md)** - How to use the importer with AI assistants
 - **[Genre Enhancement](docs/GENRE_ENHANCER.md)** - How AI genre discovery works
 - **[Image Enhancement](docs/IMAGE_ENHANCER.md)** - How AI image enhancement works
 
