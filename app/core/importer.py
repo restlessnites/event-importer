@@ -1,6 +1,6 @@
-
 import asyncio
 import logging
+import aiohttp
 from datetime import datetime, timezone
 from typing import List, Optional, Dict
 
@@ -10,7 +10,6 @@ from app.schemas import (
     ImportResult,
     ImportStatus,
     ImportProgress,
-    EventData,
 )
 from app.shared.agent import Agent
 from app.agents import (
@@ -72,56 +71,33 @@ class EventImporter:
             Import result with event data or error
         """
         start_time = datetime.now(timezone.utc)
-        url = str(request.url)
-
-        # Send initial progress
-        await self.progress_tracker.send_progress(
-            ImportProgress(
-                request_id=request.request_id,
-                status=ImportStatus.RUNNING,
-                message="Starting import",
-                progress=0.0,
-            )
-        )
+        url = request.url
 
         try:
-            # Check if event is already cached
             await self.progress_tracker.send_progress(
                 ImportProgress(
                     request_id=request.request_id,
                     status=ImportStatus.RUNNING,
-                    message="Checking cache",
+                    message="Starting import",
                     progress=0.1,
                 )
             )
-            
-            cached_event = get_cached_event(url)
-            if cached_event:
-                logger.info(f"Using cached event data for {url}")
-                
-                # Convert cached data to EventData
-                event_data = EventData(**cached_event.scraped_data)
-                
-                await self.progress_tracker.send_progress(
-                    ImportProgress(
+
+            # Check cache first
+            if request.use_cache:
+                event_data = await get_cached_event(url)
+                if event_data:
+                    logger.info(f"Found cached event for {url}")
+                    return ImportResult(
                         request_id=request.request_id,
                         status=ImportStatus.SUCCESS,
-                        message="Retrieved from cache",
-                        progress=1.0,
-                        data=event_data,
+                        url=request.url,
+                        method_used="cache",  # Indicate it came from cache
+                        event_data=event_data,
+                        import_time=(
+                            datetime.now(timezone.utc) - start_time
+                        ).total_seconds(),
                     )
-                )
-                
-                return ImportResult(
-                    request_id=request.request_id,
-                    status=ImportStatus.SUCCESS,
-                    url=request.url,
-                    method_used="cache",  # Indicate it came from cache
-                    event_data=event_data,
-                    import_time=(
-                        datetime.now(timezone.utc) - start_time
-                    ).total_seconds(),
-                )
 
             # Find capable agent
             agent = await self._determine_agent(url, request.force_method)
@@ -155,40 +131,46 @@ class EventImporter:
 
             # Create result
             if event_data:
-                # Save to cache after successful extraction
-                try:
-                    await self.progress_tracker.send_progress(
-                        ImportProgress(
-                            request_id=request.request_id,
-                            status=ImportStatus.RUNNING,
-                            message="Saving to cache",
-                            progress=0.98,
-                        )
+                # Cache the successful result
+                if request.use_cache:
+                    await cache_event(url, event_data)
+
+                await self.progress_tracker.send_progress(
+                    ImportProgress(
+                        request_id=request.request_id,
+                        status=ImportStatus.SUCCESS,
+                        message="Import completed successfully",
+                        progress=1.0,
+                        data=event_data,
                     )
-                    
-                    cache_event(url, event_data.model_dump(mode="json"))
-                    logger.info(f"Cached event data for {url}")
-                except Exception as e:
-                    logger.warning(f"Failed to cache event data: {e}")
-                    # Don't fail the import if caching fails
-                
+                )
+
                 return ImportResult(
                     request_id=request.request_id,
                     status=ImportStatus.SUCCESS,
                     url=request.url,
-                    method_used=agent.import_method,
+                    method_used=agent.import_method.value,
                     event_data=event_data,
                     import_time=(
                         datetime.now(timezone.utc) - start_time
                     ).total_seconds(),
                 )
             else:
+                error = "Agent returned no data"
+                await self.progress_tracker.send_progress(
+                    ImportProgress(
+                        request_id=request.request_id,
+                        status=ImportStatus.FAILED,
+                        message=error,
+                        progress=1.0,
+                        error=error,
+                    )
+                )
                 return ImportResult(
                     request_id=request.request_id,
                     status=ImportStatus.FAILED,
                     url=request.url,
-                    method_used=agent.import_method,
-                    error="No event data extracted",
+                    error=error,
                     import_time=(
                         datetime.now(timezone.utc) - start_time
                     ).total_seconds(),
@@ -264,28 +246,68 @@ class EventImporter:
     async def _determine_agent(
         self, url: str, force_method: Optional[str] = None
     ) -> Optional[Agent]:
-        """Determine which agent should handle the URL."""
+        """Determine which agent should handle the URL using content-type and URL analysis."""
+        
         if force_method:
-            # Find agent by method
+            # Find agent by method name mapping
             method_mapping = {
-                "api": ["TicketmasterAgent", "ResidentAdvisorAgent"],
-                "web": ["WebAgent"],
+                "api": ["ResidentAdvisorAgent", "TicketmasterAgent"],
+                "web": ["WebScraper"], 
                 "image": ["ImageAgent"],
             }
             
             target_agents = method_mapping.get(force_method, [])
             for agent in self.agents:
-                if agent.name in target_agents and agent.can_handle(url):
+                if agent.name in target_agents:
                     return agent
             
-            # If forced method doesn't work, log warning and continue
-            logger.warning(f"Forced method '{force_method}' not available for {url}")
+            logger.warning(f"Forced method '{force_method}' not available")
 
-        # Find first capable agent
+        # Content-type based routing
+        try:
+            async with self.http.get_session() as session:
+                async with session.head(
+                    url,
+                    timeout=aiohttp.ClientTimeout(total=10),
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+                    },
+                    allow_redirects=True
+                ) as response:
+                    if response.status == 200:
+                        content_type = response.headers.get("Content-Type", "").lower()
+                        logger.info(f"Content-Type for {url}: {content_type}")
+                        
+                        # Route by content-type
+                        if content_type.startswith("image/"):
+                            return self._get_agent_by_name("ImageAgent")
+                        elif content_type.startswith(("text/html", "application/")):
+                            return self._get_agent_by_name("WebScraper")
+                        
+        except Exception as e:
+            logger.warning(f"Failed to check content-type for {url}: {e}")
+
+        # URL pattern based routing for specialized agents
+        from app.shared.url_analyzer import URLAnalyzer
+        analyzer = URLAnalyzer()
+        analysis = analyzer.analyze(url)
+        
+        # Route to specialized agents based on URL analysis
+        if analysis.get("type") == "ra" and "event_id" in analysis:
+            return self._get_agent_by_name("ResidentAdvisorAgent")
+        elif analysis.get("type") == "ticketmaster" and "event_id" in analysis:
+            agent = self._get_agent_by_name("TicketmasterAgent") 
+            # Only return if API key is configured
+            return agent if self.config.api.ticketmaster_key else None
+
+        # Default fallback to WebAgent for any remaining URLs
+        return self._get_agent_by_name("WebScraper")
+
+    def _get_agent_by_name(self, name: str) -> Optional[Agent]:
+        """Get agent by name."""
         for agent in self.agents:
-            if agent.can_handle(url):
+            if agent.name == name:
                 return agent
-
         return None
 
     def add_progress_listener(self, request_id: str, callback):

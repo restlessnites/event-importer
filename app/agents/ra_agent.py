@@ -5,7 +5,7 @@ from typing import Optional
 
 from app.shared.agent import Agent
 from app.schemas import EventData, ImportMethod, ImportStatus, EventTime, EventLocation
-from app.shared.url_analyzer import URLAnalyzer, URLType
+from app.shared.url_analyzer import URLAnalyzer
 
 
 logger = logging.getLogger(__name__)
@@ -30,14 +30,7 @@ class ResidentAdvisorAgent(Agent):
     @property
     def import_method(self) -> ImportMethod:
         return ImportMethod.API
-
-    def can_handle(self, url: str) -> bool:
-        """Check if URL is a RA event page."""
-        analysis = self.url_analyzer.analyze(url)
-        return (
-            analysis.get("type") == URLType.RESIDENT_ADVISOR and "event_id" in analysis
-        )
-
+  
     async def import_event(self, url: str, request_id: str) -> Optional[EventData]:
         """Import event from RA GraphQL API."""
         self.start_timer()

@@ -28,13 +28,6 @@ class ImageAgent(Agent):
     def import_method(self) -> ImportMethod:
         return ImportMethod.IMAGE
 
-    def can_handle(self, url: str) -> bool:
-        """
-        This method is not used for ImageAgent since the importer
-        determines if a URL is an image by checking content-type.
-        """
-        return False
-
     async def import_event(self, url: str, request_id: str) -> Optional[EventData]:
         """Import event from image URL."""
         self.start_timer()

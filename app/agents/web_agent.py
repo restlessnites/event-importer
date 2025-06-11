@@ -30,13 +30,6 @@ class WebAgent(Agent):
     def import_method(self) -> ImportMethod:
         return ImportMethod.WEB
 
-    def can_handle(self, url: str) -> bool:
-        """
-        This method is not used for WebAgent since the importer
-        routes HTML content to it by checking content-type.
-        """
-        return False
-
     async def import_event(self, url: str, request_id: str) -> Optional[EventData]:
         """Import event by scraping web page."""
         self.start_timer()

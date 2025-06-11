@@ -5,7 +5,7 @@ from typing import Optional
 
 from app.shared.agent import Agent
 from app.schemas import EventData, ImportMethod, ImportStatus, EventTime, EventLocation
-from app.shared.url_analyzer import URLAnalyzer, URLType
+from app.shared.url_analyzer import URLAnalyzer
 
 
 logger = logging.getLogger(__name__)
@@ -31,14 +31,6 @@ class TicketmasterAgent(Agent):
     @property
     def import_method(self) -> ImportMethod:
         return ImportMethod.API
-
-    def can_handle(self, url: str) -> bool:
-        """Check if URL is a Ticketmaster event and API is configured."""
-        if not self.api_key:
-            return False
-
-        analysis = self.url_analyzer.analyze(url)
-        return analysis.get("type") == URLType.TICKETMASTER and "event_id" in analysis
 
     async def import_event(self, url: str, request_id: str) -> Optional[EventData]:
         """Import event from Ticketmaster API."""
