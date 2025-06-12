@@ -1,6 +1,6 @@
 # Event Importer HTTP API
 
-Welcome to the Event Importer API! This document provides a detailed guide on how to use the HTTP API to import event data from various sources.
+Welcome to the Event Importer API! This document provides a detailed guide on how to use the HTTP API to import event data and interact with integrations.
 
 ## Getting Started
 
@@ -20,15 +20,17 @@ The API will be available at `http://localhost:8000`. All endpoints are prefixed
 
 ### Authentication
 
-The API itself does not require authentication tokens in headers. However, it relies on API keys for backend services (like Anthropic, Zyte, Google) which must be configured in your `.env` file. See the main `README.md` for details on setting up these keys.
+The API itself does not require authentication tokens in headers. However, it relies on API keys for backend services (like Anthropic, Zyte, Google) which must be configured in your `.env` file. Integrations may also require their own API keys. See the main `README.md` for details on setting up these keys.
 
-## Endpoints
+## Core API Endpoints
+
+These endpoints are part of the core application.
 
 ### Event Management
 
 #### Import an Event
 
-This is the primary endpoint for importing an event. It's an asynchronous operation. You submit a URL, and the server starts the import process in the background.
+This is the primary endpoint for importing an event. The server processes the request and returns the result upon completion.
 
 - **Endpoint**: `POST /api/v1/events/import`
 - **Description**: Submits a URL for event data extraction.
@@ -87,8 +89,11 @@ Since importing is asynchronous, you can poll this endpoint to get progress upda
 
 - **Endpoint**: `GET /api/v1/events/import/{request_id}/progress`
 - **Description**: Get the progress of an import request.
+- **Note**: While the server currently processes requests synchronously and returns the full result in the `POST /import` call, this endpoint is available for clients that may operate in a non-blocking fashion in the future.
+
 - **URL Parameters**:
-  - `request_id`: The ID returned in the initial `POST /import` response (in a real async setup, but the current server blocks and returns the full result. This endpoint is for future-proofing or a different server configuration).
+  - `request_id`: The `request_id` associated with the import.
+
 - **Response**:
 
   ```json
@@ -142,6 +147,70 @@ These endpoints provide analytics about the events stored in the local database.
 
   ```bash
   curl http://localhost:8000/api/v1/health
+  ```
+
+## Integration API Endpoints
+
+Integrations can automatically add their own API endpoints. These are typically prefixed with `/integrations/`. The following endpoints are available for the `ticketfairy` integration.
+
+### TicketFairy Integration
+
+#### Submit Events to TicketFairy
+
+- **Endpoint**: `POST /integrations/ticketfairy/submit`
+- **Description**: Submits events from the database to TicketFairy based on a selector.
+- **Request Body**:
+
+  ```json
+  {
+    "selector": "string (default: 'unsubmitted')",
+    "url": "string (optional)",
+    "dry_run": "boolean (optional, default: false)"
+  }
+  ```
+
+  **Parameters**:
+  - `selector`: Which events to submit. Can be `unsubmitted`, `failed`, `pending`, or `all`.
+  - `url`: If provided, submits only the event matching this source URL.
+  - `dry_run`: If `true`, the submission process will run without actually sending data to the TicketFairy API. Useful for testing transformations.
+
+- **Example**:
+
+  ```bash
+  # Perform a dry run of submitting unsubmitted events
+  curl -X POST http://localhost:8000/integrations/ticketfairy/submit \
+    -H "Content-Type: application/json" \
+    -d '{"dry_run": true}'
+  ```
+
+#### Get TicketFairy Submission Status
+
+- **Endpoint**: `GET /integrations/ticketfairy/status`
+- **Description**: Retrieves statistics about submissions to TicketFairy.
+- **Example**:
+
+  ```bash
+  curl http://localhost:8000/integrations/ticketfairy/status
+  ```
+
+#### Retry Failed Submissions
+
+- **Endpoint**: `POST /integrations/ticketfairy/retry-failed`
+- **Description**: Attempts to re-submit all events that previously failed to submit to TicketFairy.
+- **Request Body**:
+
+  ```json
+  {
+    "dry_run": "boolean (optional, default: false)"
+  }
+  ```
+
+- **Example**:
+
+  ```bash
+  curl -X POST http://localhost:8000/integrations/ticketfairy/retry-failed \
+    -H "Content-Type: application/json" \
+    -d '{"dry_run": true}'
   ```
 
 ## Data Structures

@@ -5,7 +5,9 @@ A tool that extracts structured event data from websites, images, and APIs. Use 
 ## What It Does
 
 - **Import from anywhere**: Resident Advisor, Ticketmaster, any event website, or even images of flyers
+- **Flexible AI backend**: Supports both Claude and OpenAI for extraction and enhancement, with automatic fallback.
 - **AI-powered enhancement**: Automatically finds genres, improves images, and generates descriptions
+- **Extensible Integration Framework**: Easily add new integrations (e.g., to submit events to external calendars or databases) using a simple, modular system.
 - **Multiple interfaces**: CLI for developers, HTTP API for web apps, MCP for AI assistants
 - **Smart extraction**: Handles APIs, web scraping, and image text extraction
 - **Analytics & insights**: Comprehensive statistics about imports, success rates, and trends
@@ -70,15 +72,22 @@ A tool that extracts structured event data from websites, images, and APIs. Use 
 
 ### Getting API Keys
 
-You need at least these two keys to get started:
+You need API keys for the core functionality.
 
-- **Anthropic API Key** (required): Sign up at [console.anthropic.com](https://console.anthropic.com)
-- **Zyte API Key** (required): Sign up at [zyte.com](https://www.zyte.com)
+**Required (at least one of):**
 
-Optional keys for more features:
+- **Anthropic API Key**: Sign up at [console.anthropic.com](https://console.anthropic.com)
+- **OpenAI API Key**: Sign up at [platform.openai.com](https://platform.openai.com)
+
+**Required for web scraping:**
+
+- **Zyte API Key**: Sign up at [zyte.com](https://www.zyte.com)
+
+**Optional (for more features):**
 
 - **Ticketmaster**: Free at [developer.ticketmaster.com](https://developer.ticketmaster.com)
-- **Google Search**: Setup at [developers.google.com/custom-search](https://developers.google.com/custom-search)
+- **Google Search**: Setup at [developers.google.com/custom-search](https://developers.google.com/custom-search) (for AI-powered image and genre enhancement)
+- **TicketFairy API Key**: For submitting events to TicketFairy.
 
 ## Interfaces
 
@@ -116,7 +125,7 @@ uv run event-importer stats
 # List all events
 uv run event-importer list
 
-# List recent events with limit
+# List recent events with a limit
 uv run event-importer list --limit 10
 
 # Search for specific events
@@ -127,6 +136,24 @@ uv run event-importer list --details
 
 # Show specific event by ID
 uv run event-importer show 123
+```
+
+### Manage Integrations
+
+The new integration framework allows you to interact with external services. The `ticketfairy` integration is provided as an example.
+
+```bash
+# Check the status of the ticketfairy integration
+uv run event-importer ticketfairy status
+
+# Submit unsubmitted events to TicketFairy (dry run)
+uv run event-importer ticketfairy submit --dry-run
+
+# Submit a specific URL to TicketFairy
+uv run event-importer ticketfairy submit --url "https://ra.co/events/1234567"
+
+# Retry failed submissions for TicketFairy
+uv run event-importer ticketfairy retry-failed
 ```
 
 ## HTTP API Server
@@ -155,6 +182,12 @@ uv run event-importer api --host 0.0.0.0 --port 8000 --reload
 - **GET** `/api/v1/statistics/combined` - Get all statistics combined
 - **GET** `/api/v1/statistics/trends?days=7` - Get event trends over time
 - **GET** `/api/v1/statistics/detailed` - Get comprehensive statistics with trends
+
+#### Integrations
+
+- **POST** `/integrations/ticketfairy/submit` - Submit events to TicketFairy
+- **GET** `/integrations/ticketfairy/status` - Get TicketFairy submission status
+- **POST** `/integrations/ticketfairy/retry-failed` - Retry failed submissions
 
 #### System
 
@@ -340,12 +373,16 @@ uv run python scripts/api_example.py
 ```bash
 # Required
 ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+
+# Required for web scraping
 ZYTE_API_KEY=...
 
 # Optional - enables more features  
 TICKETMASTER_API_KEY=...
 GOOGLE_API_KEY=...
 GOOGLE_CSE_ID=...
+TICKETFAIRY_API_KEY=...
 
 # Advanced settings
 HTTP_TIMEOUT=30                    # Request timeout in seconds
@@ -359,10 +396,13 @@ LOG_LEVEL=INFO                     # Logging level
 
 | Feature           | Required Keys                       | Description                |
 |-------------------|-------------------------------------|----------------------------|
-| Basic imports     | `ANTHROPIC_API_KEY`, `ZYTE_API_KEY` | Core functionality         |
+| Primary LLM       | `ANTHROPIC_API_KEY`                 | Core functionality         |
+| Web scraping      | `ZYTE_API_KEY`                      | Core functionality         |
+| Fallback LLM      | `OPENAI_API_KEY`                    | Redundancy                 |
 | Ticketmaster      | `TICKETMASTER_API_KEY`              | Official API access        |
 | Genre enhancement | `GOOGLE_API_KEY`, `GOOGLE_CSE_ID`   | AI-powered genre discovery |
 | Image enhancement | `GOOGLE_API_KEY`, `GOOGLE_CSE_ID`   | AI-powered image search    |
+| TicketFairy       | `TICKETFAIRY_API_KEY`               | Submit events to TicketFairy |
 
 ## Additional Documentation
 
@@ -371,6 +411,7 @@ LOG_LEVEL=INFO                     # Logging level
 - **[MCP Assistant Guide](docs/MCP.md)** - How to use the importer with AI assistants
 - **[Genre Enhancement](docs/GENRE_ENHANCER.md)** - How AI genre discovery works
 - **[Image Enhancement](docs/IMAGE_ENHANCER.md)** - How AI image enhancement works
+- **[Integrations](docs/INTEGRATIONS.md)** - How to build and use integrations
 
 ## Development
 
@@ -393,9 +434,10 @@ uv run event-importer-mcp
 ```plaintext
 app/
 ├── core/                # Business logic
-├── interfaces/          # CLI, API, MCP interfaces  
-├── services/           # External service integrations
+├── interfaces/          # CLI, API, MCP interfaces
+├── services/           # External service integrations (LLMs, Zyte, etc.)
 ├── agents/             # Import agents for different sources
+├── integrations/       # Submitter integrations (e.g., TicketFairy)
 ├── shared/             # Shared utilities
 └── data/               # Reference data
 ```
@@ -406,10 +448,11 @@ For detailed architecture information, see [docs/ARCHITECTURE.md](docs/ARCHITECT
 
 The Event Importer goes beyond basic extraction:
 
-- **Genre Discovery**: Uses Google Search + Claude AI to find accurate music genres
-- **Image Enhancement**: Finds high-quality event images using AI-powered search  
-- **Description Generation**: Creates natural event descriptions when missing
-- **Smart Extraction**: Handles complex event pages with fallback methods
+- **Flexible LLM Backend**: Automatically uses a primary LLM provider (e.g., Claude) and falls back to a secondary (e.g., OpenAI) if the primary fails, ensuring reliability.
+- **Genre Discovery**: Uses Google Search + AI to find accurate music genres.
+- **Image Enhancement**: Finds high-quality event images using AI-powered search.
+- **Description Generation**: Creates natural event descriptions when missing.
+- **Smart Extraction**: Handles complex event pages with fallback methods.
 
 ## Troubleshooting
 

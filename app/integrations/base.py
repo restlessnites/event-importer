@@ -1,14 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
-from datetime import datetime
+from typing import Dict, Any, List
 from sqlalchemy.orm import Session
-import traceback
-from tenacity import RetryError
 
 from ..shared.database.models import EventCache, Submission
-from app.errors import handle_errors_async, APIError
-from app.models import Event
-from app.schemas import EventData
+from app.errors import handle_errors_async
 
 import logging
 

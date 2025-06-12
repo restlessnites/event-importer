@@ -6,10 +6,11 @@ This document describes the clean architecture implementation of the Event Impor
 
 The application follows **Hexagonal Architecture** (Ports and Adapters pattern) with clear separation between:
 
-- **Core/Domain Layer**: Business logic and domain models
-- **Service Layer**: External integrations and services  
-- **Interface Layer**: Different ways to interact with the system
-- **Shared Layer**: Common utilities used across interfaces
+- **Core/Domain Layer**: Business logic and domain models (`EventImporter`, `Router`).
+- **Service Layer**: External integrations and services (`LLMService`, `ZyteService`, `ImageService`).
+- **Interface Layer**: Different ways to interact with the system (CLI, API, MCP).
+- **Integration Layer**: A pluggable system for submitting imported events to external services (e.g., TicketFairy).
+- **Shared Layer**: Common utilities used across the application.
 
 ## Directory Structure
 
@@ -18,298 +19,125 @@ app/
 ├── __init__.py                 # Package exports
 ├── main.py                     # Application factory and entry point router
 ├── config.py                   # Configuration management
-├── schemas.py                  # Shared data models
-├── errors.py                   # Error handling
-├── 
+├── schemas.py                  # Shared data models (Pydantic)
+├── errors.py                   # Custom exceptions and error handling
+├──
 ├── core/                       # Core business logic (domain layer)
-│   ├── __init__.py
-│   ├── importer.py             # Main business logic
-│   ├── router.py               # Request routing
-│   └── progress.py             # Progress tracking
+│   ├── importer.py             # Main business logic orchestrator
+│   └── ...
 │
 ├── services/                   # External service integrations
-│   ├── __init__.py
+│   ├── llm.py                  # Fallback LLM service (Claude/OpenAI)
 │   ├── claude.py               # Claude AI service
+│   ├── openai.py               # OpenAI service
 │   ├── genre.py                # Genre enhancement service
 │   ├── image.py                # Image processing service
 │   └── zyte.py                 # Web scraping service
 │
-├── interfaces/                 # Interface implementations
-│   ├── __init__.py
-│   ├── cli/                    # CLI interface
-│   │   ├── __init__.py
-│   │   ├── core.py             # CLI core functionality
-│   │   ├── events.py           # Event management commands  
-│   │   ├── components.py       # UI components
-│   │   ├── formatters.py       # Data formatters
-│   │   ├── theme.py            # Visual theme
-│   │   ├── utils.py            # CLI utilities
-│   │   └── error_capture.py    # Error handling
-│   │
-│   ├── mcp/                    # MCP server interface
-│   │   ├── __init__.py
-│   │   └── server.py           # MCP server implementation
-│   │
-│   └── api/                    # HTTP REST API interface
-│       ├── __init__.py
-│       ├── server.py           # FastAPI application
-│       ├── routes/             # API route definitions  
-│       │   ├── __init__.py
-│       │   ├── events.py       # Event import endpoints
-│       │   ├── statistics.py   # Statistics and analytics endpoints
-│       │   └── health.py       # Health check endpoints
-│       ├── middleware/         # API middleware
-│       │   ├── __init__.py
-│       │   ├── cors.py         # CORS configuration
-│       │   └── logging.py      # Request logging
-│       └── models/             # API-specific request/response models
-│           ├── __init__.py
-│           ├── requests.py     # Request models
-│           └── responses.py    # Response models
-│
-├── shared/                     # Shared utilities across interfaces
-│   ├── __init__.py
-│   ├── http.py                 # HTTP utilities
-│   ├── url_analyzer.py         # URL analysis
-│   ├── agent.py                # Agent base class
-│   ├── statistics.py           # Statistics and analytics service
-│   └── database/               # Database connection and models
-│       ├── __init__.py
-│       ├── connection.py       # Database connection management
-│       └── models.py           # SQLAlchemy models
-│
 ├── agents/                     # Import agents for different sources
-│   ├── __init__.py
 │   ├── ra_agent.py             # Resident Advisor agent
 │   ├── ticketmaster_agent.py   # Ticketmaster agent
-│   ├── web_agent.py            # Generic web agent
-│   └── image_agent.py          # Image-based agent
+│   └── ...
 │
-└── data/                       # Data and static files
-    └── (existing content)
+├── integrations/               # Pluggable output integrations
+│   ├── __init__.py             # Auto-discovery of integrations
+│   ├── base.py                 # Base classes (Submitter, Transformer, etc.)
+│   └── ticketfairy/            # Example: TicketFairy integration
+│       ├── __init__.py
+│       ├── client.py           # API client for TicketFairy
+│       ├── transformer.py      # Transforms event data to TicketFairy format
+│       ├── selectors.py        # Selects which events to submit
+│       ├── submitter.py        # Orchestrates the submission process
+│       ├── cli.py              # Adds CLI commands (e.g., `uv run event-importer ticketfairy submit`)
+│       └── routes.py           # Adds API routes (e.g., `/integrations/ticketfairy/submit`)
+│
+├── interfaces/                 # User-facing interfaces
+│   ├── cli/                    # Command-line interface
+│   ├── mcp/                    # MCP server interface for AI assistants
+│   └── api/                    # HTTP REST API interface
+│
+└── shared/                     # Shared utilities across layers
+    ├── http.py                 # HTTP client utility
+    ├── agent.py                # Agent base class
+    ├── statistics.py           # Statistics and analytics service
+    └── database/               # Database connection and models
+        ├── connection.py       # Database session management
+        ├── models.py           # SQLAlchemy models (EventCache, Submission)
+        └── utils.py            # Caching and DB helpers
 ```
 
-## Usage
+## Core Concepts
 
-### Multiple Entry Points
+### 1. The Import Flow
 
-The application provides multiple ways to run different interfaces:
+The import process is orchestrated by `EventImporter` in `app/core/importer.py`.
 
-```bash
-# Main entry point with interface selection
-uv run event-importer --help
-uv run event-importer cli <url>
-uv run event-importer mcp
-uv run event-importer api --port 8000
+1. **Agent Selection**: Based on the URL, an `Agent` (e.g., `ResidentAdvisorAgent`, `WebAgent`) is selected.
+2. **Data Fetching**: The agent fetches raw data (API response, HTML, image).
+3. **AI Extraction**: The data is passed to the `LLMService`, which uses a primary AI provider (Claude) to extract structured `EventData`. If the primary fails, it automatically retries with a fallback provider (OpenAI).
+4. **AI Enhancement**: The structured `EventData` is enhanced:
+    - `ImageService`: Finds better flyer/poster images.
+    - `GenreService`: Finds relevant music genres for the artists.
+    - `LLMService`: Generates descriptions if they are missing.
+5. **Caching**: The final `EventData` is cached in the database.
 
-# Direct entry points
-uv run event-importer-cli <url>
-uv run event-importer-mcp
-uv run event-importer-api --port 8000
-```
+### 2. LLM Service with Fallback
 
-### CLI Interface
+The `LLMService` (`app/services/llm.py`) provides a resilient AI backend.
 
-```bash
-# Import an event via CLI
-uv run event-importer cli "https://example.com/event"
-uv run event-importer cli "https://example.com/event" --method web --timeout 120
+- It wraps both `ClaudeService` and `OpenAIService`.
+- For any given operation (e.g., `extract_event_data`), it first tries the primary provider (Claude).
+- If the primary provider fails for any reason (API error, timeout), the `LLMService` automatically retries the operation with the fallback provider (OpenAI).
+- This ensures high availability for critical AI-powered features.
 
-# Using direct entry point
-uv run event-importer-cli "https://example.com/event"
-```
+### 3. Integration Framework
 
-### HTTP API Interface
+The `app/integrations` directory contains a pluggable framework for sending imported event data to external services. This allows for easy extension without modifying the core import logic.
 
-```bash
-# Start the API server
-uv run event-importer api --host 0.0.0.0 --port 8000 --reload
+The key components are:
 
-# Using direct entry point
-uv run event-importer-api --port 8000
-```
+- **`BaseSubmitter`**: The main orchestrator for an integration (e.g., `TicketFairySubmitter`). It coordinates getting events, transforming them, and submitting them.
+- **`BaseSelector`**: Defines which events to select from the database for submission (e.g., `UnsubmittedSelector`, `FailedSelector`).
+- **`BaseTransformer`**: Converts the standard `EventData` format into the specific format required by the destination API (e.g., `TicketFairyTransformer`).
+- **`BaseClient`**: A simple wrapper around the external service's API (e.g., `TicketFairyClient`).
 
-API endpoints:
+Integrations are **auto-discovered** at startup. If an integration provides `cli.py` or `routes.py`, its CLI commands and API endpoints are automatically registered with the main application.
 
-**Event Management:**
+### 4. Database Models
 
-- `POST /api/v1/events/import` - Import an event
-- `GET /api/v1/events/import/{request_id}/progress` - Get import progress
+The system uses two primary SQLAlchemy models in `app/shared/database/models.py`:
 
-**Statistics & Analytics:**
+- **`EventCache`**: Stores the structured `EventData` for every successfully imported event. This acts as the central source of truth for all events known to the system. It uses a hash to detect if data from a source URL has changed.
+- **`Submission`**: Tracks the status of sending an event from `EventCache` to an external service via the integration framework. It records which service it was sent to, the status (`success`, `failed`), and any error messages. This prevents duplicate submissions and allows for retrying failed attempts.
 
-- `GET /api/v1/statistics/events` - Get event statistics
-- `GET /api/v1/statistics/submissions` - Get submission statistics
-- `GET /api/v1/statistics/combined` - Get combined statistics
-- `GET /api/v1/statistics/trends?days=N` - Get event trends over time
-- `GET /api/v1/statistics/detailed` - Get comprehensive statistics with trends
+## Dependency Flow
 
-**System:**
-
-- `GET /api/v1/health` - Health check
-- `GET /api/v1/statistics/health` - Statistics service health check
-
-### MCP Server Interface
-
-```bash
-# Start MCP server
-uv run event-importer mcp
-
-# Using direct entry point  
-uv run event-importer-mcp
-```
-
-## Architecture Principles
-
-### Dependency Flow
+The dependencies flow inward, with interfaces depending on the core, and the core depending on services. The `integrations` layer is a special case that reads from the database and interacts with external services.
 
 ```plaintext
-Interfaces → Core → Services
-     ↓        ↓        ↓
-   Shared ← Shared ← Shared
+Interfaces (CLI, API, MCP) → Core (Importer) → Services (LLMs, Zyte)
+              ↑                    ↑                   ↑
+            Shared utilities (DB, HTTP, etc.) are used by all layers
+              │
+Integrations Framework (reads from DB, uses HTTP)
 ```
-
-### Interface Isolation
-
-- Each interface has its own directory with interface-specific code
-- Interfaces only depend on core business logic, not on each other
-- Interface-specific models and utilities are kept separate
-
-### Core Business Logic
-
-- Contains the main domain logic and business rules
-- Independent of any specific interface or external service
-- Uses dependency injection for external services
-
-### Shared Components
-
-- Common utilities that are used across multiple layers
-- HTTP client, URL analysis, base classes
-- No business logic, only utility functions
 
 ## Development Guidelines
 
-### Adding a New Interface
+### Adding a New Integration
 
-1. Create a new directory under `app/interfaces/`
-2. Implement interface-specific models and handlers
-3. Use `app/core/router.Router` for business logic
-4. Add entry point to `pyproject.toml`
-5. Update `app/main.py` to include the new interface
+1. Create a new directory under `app/integrations/`, e.g., `app/integrations/my_service/`.
+2. Implement the required classes inheriting from the base classes in `app/integrations/base.py`:
+    - A `Client` to communicate with the service's API.
+    - A `Transformer` to map `EventData` to the service's format.
+    - One or more `Selector`s to query events from the database.
+    - A `Submitter` to orchestrate the process.
+3. (Optional) Add a `cli.py` to define custom CLI commands or `routes.py` to add API endpoints.
+4. The integration will be auto-discovered and available. Add any required API keys to `.env.example` and `config.py`.
 
-### Adding New Business Logic
+### Adding a New Import Source
 
-1. Add logic to appropriate module in `app/core/`
-2. Update `app/core/router.Router` if needed
-3. All interfaces automatically get access to new functionality
-
-### Adding External Services
-
-1. Create service class in `app/services/`
-2. Inject service into core business logic
-3. Service is available to all interfaces
-
-## Statistics & Analytics System
-
-### Overview
-
-The Event Importer includes a comprehensive statistics and analytics system that provides insights into:
-
-- **Event Statistics**: Import activity, event counts, recent activity
-- **Submission Statistics**: Integration success rates, service breakdowns
-- **Historical Trends**: Daily import patterns and activity over time
-
-### Architecture Components
-
-#### StatisticsService (`app/shared/statistics.py`)
-
-Core service providing various statistical calculations:
-
-```python  
-class StatisticsService:
-    def get_event_statistics() -> Dict[str, Any]
-    def get_submission_statistics() -> Dict[str, Any] 
-    def get_combined_statistics() -> Dict[str, Any]
-    def get_event_trends(days: int) -> Dict[str, Any]
-    def get_detailed_statistics() -> Dict[str, Any]
-```
-
-**Event Statistics:**
-
-- Total event count
-- Recent activity (today, this week)
-- Events with/without submissions
-- Timestamp tracking
-
-**Submission Statistics:**
-
-- Success rates by service and status
-- Integration performance metrics
-- Service-specific breakdowns
-
-**Trend Analysis:**
-
-- Daily activity patterns
-- Historical import volume
-- Configurable time periods (1-365 days)
-
-#### CLI Interface (`app/interfaces/cli/events.py`)
-
-```bash
-# Show comprehensive database statistics
-uv run event-importer stats
-```
-
-Displays formatted statistics tables with:
-
-- Event counts and recent activity
-- Integration success rates (when available)
-- Service breakdowns and performance metrics
-
-#### HTTP API Interface (`app/interfaces/api/routes/statistics.py`)
-
-RESTful endpoints for programmatic access:
-
-- `GET /api/v1/statistics/events` - Core event statistics
-- `GET /api/v1/statistics/submissions` - Integration performance
-- `GET /api/v1/statistics/combined` - All statistics together
-- `GET /api/v1/statistics/trends?days=N` - Historical trends
-- `GET /api/v1/statistics/detailed` - Comprehensive analytics
-- `GET /api/v1/statistics/health` - Service health check
-
-#### Database Integration
-
-Statistics are calculated from:
-
-- **EventCache table**: Stores imported event data with timestamps
-- **Submission table**: Tracks integration attempts and results
-
-The service uses SQLAlchemy queries with aggregation functions for efficient statistical calculations.
-
-### Usage Patterns
-
-#### Development & Debugging
-
-```bash
-uv run event-importer stats  # Quick overview
-```
-
-#### Monitoring & Operations
-
-```bash
-curl http://localhost:8000/api/v1/statistics/detailed
-```
-
-#### Integration Monitoring
-
-```bash
-curl http://localhost:8000/api/v1/statistics/submissions
-```
-
-#### Trend Analysis
-
-```bash
-curl http://localhost:8000/api/v1/statistics/trends?days=30
-```
-
-This architecture ensures that the Event Importer remains maintainable, testable, and scalable while supporting multiple interaction methods.
+1. Create a new `Agent` class in `app/agents/` inheriting from `app.shared.agent.Agent`.
+2. Implement the `import_event` method to fetch and process data from the new source.
+3. Update the `URLAnalyzer` in `app/shared/url_analyzer.py` to recognize URLs for the new source.
+4. Add the new agent to the list in `app/core/importer.py`.

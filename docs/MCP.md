@@ -182,13 +182,29 @@ These tools are for submitting imported events to the TicketFairy service. This 
 
 **Parameters**:
 
-- `filter` (optional): Which events to submit. Can be `unsubmitted`, `failed`, `pending`, or `all`. Defaults to `unsubmitted`.
+- `selector` (optional): Which events to submit. Can be `unsubmitted`, `failed`, `pending`, or `all`. Defaults to `unsubmitted`.
 - `dry_run` (optional): If `true`, shows which events *would* be submitted without actually sending them. This is great for testing.
 
 **Example Conversation**:
 > **You**: Do a dry run of submitting unsubmitted events to TicketFairy.
 >
-> **Claude**: *(uses `submit_to_ticketfairy` with `filter: "unsubmitted", dry_run: true`)*
+> **Claude**: *(uses `submit_to_ticketfairy` with `selector: "unsubmitted", dry_run: true`)*
+
+#### `submit_url_to_ticketfairy`
+
+**What it does**: Submits a single event to TicketFairy by providing its source URL.
+
+**When to use it**: When you want to immediately submit a specific event you just imported.
+
+**Parameters**:
+
+- `url` (required): The source URL of the event to submit.
+- `dry_run` (optional): If `true`, shows the transformed data without actually submitting.
+
+**Example Conversation**:
+> **You**: Submit `https://ra.co/events/1234567` to TicketFairy.
+>
+> **Claude**: *(uses `submit_url_to_ticketfairy` with `url: "https://ra.co/events/1234567"`)*
 
 #### `ticketfairy_status`
 
@@ -200,3 +216,18 @@ These tools are for submitting imported events to the TicketFairy service. This 
 > **You**: What's the status of my TicketFairy submissions?
 >
 > **Claude**: *(uses the `ticketfairy_status` tool)*
+
+#### `retry_failed_ticketfairy`
+
+**What it does**: Retries all submissions that previously failed for the TicketFairy integration.
+
+**When to use it**: After fixing an issue (e.g., an incorrect API key), you can use this tool to re-process the failed items.
+
+**Parameters**:
+
+- `dry_run` (optional): If `true`, shows which events would be retried without actually retrying them.
+
+**Example Conversation**:
+> **You**: Please retry the failed submissions for TicketFairy.
+>
+> **Claude**: *(uses the `retry_failed_ticketfairy` tool)*
