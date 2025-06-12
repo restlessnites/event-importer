@@ -262,9 +262,10 @@ class ImportResultFormatter:
     def _render_success(self, result: Any) -> None:
         """Render successful import summary."""
         self.message.success(f"Import completed in {result.import_time:.2f}s")
-        self.console.print(
-            f"[{self.theme.typography.label_style}]Method:[/] {result.method_used.value}"
-        )
+        if result.method_used:
+            self.console.print(
+                f"[{self.theme.typography.label_style}]Method:[/] {result.method_used.value}"
+            )
 
     def _render_failure(self, result: Any) -> None:
         """Render failed import summary."""

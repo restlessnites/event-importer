@@ -22,7 +22,7 @@ class ImageAgent(Agent):
 
     @property
     def name(self) -> str:
-        return "ImageExtractor"
+        return "ImageAgent"
 
     @property
     def import_method(self) -> ImportMethod:

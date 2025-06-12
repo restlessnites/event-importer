@@ -27,6 +27,7 @@ class ImportMethod(str, Enum):
     API = "api"  # Direct API (e.g., RA.co GraphQL, Ticketmaster)
     WEB = "web"  # Web scraping via Zyte
     IMAGE = "image"  # Visual extraction from images
+    CACHE = "cache"  # Served from cache
 
 
 class EventTime(BaseModel):
@@ -102,6 +103,16 @@ class EventLocation(BaseModel):
             parts.append(self.country)
         return ", ".join(parts)
 
+    @field_validator("coordinates", mode="before")
+    def validate_coordinates(cls, v: Any) -> Optional[Dict]:
+        """Ensure coordinates are a valid dict or None."""
+        if not isinstance(v, dict):
+            return None
+        # If lat or lng are missing or None, the whole object is invalid
+        if v.get("lat") is None or v.get("lng") is None:
+            return None
+        return v
+
 
 class ImageCandidate(BaseModel):
     """Information about a candidate image during import."""
@@ -172,9 +183,16 @@ class EventData(BaseModel):
     # Metadata
     imported_at: datetime = Field(default_factory=datetime.utcnow)
 
+    @field_validator("time", "location", "images", mode="before")
+    def ensure_dict_or_none(cls, v: Any) -> Optional[Dict]:
+        """Ensure that fields that should be objects are dicts, or None if invalid."""
+        if v and not isinstance(v, dict):
+            return None
+        return v
+
     @field_validator("title", "venue", mode="before")
     def clean_text_field(cls, v: Any) -> Optional[str]:
-        """Clean text fields."""
+        """Strip whitespace and handle None for text fields."""
         if not v:
             return None
         cleaned = nh3.clean(str(v), tags=set()).strip()

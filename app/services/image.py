@@ -3,10 +3,10 @@
 import logging
 from typing import Optional, List, Tuple, Dict, Any
 from io import BytesIO
-from urllib.parse import quote_plus
+from urllib.parse import urlparse
 import re
 
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 
 from app.config import Config
 from app.shared.http import HTTPService
@@ -29,6 +29,8 @@ class ImageService:
         "stock.adobe",
         "depositphotos",
         "dreamstime",
+        "lookaside.instagram.com",
+        "lookaside.fbsbx.com",
     ]
 
     # Priority domains for music content
@@ -52,6 +54,9 @@ class ImageService:
         self.google_enabled = bool(
             config.api.google_api_key and config.api.google_cse_id
         )
+        # These are needed for the search call
+        self.api_key = config.api.google_api_key
+        self.cse_id = config.api.google_cse_id
 
         if self.google_enabled:
             logger.info("✅ Google Custom Search configured - image search enabled")
@@ -62,121 +67,94 @@ class ImageService:
 
     @handle_errors_async(reraise=True)
     async def validate_and_download(
-        self, url: str, max_size: Optional[int] = None
+        self, url: str, max_size: Optional[int] = None, http_service: Optional[HTTPService] = None
     ) -> Optional[Tuple[bytes, str]]:
         """Download and validate an image."""
         max_size = max_size or self.config.extraction.max_image_size
+        http = http_service or self.http
 
-        # Download the image
-        image_data = await self.http.download(
-            url,
-            service="Image",
-            max_size=max_size,
+        # Download image data, disabling SSL verification for robustness
+        image_data = await http.download(
+            url, max_size=max_size, service="ImageValidator", verify_ssl=False
         )
 
-        # Basic validation
-        with Image.open(BytesIO(image_data)) as img:
-            width, height = img.size
-            mime_type = f"image/{img.format.lower()}"
-
-            # Check minimum dimensions
-            if (
-                width < self.config.extraction.min_image_width
-                and height < self.config.extraction.min_image_height
-            ):
-                logger.debug(f"Image too small: {width}x{height}")
-                return None
-
+        # Validate with Pillow
+        try:
+            with Image.open(BytesIO(image_data)) as img:
+                # Check dimensions
+                if (
+                    self.config.extraction.min_image_width
+                    and img.width < self.config.extraction.min_image_width
+                ) or (
+                    self.config.extraction.min_image_height
+                    and img.height < self.config.extraction.min_image_height
+                ):
+                    return None
+            
+            # Get content-type from headers if possible, or guess from data
+            mime_type = "image/jpeg"  # Default, will be refined
             return image_data, mime_type
+            
+        except UnidentifiedImageError:
+            logger.warning(f"Could not identify image from URL: {url}")
+            return None
 
     @handle_errors_async(reraise=True)
     async def rate_image(self, url: str) -> ImageCandidate:
-        """Rate an image for event suitability."""
-        candidate = ImageCandidate(url=url, source="unknown")
+        """Rate an image based on various factors."""
+        from app.shared.http import HTTPService
 
-        # Skip avoided domains
-        if any(domain in url.lower() for domain in self.AVOID_DOMAINS):
+        candidate = ImageCandidate(url=url)
+        
+        # Immediately reject images from blocked domains
+        parsed_url = urlparse(url)
+        if any(domain in parsed_url.netloc for domain in self.AVOID_DOMAINS):
             candidate.score = 0
-            candidate.reason = "avoided_domain"
+            candidate.reason = "Domain is blacklisted"
             return candidate
+            
+        score = 0
+        reasons = []
 
-        # Download and check the image
-        result = await self.validate_and_download(url)
-        if not result:
-            candidate.score = 0
-            candidate.reason = "validation_failed"
+        # Use a dedicated HTTPService instance to avoid session closure issues
+        async with HTTPService(self.config) as http:
+            try:
+                # 1. Download and validate image
+                result = await self.validate_and_download(url, http_service=http)
+                if not result:
+                    candidate.reason = "Invalid or inaccessible image"
+                    candidate.score = 0
+                    return candidate
+
+                image_data, mime_type = result
+                with Image.open(BytesIO(image_data)) as img:
+                    candidate.dimensions = f"{img.width}x{img.height}"
+
+                # 2. Check for priority domains
+                if any(domain in parsed_url.netloc for domain in self.PRIORITY_DOMAINS):
+                    reasons.append("Priority domain")
+                    score += 20
+
+                # 3. Analyze image data (basic)
+                if len(image_data) > 100 * 1024:  # Over 100KB
+                    score += 30
+                    reasons.append("Good size")
+
+                # 4. Check content-type
+                if "jpeg" in mime_type:
+                    score += 10
+                    reasons.append("JPEG format")
+
+                # Final score calculation
+                candidate.score = max(0, 100 + score)
+                candidate.reason = ", ".join(reasons) if reasons else "OK"
+
+            except Exception as e:
+                logger.warning(f"Rating failed for {url}: {e}")
+                candidate.score = 0
+                candidate.reason = f"Rating error: {e}"
+
             return candidate
-
-        image_data, _ = result
-
-        # Analyze with PIL
-        with Image.open(BytesIO(image_data)) as img:
-            width, height = img.size
-            aspect_ratio = height / width
-            size_kb = len(image_data) / 1024
-
-            candidate.dimensions = f"{width}x{height}"
-
-            # Base score
-            score = 50
-
-            # Size bonus (bigger is better for event images)
-            if width >= 1000 or height >= 1000:
-                score += 100
-            elif width >= 800 or height >= 800:
-                score += 50
-            elif width >= 600 or height >= 600:
-                score += 25
-
-            # STRONG preference order: portrait > square > landscape
-            if aspect_ratio >= 1.4:  # Strongly portrait (1.4:1 or taller)
-                score += 300
-                logger.debug(
-                    f"Strong portrait bonus for {url}: +300 (ratio: {aspect_ratio:.2f})"
-                )
-            elif aspect_ratio >= 1.2:  # Moderately portrait (1.2:1 to 1.4:1)
-                score += 250
-                logger.debug(
-                    f"Portrait bonus for {url}: +250 (ratio: {aspect_ratio:.2f})"
-                )
-            elif (
-                aspect_ratio >= 0.9 and aspect_ratio <= 1.1
-            ):  # Square-ish (0.9:1 to 1.1:1)
-                score += 150
-                logger.debug(
-                    f"Square bonus for {url}: +150 (ratio: {aspect_ratio:.2f})"
-                )
-            elif aspect_ratio >= 0.7:  # Acceptable landscape (0.7:1 to 0.9:1)
-                score += 50
-                logger.debug(
-                    f"Landscape bonus for {url}: +50 (ratio: {aspect_ratio:.2f})"
-                )
-            # Very wide landscape (< 0.7:1) gets no bonus
-
-            # Priority domain bonus
-            if any(domain in url.lower() for domain in self.PRIORITY_DOMAINS):
-                score += 100
-                logger.debug(f"Priority domain bonus for {url}: +100")
-
-            # File size penalty if too large
-            if size_kb > 5000:  # > 5MB
-                score -= 50
-
-            # Special handling for music sources (more lenient)
-            is_music_source = any(
-                domain in url.lower()
-                for domain in ["bandcamp", "last.fm", "spotify", "soundcloud"]
-            )
-            if is_music_source and size_kb < 50:
-                # Small images from music sources might be album art - still valuable
-                score += 25
-
-            candidate.score = max(0, score)  # Ensure non-negative
-            logger.debug(
-                f"Rated {url}: score={candidate.score}, dims={candidate.dimensions}, ratio={aspect_ratio:.2f}"
-            )
-
-        return candidate
 
     @handle_errors_async(reraise=True)
     @retry_on_error(max_attempts=2)
@@ -212,107 +190,41 @@ class ImageService:
         candidates.sort(key=lambda x: x.score, reverse=True)
         return candidates[:limit]
 
-    @handle_errors_async(reraise=True)
-    async def find_best_image(
-        self, event_data: EventData, original_url: Optional[str] = None
-    ) -> Optional[ImageCandidate]:
-        """Find the best image for an event."""
-        candidates: List[ImageCandidate] = []
+    def _get_primary_artist_for_search(self, event_data: EventData) -> Optional[str]:
+        """Extract the main artist name from event data for image searching."""
+        if event_data.lineup:
+            return event_data.lineup[0]
 
-        # Add original URL if provided
-        if original_url:
-            candidate = await self.rate_image(original_url)
-            if candidate.score > 0:
-                candidate.source = "original"
-                candidates.append(candidate)
+        title = event_data.title
 
-        # Search for additional images
-        if self.google_enabled:
-            search_candidates = await self.search_event_images(event_data)
-            candidates.extend(search_candidates)
+        # Clean up common venue/event prefixes and suffixes from the title
+        import re
 
-        if not candidates:
-            return None
-
-        # Sort by score and return the best
-        candidates.sort(key=lambda x: x.score, reverse=True)
-        return candidates[0]
-
-    def _build_search_queries(self, event_data: EventData) -> List[str]:
-        """Build search queries for image search."""
-        queries = []
-
-        # Extract artist from title if possible
-        artist = self._extract_artist_from_title(event_data.title)
-        if artist:
-            # Artist + venue
-            if event_data.venue:
-                queries.append(f"{artist} {event_data.venue} concert")
-                queries.append(f"{artist} {event_data.venue} live")
-
-            # Artist + city
-            if event_data.location and event_data.location.city:
-                queries.append(f"{artist} {event_data.location.city} concert")
-                queries.append(f"{artist} {event_data.location.city} live")
-
-            # Artist + date
-            if event_data.date:
-                queries.append(f"{artist} {event_data.date} concert")
-                queries.append(f"{artist} {event_data.date} live")
-
-        # Title + venue
-        if event_data.venue:
-            queries.append(f"{event_data.title} {event_data.venue}")
-            queries.append(f"{event_data.title} {event_data.venue} concert")
-
-        # Title + city
-        if event_data.location and event_data.location.city:
-            queries.append(f"{event_data.title} {event_data.location.city}")
-            queries.append(f"{event_data.title} {event_data.location.city} concert")
-
-        # Title + date
-        if event_data.date:
-            queries.append(f"{event_data.title} {event_data.date}")
-            queries.append(f"{event_data.title} {event_data.date} concert")
-
-        # Add some generic queries
-        if artist:
-            queries.append(f"{artist} live performance")
-            queries.append(f"{artist} concert photo")
-
-        # Remove duplicates while preserving order
-        seen = set()
-        return [q for q in queries if not (q in seen or seen.add(q))]
-
-    def _extract_artist_from_title(self, title: str) -> Optional[str]:
-        """Extract artist name from event title."""
-        # Common patterns to remove
-        patterns = [
-            r"\s*-\s*.*$",  # Everything after a dash
-            r"\s*:.*$",  # Everything after a colon
-            r"\s*\(.*\)",  # Everything in parentheses
-            r"\s*\[.*\]",  # Everything in brackets
-            r"\s*feat\..*$",  # Everything after "feat."
-            r"\s*w/\s*.*$",  # Everything after "w/"
-            r"\s*with\s+.*$",  # Everything after "with"
-            r"\s*presents\s+.*$",  # Everything after "presents"
-            r"\s*tour\s*$",  # "tour" at the end
-            r"\s*live\s*$",  # "live" at the end
-            r"\s*concert\s*$",  # "concert" at the end
-            r"\s*show\s*$",  # "show" at the end
+        clean_patterns = [
+            r"^(live at|at the|concert at|presents?)\s+",
+            r"\s+(live|concert|show|tour)$",
+            r"\s+(tickets?|event)$",
         ]
 
-        # Apply patterns
-        artist = title
-        for pattern in patterns:
-            artist = re.sub(pattern, "", artist, flags=re.IGNORECASE)
+        for pattern in clean_patterns:
+            title = re.sub(pattern, "", title, flags=re.IGNORECASE)
 
-        # Clean up
-        artist = artist.strip()
-        if not artist:
-            return None
+        return title.strip() if title.strip() else None
 
-        return artist
+    def _build_search_queries(self, event_data: EventData) -> List[str]:
+        """Build a list of search queries for Google Image Search."""
+        artist_name = self._get_primary_artist_for_search(event_data)
+        if not artist_name:
+            # Fallback to just the title if no artist can be determined
+            return [f'"{event_data.title}" event flyer']
+
+        # Use focused queries for high-quality press and official photos
+        queries = [
+            f'"{artist_name}" press photo',
+            f'"{artist_name}" musician official photo',
+            f'"{artist_name}" band photo',
+        ]
+        return queries
 
     @handle_errors_async(reraise=True)
     async def _search_google_images(
@@ -322,27 +234,24 @@ class ImageService:
         if not self.google_enabled:
             return []
 
-        # Build the search URL
-        base_url = "https://www.googleapis.com/customsearch/v1"
         params = {
-            "key": self.config.api.google_api_key,
-            "cx": self.config.api.google_cse_id,
+            "key": self.api_key,
+            "cx": self.cse_id,
             "q": query,
             "searchType": "image",
-            "num": min(limit, 10),  # Google limits to 10 per request
-            "safe": "active",
-            "imgType": "photo",
+            "num": limit,
             "imgSize": "large",
-            "rights": "cc_publicdomain|cc_attribute|cc_sharealike",
+            "imgType": "photo",
+            "safe": "off",
+            "fileType": "jpg,png,webp",
+            "rights": "cc_publicdomain,cc_attribute,cc_sharealike,cc_noncommercial,cc_nonderived",
         }
 
-        # Make the request
-        response = await self.http.get(
-            base_url,
+        response = await self.http.get_json(
+            "https://www.googleapis.com/customsearch/v1",
+            service="GoogleImageSearch",
             params=params,
-            service="Google",
         )
 
-        # Parse results
         results = response.get("items", [])
-        return results
+        return results if results else []

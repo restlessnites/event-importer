@@ -2,7 +2,8 @@
 
 import logging
 from typing import Optional
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment
+import re
 
 from app.shared.agent import Agent
 from app.schemas import EventData, ImportMethod, ImportStatus, ImageSearchResult
@@ -129,15 +130,76 @@ class WebAgent(Agent):
             return None
 
     def _clean_html(self, html: str) -> str:
-        """Remove unnecessary elements from HTML."""
-        soup = BeautifulSoup(html, "html.parser")
+        """
+        Clean HTML by removing unnecessary elements that bloat the content.
+        This is generic and doesn't look for specific content.
+        """
+        try:
+            # Parse the HTML
+            soup = BeautifulSoup(html, "html.parser")
 
-        # Remove script, style, and other non-content tags
-        for tag in soup(["script", "style", "meta", "link", "noscript"]):
-            tag.decompose()
+            # Remove script tags and their content
+            for script in soup.find_all("script"):
+                script.decompose()
 
-        # Get text with minimal HTML structure
-        return str(soup)
+            # Remove style tags and their content
+            for style in soup.find_all("style"):
+                style.decompose()
+
+            # Remove link tags (usually CSS links)
+            for link in soup.find_all("link"):
+                link.decompose()
+
+            # Remove meta tags
+            for meta in soup.find_all("meta"):
+                meta.decompose()
+
+            # Remove comments
+            for comment in soup.find_all(text=lambda text: isinstance(text, Comment)):
+                comment.extract()
+
+            # Remove svg tags (often huge icons)
+            for svg in soup.find_all("svg"):
+                svg.decompose()
+
+            # Remove noscript tags
+            for noscript in soup.find_all("noscript"):
+                noscript.decompose()
+
+            # Get the cleaned HTML
+            cleaned = str(soup)
+
+            # Additional text-based cleaning to remove inline styles and data attributes
+            # Remove inline styles
+            cleaned = re.sub(r'style="[^"]*"', "", cleaned)
+            cleaned = re.sub(r"style='[^']*'", "", cleaned)
+
+            # Remove data- attributes (often very long)
+            cleaned = re.sub(r'data-[a-zA-Z0-9\\-]+="[^"]*"', "", cleaned)
+            cleaned = re.sub(r"data-[a-zA-Z0-9\\-]+='[^']*'", "", cleaned)
+
+            # Remove common tracking/analytics attributes
+            cleaned = re.sub(r'onclick="[^"]*"', "", cleaned)
+            cleaned = re.sub(r'onload="[^"]*"', "", cleaned)
+
+            # Remove excessive whitespace
+            cleaned = re.sub(r"\\s+", " ", cleaned)
+            cleaned = re.sub(r">\\s+<", "><", cleaned)
+
+            # Log the size reduction
+            original_size = len(html)
+            cleaned_size = len(cleaned)
+            reduction = (1 - cleaned_size / original_size) * 100
+            logger.info(
+                f"HTML cleaned: {original_size:,} -> {cleaned_size:,} chars ({reduction:.1f}% reduction)"
+            )
+
+            return cleaned
+
+        except Exception as e:
+            logger.error(f"Error cleaning HTML: {e}")
+            # If cleaning fails, return original
+            return html
 
     async def _enhance_image(self, event_data: EventData) -> EventData:
         """Try to find a better image for the event."""

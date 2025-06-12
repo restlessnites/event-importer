@@ -47,30 +47,6 @@ class BaseSubmitter(ABC):
         self.transformer = self._create_transformer()
         self.selectors = self._create_selectors()
 
-<<<<<<< HEAD
-=======
-    @property
-    @abstractmethod
-    def service_name(self) -> str:
-        """Name of the service for this integration."""
-        pass
-
-    @abstractmethod
-    def _create_client(self) -> BaseClient:
-        """Create an instance of the API client."""
-        pass
-
-    @abstractmethod
-    def _create_transformer(self) -> BaseTransformer:
-        """Create an instance of the data transformer."""
-        pass
-
-    @abstractmethod
-    def _create_selectors(self) -> Dict[str, BaseSelector]:
-        """Create a dictionary of available event selectors."""
-        pass
-    
->>>>>>> 5c270b5 (Revert "Better event submissions")
     @property
     @abstractmethod
     def service_name(self) -> str:

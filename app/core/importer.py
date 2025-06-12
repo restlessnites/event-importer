@@ -10,6 +10,7 @@ from app.schemas import (
     ImportStatus,
     ImportProgress,
     EventData,
+    ImportMethod,
 )
 from app.shared.agent import Agent
 from app.agents import (
@@ -99,7 +100,7 @@ class EventImporter:
                         request_id=request.request_id,
                         status=ImportStatus.SUCCESS,
                         url=request.url,
-                        method_used=None,
+                        method_used=ImportMethod.CACHE,
                         event_data=event_data,
                         import_time=(
                             datetime.now(timezone.utc) - start_time
@@ -171,7 +172,7 @@ class EventImporter:
                     request_id=request.request_id,
                     status=ImportStatus.SUCCESS,
                     url=request.url,
-                    method_used=agent.import_method.value,
+                    method_used=agent.import_method,
                     event_data=event_data,
                     import_time=(
                         datetime.now(timezone.utc) - start_time
@@ -192,7 +193,7 @@ class EventImporter:
                     request_id=request.request_id,
                     status=ImportStatus.FAILED,
                     url=request.url,
-                    method_used=agent.import_method.value,
+                    method_used=agent.import_method,
                     error=error,
                     import_time=(
                         datetime.now(timezone.utc) - start_time
@@ -214,7 +215,7 @@ class EventImporter:
                 request_id=request.request_id,
                 status=ImportStatus.FAILED,
                 url=request.url,
-                method_used=agent.import_method.value,
+                method_used=agent.import_method,
                 error=error,
                 import_time=(datetime.now(timezone.utc) - start_time).total_seconds(),
             )
@@ -235,7 +236,7 @@ class EventImporter:
                 request_id=request.request_id,
                 status=ImportStatus.FAILED,
                 url=request.url,
-                method_used=agent.import_method.value,
+                method_used=getattr(agent, "import_method", None),
                 error=error,
                 import_time=(datetime.now(timezone.utc) - start_time).total_seconds(),
             )
@@ -301,26 +302,15 @@ class EventImporter:
             # Only return if API key is configured
             return agent if self.config.api.ticketmaster_key else None
 
-        # Content-type based routing for remaining URLs
-        try:
-            response = await self.http.head(
-                url,
-                service="ContentTypeCheck",
-                timeout=10
-            )
-            content_type = response.headers.get("Content-Type", "").lower()
-            logger.info(f"Content-Type for {url}: {content_type}")
+        # Check for image URLs by extension or keywords before falling back to web scraping
+        image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+        url_lower = url.lower()
+        if any(url_lower.endswith(ext) for ext in image_extensions) or 'imgproxy' in url_lower:
+            return self._get_agent_by_name("ImageAgent")
 
-            # Route by content-type
-            if content_type.startswith("image/"):
-                return self._get_agent_by_name("ImageAgent")
-            elif content_type.startswith(("text/html", "application/")):
-                return self._get_agent_by_name("WebScraper")
-                            
-        except Exception as e:
-            logger.warning(f"Failed to check content-type for {url}: {e}")
-
-        # Default fallback to WebAgent for any remaining URLs
+        # If it's not a special API or image URL, default to WebAgent.
+        # It's better to let Zyte handle it than to fail on a HEAD request.
+        logger.info(f"Defaulting to WebScraper for URL: {url}")
         return self._get_agent_by_name("WebScraper")
 
     def _get_agent_by_name(self, name: str) -> Optional[Agent]:

@@ -343,10 +343,11 @@ class HTTPService:
         headers: Optional[Dict[str, str]] = None,
         max_size: Optional[int] = None,
         timeout: Optional[float] = None,
+        verify_ssl: bool = True,
         **kwargs,
     ) -> bytes:
         """
-        Download data from URL with size limit.
+        Download binary content from a URL.
 
         Args:
             url: URL to download from
@@ -354,6 +355,7 @@ class HTTPService:
             headers: Additional headers
             max_size: Maximum size in bytes
             timeout: Override default timeout
+            verify_ssl: Whether to verify SSL certificate
             **kwargs: Additional arguments for aiohttp
 
         Returns:
@@ -364,31 +366,36 @@ class HTTPService:
             TimeoutError: On timeout
             ValueError: If response exceeds max_size
         """
-        response = await self.get(
-            url,
-            service=service,
-            headers=headers,
-            timeout=timeout,
-            **kwargs,
-        )
+        if not headers:
+            headers = {"User-Agent": self.config.http.user_agent}
 
-        # Check content length if available
-        content_length = response.headers.get("Content-Length")
-        if content_length and max_size:
-            size = int(content_length)
-            if size > max_size:
-                raise ValueError(
-                    f"Response too large: {size} bytes (max: {max_size} bytes)"
-                )
+        async with self._error_handler(service, url):
+            session = await self._ensure_session()
+            async with session.get(
+                url,
+                headers=headers,
+                timeout=timeout or self.config.http.timeout,
+                ssl=verify_ssl,
+                **kwargs,
+            ) as response:
+                self._handle_response_error(response, service)
 
-        # Download with size limit
-        data = bytearray()
-        async for chunk in response.content.iter_chunked(8192):
-            data.extend(chunk)
-            if max_size and len(data) > max_size:
-                raise ValueError(
-                    f"Response too large: {len(data)} bytes (max: {max_size} bytes)"
-                )
+                content_length = response.headers.get("Content-Length")
+                if content_length and max_size:
+                    size = int(content_length)
+                    if size > max_size:
+                        raise ValueError(
+                            f"Response too large: {size} bytes (max: {max_size} bytes)"
+                        )
+
+                # Download with size limit
+                data = bytearray()
+                async for chunk in response.content.iter_chunked(8192):
+                    data.extend(chunk)
+                    if max_size and len(data) > max_size:
+                        raise ValueError(
+                            f"Response too large: {len(data)} bytes (max: {max_size} bytes)"
+                        )
 
         return bytes(data)
 

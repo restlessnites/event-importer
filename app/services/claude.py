@@ -118,7 +118,7 @@ class ClaudeService:
         self.config = config
         self.api_key = getattr(config.api, 'anthropic_api_key', None) or os.getenv("ANTHROPIC_API_KEY")
         self.client = AsyncAnthropic(api_key=self.api_key)
-        self.model = "claude-3-opus-20240229"
+        self.model = "claude-3-5-sonnet-20240620"
         self.max_tokens = 4096
 
     def _clean_response_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -135,6 +135,14 @@ class ClaudeService:
                 # If no valid images remain, set to None
                 data["images"] = cleaned_images if cleaned_images else None
         
+        # Handle coordinates field - if lat/lng are null, invalidate the coordinates object
+        if "location" in data and isinstance(data.get("location"), dict):
+            location = data["location"]
+            if "coordinates" in location and isinstance(location.get("coordinates"), dict):
+                coords = location["coordinates"]
+                if coords.get("lat") is None or coords.get("lng") is None:
+                    location["coordinates"] = None
+
         return data
 
     @handle_errors_async(reraise=True)
@@ -267,8 +275,10 @@ class ClaudeService:
     ) -> Optional[Dict[str, Any]]:
         """Make API call with vision."""
         try:
+            logger.debug("Calling Claude with vision...")
             response = await self.client.messages.create(
                 model=self.model,
+                max_tokens=4096,
                 messages=[
                     {
                         "role": "user",
@@ -279,16 +289,18 @@ class ClaudeService:
                                 "source": {
                                     "type": "base64",
                                     "media_type": mime_type,
-                                    "data": image_b64
-                                }
-                            }
-                        ]
+                                    "data": image_b64,
+                                },
+                            },
+                        ],
                     }
                 ],
-                max_tokens=self.max_tokens,
-                temperature=0.1,
-                tool_choice={"type": "tool", "name": "extract_event_data"}
+                tools=[self.EXTRACTION_TOOL],
+                tool_choice={"type": "tool", "name": "extract_event_data"},
             )
+
+            # Find the tool use input
+            # The actual tool input is in response.content[0].input
             content = response.content[0].input
             try:
                 if isinstance(content, dict):

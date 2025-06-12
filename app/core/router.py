@@ -46,14 +46,14 @@ class Router:
                 return {
                     "success": True,
                     "data": result.event_data.model_dump(mode="json"),
-                    "method_used": result.method_used,
+                    "method_used": result.method_used.value if result.method_used else None,
                     "import_time": result.import_time,
                 }
             else:
                 return {
                     "success": False,
                     "error": result.error or "Import failed",
-                    "method_used": result.method_used,
+                    "method_used": result.method_used.value if result.method_used else None,
                 }
 
         except Exception as e:

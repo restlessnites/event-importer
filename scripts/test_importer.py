@@ -27,7 +27,7 @@ async def test_import(url: str, cli, show_raw: bool = False):
     importer = EventImporter()
 
     # Create request
-    request = ImportRequest(url=url, include_raw_data=show_raw)
+    request = ImportRequest(url=url, include_raw_data=show_raw, ignore_cache=True, timeout=120)
 
     # Store progress updates for display
     progress_history = []

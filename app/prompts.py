@@ -1,6 +1,7 @@
 """Centralized prompt templates for Claude interactions."""
 
 from typing import Optional, Dict, Any
+import json
 
 
 class EventPrompts:
@@ -66,11 +67,11 @@ EXTRACTION RULES:
     # Rules for genre enhancement
     GENRE_ENHANCEMENT = """
 Review and enhance the event genres.
-Consider:
-- Primary music or event style
-- Sub-genres and related styles
-- Cultural or regional influences
-- Event format or type
+- Consider:
+- - Primary music or event style
+- - Sub-genres and related styles
+- - Cultural or regional influences
+- - Event format or type
 
 Genre Guidelines:
 - Use specific but established genre names
@@ -113,7 +114,7 @@ Genre Guidelines:
         # Build the prompt
         prompt_parts = [
             f"Extract event information from this {'webpage' if content_type == 'html' else 'event ' + content_type}.",
-            f"\nSource URL: {url}",
+            f"\\nSource URL: {url}",
         ]
 
         if context:
@@ -121,11 +122,11 @@ Genre Guidelines:
 
         prompt_parts.extend(
             [
-                f"\n{content_wrapper[0]}",
+                f"\\n{content_wrapper[0]}",
                 content_wrapper[1],
                 content if content_type not in ["screenshot", "image"] else "",
                 content_wrapper[2],
-                f"\n{cls.BASE_EXTRACTION_RULES}",
+                f"\\n{cls.BASE_EXTRACTION_RULES}",
             ]
         )
 
@@ -136,7 +137,7 @@ Genre Guidelines:
         if needs_short_description:
             prompt_parts.append(cls.SHORT_DESCRIPTION_GENERATION)
 
-        return "\n".join(prompt_parts)
+        return "\\n".join(prompt_parts)
 
     @classmethod
     def build_description_only_prompt(
@@ -197,8 +198,8 @@ Genre Guidelines:
         # Build the prompt
         prompt_parts = [
             "Generate ONLY the missing descriptions for this event based on the available information:",
-            "\n" + "\n".join(context_parts),
-            "\nCurrent descriptions:",
+            "\\n" + "\\n".join(context_parts),
+            "\\nCurrent descriptions:",
         ]
 
         if event_data.get("long_description"):
@@ -211,7 +212,7 @@ Genre Guidelines:
         else:
             prompt_parts.append(f"- short_description: MISSING - please generate")
 
-        prompt_parts.append("\nRequirements:")
+        prompt_parts.append("\\nRequirements:")
 
         if needs_long and not event_data.get("long_description"):
             prompt_parts.append(
@@ -219,7 +220,8 @@ Genre Guidelines:
 **LONG DESCRIPTION**:
 - Create a natural, engaging description incorporating all available information
 - Should be 2-4 sentences, informative and complete
-- Include lineup, venue, date, genres, and any unique aspects"""
+- Include lineup/artists, venue, date, genres, promoters, location
+- If a description DOES exist in the source, use it as-is (just clean it up)"""
             )
 
         if needs_short and not event_data.get("short_description"):
@@ -232,7 +234,7 @@ Genre Guidelines:
 - Examples: "Electronic music with DJ Shadow", "Jazz quartet at Blue Note" """
             )
 
-        return "\n".join(prompt_parts)
+        return "\\n".join(prompt_parts)
 
     @classmethod
     def build_genre_enhancement_prompt(
