@@ -5,8 +5,9 @@ import logging
 from typing import Optional, Dict, Any
 import json
 import os
+import re
 
-from anthropic import AsyncAnthropic
+from anthropic import AsyncAnthropic, APIError as AnthropicAPIError
 
 from app.config import Config
 from app.schemas import EventData
@@ -185,13 +186,25 @@ class ClaudeService:
             url=url,
             content_type="image",
             needs_long_description=True,
-            needs_short_description=True
+            needs_short_description=True,
         )
 
-        result = await self._call_with_vision(prompt, image_b64, mime_type)
+        # For vision, we can't use tools. We must ask for JSON in the prompt.
+        # It's also better to be very specific about the JSON format.
+        schema_json = json.dumps(self.EXTRACTION_TOOL["input_schema"])
+        vision_prompt = (
+            f"{prompt}\n\n"
+            "Please analyze the image and extract all event information. "
+            "Respond ONLY with a single valid JSON object that conforms to the following schema. "
+            "Do not include any other text, conversation, or markdown backticks. Your entire response must be the JSON object and nothing else.\n"
+            f"JSON Schema:\n{schema_json}"
+        )
+
+        result = await self._call_with_vision(vision_prompt, image_b64, mime_type)
+
         if result:
+            # Add source_url and image url, then validate with Pydantic
             result["source_url"] = url
-            # Set the image URL since we know it's an image
             result["images"] = {"full": url, "thumbnail": url}
             # Clean the response data before validation
             cleaned_result = self._clean_response_data(result)
@@ -323,24 +336,39 @@ class ClaudeService:
 
             if text_content:
                 try:
-                    # Try to parse the first valid JSON object from the response
-                    json_start = text_content.find('{')
-                    json_end = text_content.rfind('}') + 1
-                    if json_start != -1 and json_end != -1:
-                        return json.loads(text_content[json_start:json_end])
+                    # Find the JSON object in the response text, robustly.
+                    # It might be wrapped in ```json ... ```
+                    match = re.search(r"```json\s*(\{.*?\})\s*```", text_content, re.DOTALL)
+                    if match:
+                        json_str = match.group(1)
                     else:
-                        raise ValueError("No JSON object found in response")
-                except Exception as e:
-                    logger.warning(f"Failed to parse JSON from Claude vision response: {e}; content: {text_content}")
-                    raise APIError("Claude", f"Failed to parse JSON: {e}")
+                        # Fallback to finding first { and last }
+                        json_start = text_content.find("{")
+                        json_end = text_content.rfind("}") + 1
+                        if json_start != -1 and json_end > json_start:
+                            json_str = text_content[json_start:json_end]
+                        else:
+                            # If no JSON object is found, try to parse the whole content.
+                            # This handles the case where the model returns *only* the JSON.
+                            json_str = text_content
+
+                    return json.loads(json_str)
+                except json.JSONDecodeError as e:
+                    logger.error(
+                        f"Failed to parse JSON from Claude vision response: {e}; content: {text_content}"
+                    )
+                    # Re-raise as an APIError to be handled by the LLM service
+                    raise APIError("Claude", f"Vision call failed: Claude API error: Failed to parse JSON: {e}")
             else:
                 logger.warning("No text content found in Claude vision response")
                 return None
             
+        except AnthropicAPIError as e:
+            logger.error(f"Claude vision API call failed: {e}")
+            raise APIError("Claude", f"Vision call failed: {e.status_code} - {e.message}")
         except Exception as e:
-            # Don't log as error, let the LLMService handle it as a fallback
-            logger.debug(f"Claude vision call failed: {e}")
-            raise APIError("Claude", f"Vision call failed: {e}")
+            logger.error(f"An unexpected error occurred during Claude vision call: {e}")
+            raise APIError("Claude", f"Vision call failed with unexpected error: {e}")
 
     async def enhance_genres(self, event_data: EventData) -> EventData:
         """Enhance event genres using Claude."""

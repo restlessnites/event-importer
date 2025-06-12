@@ -3,11 +3,12 @@ from openai import AsyncOpenAI
 from typing import Any, Dict, Optional
 from app.schemas import EventData
 from app.config import Config
-from app.errors import APIError, handle_errors_async
+from app.errors import APIError, handle_errors_async, ConfigurationError
 from app.prompts import EventPrompts
 import logging
 import base64
 import json
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -302,15 +303,29 @@ class OpenAIService:
         )
         content = response.choices[0].message.content
         try:
-            json_start = content.find('{')
-            json_end = content.rfind('}') + 1
-            if json_start != -1 and json_end != -1:
-                return json.loads(content[json_start:json_end])
+            # Find the JSON object in the response text, robustly.
+            # It might be wrapped in ```json ... ```
+            match = re.search(r"```json\s*(\{.*?\})\s*```", content, re.DOTALL)
+            if match:
+                json_str = match.group(1)
             else:
-                raise ValueError("No JSON object found in response")
-        except Exception as e:
+                # Fallback to finding first { and last }
+                json_start = content.find("{")
+                json_end = content.rfind("}") + 1
+                if json_start != -1 and json_end > json_start:
+                    json_str = content[json_start:json_end]
+                else:
+                    # If no JSON object is found, try to parse the whole content.
+                    # This handles the case where the model returns *only* the JSON.
+                    json_str = content
+            
+            return json.loads(json_str)
+        except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON from OpenAI vision response: {e}; content: {content}")
-            raise APIError("OpenAI", f"Failed to parse JSON: {e}")
+            raise APIError("OpenAI", f"Failed to parse JSON from vision response: {e}")
+        except Exception as e:
+            logger.error(f"OpenAI vision call failed: {e}")
+            raise APIError("OpenAI", f"Vision call failed: {e}")
 
     async def enhance_genres(self, event_data: EventData) -> EventData:
         """Enhance event genres using OpenAI."""
