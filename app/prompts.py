@@ -20,6 +20,9 @@ EXTRACTION RULES:
    - "End time" is not "show time"
    - If you can't find an end time, leave it blank
 
+- **DATE EXTRACTION**:
+    - If the year is not present, do not fill it in, provide the date without the year.
+
 - **REMOVE TRAILING "..." FROM ALL FIELDS**:
    - If any text ends with "..." remove those dots completely and make it a complete sentence.
 

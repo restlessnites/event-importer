@@ -182,18 +182,54 @@ class EventData(BaseModel):
 
     @field_validator("date", mode="before")
     def parse_date(cls, v: Any) -> Optional[str]:
-        """Parse various date formats to ISO format."""
+        """Parse various date formats to ISO format with smart year handling."""
         if not v:
             return None
 
         try:
-            # Use current year as default when year is missing
-            current_year = datetime.now().year
-            default_date = datetime(current_year, 1, 1)
+            current_date = datetime.now()
+            current_year = current_date.year
             
-            parsed = date_parser.parse(str(v), fuzzy=True, default=default_date)
+            # Clean the input string
+            date_str = str(v).strip()
+            original_str = date_str.lower()
+            
+            # Check if year is explicitly mentioned in the string
+            year_indicators = [
+                str(current_year - 2), str(current_year - 1), str(current_year), 
+                str(current_year + 1), str(current_year + 2), str(current_year + 3),
+                "'22", "'23", "'24", "'25", "'26", "'27", "'28",
+                "2022", "2023", "2024", "2025", "2026", "2027", "2028"
+            ]
+            
+            has_explicit_year = any(year_str in original_str for year_str in year_indicators)
+            
+            # IMPORTANT: Always use current year as the default to start with
+            default_date = datetime(current_year, 1, 1)
+            parsed = date_parser.parse(date_str, fuzzy=True, default=default_date)
+            
+            # If no explicit year was provided, apply smart year logic
+            if not has_explicit_year:
+                # Ensure the parsed date used our current year default
+                if parsed.year != current_year:
+                    # If dateutil somehow chose a different year, force it to current year first
+                    parsed = parsed.replace(year=current_year)
+                
+                # Now check if the date with current year is in the past
+                if parsed.date() < current_date.date():
+                    days_diff = (current_date.date() - parsed.date()).days
+                    
+                    # If it's more than 1 day in the past, assume it's next year
+                    if days_diff > 1:
+                        parsed = parsed.replace(year=current_year + 1)
+            
             return parsed.date().isoformat()
-        except Exception:
+            
+        except Exception as e:
+            # Import logging here to avoid circular imports
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.debug(f"Date parsing failed for '{v}': {e}")
             return None
 
     @field_validator("promoters", "lineup", "genres", mode="before")
