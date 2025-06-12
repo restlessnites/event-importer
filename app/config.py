@@ -16,8 +16,15 @@ class APIConfig:
     ticketmaster_key: Optional[str] = None
     google_api_key: Optional[str] = None
     google_cse_id: Optional[str] = None
+<<<<<<< HEAD
     main_app_token: Optional[str] = None  # Token for main application API
     ticketfairy_api_key: Optional[str] = None
+=======
+<<<<<<< HEAD
+=======
+    main_app_token: Optional[str] = None  # Token for main application API
+>>>>>>> parent of 4dfab0c (Better event submissions)
+>>>>>>> 5c270b5 (Revert "Better event submissions")
 
     def validate(self) -> Dict[str, bool]:
         """Validate which APIs are configured."""
@@ -26,8 +33,15 @@ class APIConfig:
             "zyte": bool(self.zyte_key),
             "ticketmaster": bool(self.ticketmaster_key),
             "google_search": bool(self.google_api_key and self.google_cse_id),
+<<<<<<< HEAD
             "main_app": bool(self.main_app_token),  # Add validation for main app token
             "ticketfairy": bool(self.ticketfairy_api_key),
+=======
+<<<<<<< HEAD
+=======
+            "main_app": bool(self.main_app_token),  # Add validation for main app token
+>>>>>>> parent of 4dfab0c (Better event submissions)
+>>>>>>> 5c270b5 (Revert "Better event submissions")
         }
 
 
@@ -106,8 +120,15 @@ class Config:
         config.api.ticketmaster_key = os.getenv("TICKETMASTER_API_KEY")
         config.api.google_api_key = os.getenv("GOOGLE_API_KEY")
         config.api.google_cse_id = os.getenv("GOOGLE_CSE_ID")
+<<<<<<< HEAD
         config.api.main_app_token = os.getenv("MAIN_APP_TOKEN")  # Load main app token
         config.api.ticketfairy_api_key = os.getenv("TICKETFAIRY_API_KEY")
+=======
+<<<<<<< HEAD
+=======
+        config.api.main_app_token = os.getenv("MAIN_APP_TOKEN")  # Load main app token
+>>>>>>> parent of 4dfab0c (Better event submissions)
+>>>>>>> 5c270b5 (Revert "Better event submissions")
 
         # Load optional overrides
         if timeout := os.getenv("HTTP_TIMEOUT"):
