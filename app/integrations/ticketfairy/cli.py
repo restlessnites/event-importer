@@ -34,9 +34,61 @@ async def submit_command(
             cli.success(f"Successfully submitted: {len(result['submitted'])}")
             if dry_run:
                 cli.section("Dry Run - Would be submitted")
-                # Prepare data for the table
+                
+                # Show detailed transformation data for each event
+                for i, submission in enumerate(result["submitted"], 1):
+                    cli.console.print()
+                    cli.info(f"Event {i}: ID {submission['event_id']}")
+                    cli.info(f"URL: {submission['url']}")
+                    
+                    # Show the actual TicketFairy payload
+                    if 'data' in submission:
+                        cli.console.print()
+                        cli.info("TicketFairy API Payload:")
+                        
+                        # Extract key fields from the transformed data
+                        payload = submission['data']
+                        if 'data' in payload and 'attributes' in payload['data']:
+                            attrs = payload['data']['attributes']
+                            
+                            # Show key transformed fields in a readable format
+                            key_fields = {
+                                "Title": attrs.get("title", "N/A"),
+                                "Venue": attrs.get("venue", "N/A"),
+                                "Ticket URL": attrs.get("url", "N/A"),
+                                "Address": attrs.get("address", "N/A"),
+                                "Start Date": attrs.get("startDate", "N/A"),
+                                "End Date": attrs.get("endDate", "N/A"),
+                                "Timezone": attrs.get("timezone", "N/A"),
+                                "Status": attrs.get("status", "N/A"),
+                                "Image URL": attrs.get("image", "N/A")[:60] + "..." if len(attrs.get("image", "")) > 60 else attrs.get("image", "N/A"),
+                                "Is Online": attrs.get("isOnline", "N/A"),
+                                "Hosted By": attrs.get("hostedBy", "N/A"),
+                            }
+                            
+                            cli.table([key_fields], title=f"Event {i} - TicketFairy Fields")
+                            
+                            # Show details (description) separately since it can be long
+                            if attrs.get("details"):
+                                cli.console.print()
+                                cli.info("Description/Details:")
+                                # Strip HTML tags for cleaner display
+                                import re
+                                details_clean = re.sub(r'<[^>]+>', '', attrs["details"])
+                                cli.console.print(f"  {details_clean[:200]}..." if len(details_clean) > 200 else f"  {details_clean}")
+                        
+                        # Option to show full JSON payload
+                        cli.console.print()
+                        cli.info("Full JSON Payload (use this to debug API issues):")
+                        cli.json(payload, title="Complete TicketFairy API Payload")
+                        
+                        # Separator between events if multiple
+                        if i < len(result["submitted"]):
+                            cli.rule()
+            else:
+                # For actual submissions, show simpler summary
                 table_data = [
-                    {"ID": s["event_id"], "URL": s["url"]}
+                    {"ID": s["event_id"], "URL": s["url"], "Status": s.get("status", "success")}
                     for s in result["submitted"]
                 ]
                 cli.table(table_data)
@@ -172,4 +224,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()

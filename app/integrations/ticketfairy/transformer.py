@@ -13,6 +13,8 @@ def _get_meaningful_url(url_value):
     url_str = str(url_value).strip()
     if not url_str or url_str.lower() in ['n/a', 'na', 'none', 'null', '']:
         return None
+    
+    return url_str
 
 def _format_list_or_string(data: Any) -> str:
     """Helper to format data that could be a list or a string."""
