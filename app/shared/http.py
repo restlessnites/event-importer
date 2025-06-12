@@ -4,14 +4,14 @@ import asyncio
 import logging
 import ssl
 import certifi
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, AsyncGenerator
 from contextlib import asynccontextmanager
 
 import aiohttp
 from aiohttp import ClientTimeout, ClientSession, ClientResponse
 
-from app.config import get_config
-from app.errors import APIError, TimeoutError, RateLimitError, AuthenticationError
+from app.config import get_config, Config
+from app.errors import APIError, TimeoutError, RateLimitError, AuthenticationError, handle_errors_async
 
 
 logger = logging.getLogger(__name__)
@@ -20,9 +20,9 @@ logger = logging.getLogger(__name__)
 class HTTPService:
     """Centralized HTTP client with session management."""
 
-    def __init__(self, config=None):
+    def __init__(self, config: Config):
         """Initialize HTTP service with configuration."""
-        self.config = config or get_config()
+        self.config = config
         self._session: Optional[ClientSession] = None
         self._lock = asyncio.Lock()
 
@@ -70,7 +70,8 @@ class HTTPService:
         """Handle HTTP response errors consistently."""
         status = response.status
 
-        if status == 401:
+        # Only raise AuthenticationError for services that require auth
+        if status == 401 and service in ["Ticketmaster", "Zyte", "TicketFairy"]:
             raise AuthenticationError(service)
         elif status == 429:
             retry_after = response.headers.get("Retry-After")
@@ -95,12 +96,14 @@ class HTTPService:
             logger.error(f"{service} unexpected error for URL {url}: {e}")
             raise
 
+    @handle_errors_async(reraise=True)
     async def head(
         self,
         url: str,
         *,
         service: str = "HTTP",
         headers: Optional[Dict[str, str]] = None,
+        params: Optional[Dict[str, Any]] = None,
         timeout: Optional[float] = None,
         **kwargs,
     ) -> ClientResponse:
@@ -111,6 +114,7 @@ class HTTPService:
             url: URL to request
             service: Service name for error messages
             headers: Additional headers
+            params: Query parameters
             timeout: Override default timeout
             **kwargs: Additional arguments for aiohttp
 
@@ -135,6 +139,7 @@ class HTTPService:
             response = await session.head(
                 url,
                 headers=request_headers,
+                params=params,
                 timeout=request_timeout,
                 allow_redirects=True,
                 **kwargs,
@@ -145,6 +150,7 @@ class HTTPService:
 
             return response
 
+    @handle_errors_async(reraise=True)
     async def get(
         self,
         url: str,
@@ -198,6 +204,7 @@ class HTTPService:
 
             return response
 
+    @handle_errors_async(reraise=True)
     async def post(
         self,
         url: str,
@@ -254,11 +261,15 @@ class HTTPService:
 
             return response
 
+    @handle_errors_async(reraise=True)
     async def get_json(
         self,
         url: str,
         *,
         service: str = "HTTP",
+        headers: Optional[Dict[str, str]] = None,
+        params: Optional[Dict[str, Any]] = None,
+        timeout: Optional[float] = None,
         **kwargs,
     ) -> Dict[str, Any]:
         """
@@ -267,19 +278,34 @@ class HTTPService:
         Args:
             url: URL to request
             service: Service name for error messages
+            headers: Additional headers
+            params: Query parameters
+            timeout: Override default timeout
             **kwargs: Additional arguments for get()
 
         Returns:
             Parsed JSON response
         """
-        response = await self.get(url, service=service, **kwargs)
+        response = await self.get(
+            url,
+            service=service,
+            headers=headers,
+            params=params,
+            timeout=timeout,
+            **kwargs,
+        )
         return await response.json()
 
+    @handle_errors_async(reraise=True)
     async def post_json(
         self,
         url: str,
         *,
         service: str = "HTTP",
+        headers: Optional[Dict[str, str]] = None,
+        json: Optional[Dict[str, Any]] = None,
+        data: Optional[Any] = None,
+        timeout: Optional[float] = None,
         **kwargs,
     ) -> Dict[str, Any]:
         """
@@ -288,59 +314,124 @@ class HTTPService:
         Args:
             url: URL to request
             service: Service name for error messages
+            headers: Additional headers
+            json: JSON payload
+            data: Form data or raw data
+            timeout: Override default timeout
             **kwargs: Additional arguments for post()
 
         Returns:
             Parsed JSON response
         """
-        response = await self.post(url, service=service, **kwargs)
+        response = await self.post(
+            url,
+            service=service,
+            headers=headers,
+            json=json,
+            data=data,
+            timeout=timeout,
+            **kwargs,
+        )
         return await response.json()
 
+    @handle_errors_async(reraise=True)
     async def download(
         self,
         url: str,
         *,
         service: str = "HTTP",
+        headers: Optional[Dict[str, str]] = None,
         max_size: Optional[int] = None,
+        timeout: Optional[float] = None,
         **kwargs,
     ) -> bytes:
         """
-        Download binary content with size limit.
+        Download data from URL with size limit.
 
         Args:
-            url: URL to download
+            url: URL to download from
             service: Service name for error messages
+            headers: Additional headers
             max_size: Maximum size in bytes
-            **kwargs: Additional arguments for get()
+            timeout: Override default timeout
+            **kwargs: Additional arguments for aiohttp
 
         Returns:
-            Downloaded bytes
+            The downloaded data
 
         Raises:
-            APIError: If content is too large
+            APIError: On API errors
+            TimeoutError: On timeout
+            ValueError: If response exceeds max_size
         """
-        response = await self.get(url, service=service, **kwargs)
+        response = await self.get(
+            url,
+            service=service,
+            headers=headers,
+            timeout=timeout,
+            **kwargs,
+        )
 
         # Check content length if available
-        if max_size and response.headers.get("Content-Length"):
-            content_length = int(response.headers["Content-Length"])
-            if content_length > max_size:
-                raise APIError(
-                    service,
-                    f"Content too large: {content_length} bytes (max: {max_size})",
+        content_length = response.headers.get("Content-Length")
+        if content_length and max_size:
+            size = int(content_length)
+            if size > max_size:
+                raise ValueError(
+                    f"Response too large: {size} bytes (max: {max_size} bytes)"
                 )
 
-        # Read with size limit
+        # Download with size limit
         data = bytearray()
         async for chunk in response.content.iter_chunked(8192):
             data.extend(chunk)
             if max_size and len(data) > max_size:
-                raise APIError(
-                    service,
-                    f"Content too large: >{max_size} bytes",
+                raise ValueError(
+                    f"Response too large: {len(data)} bytes (max: {max_size} bytes)"
                 )
 
         return bytes(data)
+
+    @handle_errors_async(reraise=True)
+    async def stream(
+        self,
+        url: str,
+        *,
+        service: str = "HTTP",
+        headers: Optional[Dict[str, str]] = None,
+        params: Optional[Dict[str, Any]] = None,
+        timeout: Optional[float] = None,
+        **kwargs,
+    ) -> AsyncGenerator[bytes, None]:
+        """
+        Stream response data.
+
+        Args:
+            url: URL to request
+            service: Service name for error messages
+            headers: Additional headers
+            params: Query parameters
+            timeout: Override default timeout
+            **kwargs: Additional arguments for aiohttp
+
+        Yields:
+            Response chunks
+
+        Raises:
+            APIError: On API errors
+            TimeoutError: On timeout
+        """
+        response = await self.get(
+            url,
+            service=service,
+            headers=headers,
+            params=params,
+            timeout=timeout,
+            **kwargs,
+        )
+
+        async for chunk in response.content.iter_chunked(8192):
+            yield chunk
 
 
 # Global HTTP service instance
@@ -351,7 +442,7 @@ def get_http_service() -> HTTPService:
     """Get the global HTTP service instance."""
     global _http_service
     if _http_service is None:
-        _http_service = HTTPService()
+        _http_service = HTTPService(get_config())
     return _http_service
 
 

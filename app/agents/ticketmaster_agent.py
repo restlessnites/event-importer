@@ -93,12 +93,12 @@ class TicketmasterAgent(Agent):
                     logger.debug(f"Genre search failed: {e}")
                     # Continue without genres
 
-            # Generate descriptions if missing using Claude
+            # Generate descriptions if missing using LLMService fallback
             if not event_data.long_description or not event_data.short_description:
                 await self.send_progress(
                     request_id, ImportStatus.RUNNING, "Generating descriptions", 0.85
                 )
-                event_data = await self.claude.generate_descriptions(event_data)
+                event_data = await self.services["llm"].generate_descriptions(event_data)
 
             await self.send_progress(
                 request_id,

@@ -1,25 +1,18 @@
-"""Claude API service for event data extraction."""
-
-import base64
-import logging
-from typing import Optional, Dict, Any
-import json
 import os
-
-from anthropic import AsyncAnthropic
-from anthropic.types import ToolUseBlock
-
-from app.config import Config
+from openai import AsyncOpenAI
+from typing import Any, Dict, Optional
 from app.schemas import EventData
+from app.config import Config
 from app.errors import APIError, handle_errors_async
 from app.prompts import EventPrompts
-
+import logging
+import base64
+import json
 
 logger = logging.getLogger(__name__)
 
-
-class ClaudeService:
-    """Service for Claude API interactions."""
+class OpenAIService:
+    """Service for OpenAI API interactions."""
 
     # Tool definition for structured extraction
     EXTRACTION_TOOL = {
@@ -114,15 +107,19 @@ class ClaudeService:
     }
 
     def __init__(self, config: Config):
-        """Initialize Claude service."""
+        """Initialize OpenAI service."""
         self.config = config
-        self.api_key = getattr(config.api, 'anthropic_api_key', None) or os.getenv("ANTHROPIC_API_KEY")
-        self.client = AsyncAnthropic(api_key=self.api_key)
-        self.model = "claude-3-opus-20240229"
+        self.api_key = getattr(config.api, 'openai_api_key', None) or os.getenv("OPENAI_API_KEY")
+        self.client = AsyncOpenAI(api_key=self.api_key)
+        self.model = "gpt-4-turbo-preview"
         self.max_tokens = 4096
 
+    def _add_json_requirement(self, prompt: str) -> str:
+        """Add JSON requirement to any prompt used with OpenAI."""
+        return f"Return the information as a valid JSON object.\n\n{prompt}"
+
     def _clean_response_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Clean Claude response data to ensure Pydantic validation compatibility."""
+        """Clean OpenAI response data to ensure Pydantic validation compatibility."""
         if not data:
             return data
         
@@ -152,8 +149,10 @@ class ClaudeService:
             url=url,
             content_type="html",
             needs_long_description=True,
-            needs_short_description=True
+            needs_short_description=True,
         )
+        # Add JSON requirement for OpenAI
+        prompt = self._add_json_requirement(prompt)
 
         result = await self._call_with_tool(prompt)
         if result:
@@ -176,8 +175,10 @@ class ClaudeService:
             url=url,
             content_type="image",
             needs_long_description=True,
-            needs_short_description=True
+            needs_short_description=True,
         )
+        # Add JSON requirement for OpenAI
+        prompt = self._add_json_requirement(prompt)
 
         result = await self._call_with_vision(prompt, image_b64, mime_type)
         if result:
@@ -206,8 +207,10 @@ class ClaudeService:
         prompt = EventPrompts.build_description_only_prompt(
             event_data=event_dict,
             needs_long=needs_long,
-            needs_short=needs_short
+            needs_short=needs_short,
         )
+        # Add JSON requirement for OpenAI
+        prompt = self._add_json_requirement(prompt)
 
         result = await self._call_with_tool(
             prompt, tool=self.DESCRIPTION_TOOL, tool_name="generate_descriptions"
@@ -225,14 +228,14 @@ class ClaudeService:
 
     @handle_errors_async(reraise=True)
     async def analyze_text(self, prompt: str) -> Optional[str]:
-        """Analyze text with Claude and return raw response."""
-        response = await self.client.messages.create(
+        """Analyze text with OpenAI and return raw response."""
+        response = await self.client.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=1024,
             temperature=0.2,
         )
-        return response.content[0].text.strip()
+        return response.choices[0].message.content.strip()
 
     async def _call_with_tool(
         self, prompt: str, tool: Optional[dict] = None, tool_name: Optional[str] = None
@@ -242,67 +245,71 @@ class ClaudeService:
             tool = self.EXTRACTION_TOOL
             tool_name = "extract_event_data"
         try:
-            response = await self.client.messages.create(
+            response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
-                tools=[tool],
+                response_format={"type": "json_object"},
                 max_tokens=self.max_tokens,
                 temperature=0.1,
-                tool_choice={"type": "tool", "name": tool_name}
             )
-            content = response.content[0].input
+            content = response.choices[0].message.content
             try:
-                if isinstance(content, dict):
-                    return content
-                return json.loads(content)
+                # Try to parse the first valid JSON object from the response
+                json_start = content.find('{')
+                json_end = content.rfind('}') + 1
+                if json_start != -1 and json_end != -1:
+                    return json.loads(content[json_start:json_end])
+                else:
+                    raise ValueError("No JSON object found in response")
             except Exception as e:
-                logger.error(f"Failed to parse JSON from Claude response: {e}; content: {content}")
-                raise APIError("Claude", f"Failed to parse JSON: {e}")
+                logger.error(f"Failed to parse JSON from OpenAI response: {e}; content: {content}")
+                raise APIError("OpenAI", f"Failed to parse JSON: {e}")
         except Exception as e:
-            logger.error(f"Claude tool call failed: {e}")
-            raise APIError("Claude", str(e))
+            logger.error(f"OpenAI tool call failed: {e}")
+            raise APIError("OpenAI", str(e))
 
     async def _call_with_vision(
         self, prompt: str, image_b64: str, mime_type: str
     ) -> Optional[Dict[str, Any]]:
         """Make API call with vision."""
         try:
-            response = await self.client.messages.create(
-                model=self.model,
+            response = await self.client.chat.completions.create(
+                model="gpt-4-vision-preview",
                 messages=[
                     {
                         "role": "user",
                         "content": [
                             {"type": "text", "text": prompt},
                             {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": mime_type,
-                                    "data": image_b64
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{mime_type};base64,{image_b64}"
                                 }
                             }
                         ]
                     }
                 ],
+                response_format={"type": "json_object"},
                 max_tokens=self.max_tokens,
                 temperature=0.1,
-                tool_choice={"type": "tool", "name": "extract_event_data"}
             )
-            content = response.content[0].input
+            content = response.choices[0].message.content
             try:
-                if isinstance(content, dict):
-                    return content
-                return json.loads(content)
+                json_start = content.find('{')
+                json_end = content.rfind('}') + 1
+                if json_start != -1 and json_end != -1:
+                    return json.loads(content[json_start:json_end])
+                else:
+                    raise ValueError("No JSON object found in response")
             except Exception as e:
-                logger.error(f"Failed to parse JSON from Claude vision response: {e}; content: {content}")
-                raise APIError("Claude", f"Failed to parse JSON: {e}")
+                logger.error(f"Failed to parse JSON from OpenAI vision response: {e}; content: {content}")
+                raise APIError("OpenAI", f"Failed to parse JSON: {e}")
         except Exception as e:
-            logger.error(f"Claude vision call failed: {e}")
-            raise APIError("Claude", str(e))
+            logger.error(f"OpenAI vision call failed: {e}")
+            raise APIError("OpenAI", str(e))
 
     async def enhance_genres(self, event_data: EventData) -> EventData:
-        """Enhance event genres using Claude."""
+        """Enhance event genres using OpenAI."""
         if not event_data.genres:
             return event_data
 
@@ -310,6 +317,8 @@ class ClaudeService:
         prompt = EventPrompts.build_genre_enhancement_prompt(
             event_data.model_dump(exclude_unset=True)
         )
+        # Add JSON requirement for OpenAI
+        prompt = self._add_json_requirement(prompt)
 
         try:
             result = await self._call_with_tool(
@@ -320,4 +329,4 @@ class ClaudeService:
             return event_data
         except Exception as e:
             logger.error(f"Failed to enhance genres: {e}")
-            return event_data
+            return event_data 

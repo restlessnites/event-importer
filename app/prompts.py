@@ -63,6 +63,24 @@ EXTRACTION RULES:
      * "Don't miss this incredible show"
    - If a short description exists in the source, extract it as-is"""
 
+    # Rules for genre enhancement
+    GENRE_ENHANCEMENT = """
+Review and enhance the event genres.
+Consider:
+- Primary music or event style
+- Sub-genres and related styles
+- Cultural or regional influences
+- Event format or type
+
+Genre Guidelines:
+- Use specific but established genre names
+- Include both primary and sub-genres when relevant
+- For hip-hop/rap events, consider: Alternative Hip-Hop, Conscious Hip-Hop, Gangsta Rap
+- For electronic events, consider: House, Techno, Drum & Bass
+- For rock events, consider: Alternative Rock, Indie Rock, Progressive Rock
+- Avoid overly broad terms like just "Rock" or "Hip-Hop"
+- Maximum 4 genres to avoid clutter"""
+
     @classmethod
     def build_extraction_prompt(
         cls,
@@ -216,6 +234,23 @@ EXTRACTION RULES:
 
         return "\n".join(prompt_parts)
 
+    @classmethod
+    def build_genre_enhancement_prompt(
+        cls,
+        event_data: Dict[str, Any],
+    ) -> str:
+        """Build prompt for genre enhancement."""
+        return f"""
+        Enhance the genres for the following event:
+
+        Title: {event_data.get('title', 'N/A')}
+        Current Genres: {', '.join(event_data.get('genres', []) or ['N/A'])}
+        Venue: {event_data.get('venue', 'N/A')}
+        Lineup: {', '.join(event_data.get('lineup', []) or ['N/A'])}
+
+        {cls.GENRE_ENHANCEMENT}
+        """
+
 
 class GenrePrompts:
     """Prompts for genre identification and enhancement."""
@@ -268,10 +303,7 @@ GENRE GUIDELINES:
 - Return established genre names, not descriptive phrases
 - Prefer broader categories over micro-genres
 - Examples: "Rock" not "Post-Hardcore Math Rock"
-- Maximum 4 genres to avoid clutter
-
-Return a JSON list of genres: ["Genre1", "Genre2"]
-If not the correct artist or unsure: []"""
+- Maximum 4 genres to avoid clutter"""
 
     @classmethod
     def build_quick_genre_prompt(cls, artist_name: str, snippet: str) -> str:
@@ -280,6 +312,6 @@ If not the correct artist or unsure: []"""
 
 {snippet}
 
-Return only a JSON list of 1-3 primary genres: ["Genre1", "Genre2"]
+Return 1-3 primary genres.
 Use standard genre names (Rock, Electronic, Hip Hop, Jazz, Pop, etc.)
-If no clear genres found: []"""
+If no clear genres found, return an empty list."""

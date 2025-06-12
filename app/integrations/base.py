@@ -6,6 +6,13 @@ import traceback
 from tenacity import RetryError
 
 from ..shared.database.models import EventCache, Submission
+from app.errors import handle_errors_async, APIError
+from app.models import Event
+from app.schemas import EventData
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class BaseSelector(ABC):
@@ -36,132 +43,134 @@ class BaseClient(ABC):
 
 
 class BaseSubmitter(ABC):
-    """Base class for integration submitters"""
-    
-    def __init__(self):
-        self.client = self._create_client()
-        self.transformer = self._create_transformer()
-        self.selectors = self._create_selectors()
-    
+    """Base class for event submission integrations."""
+
+    def __init__(self, client: Any):
+        """Initialize submitter with client."""
+        self.client = client
+
     @abstractmethod
-    def _create_client(self) -> BaseClient:
-        """Create the service client"""
+    async def transform_event(self, event: Event) -> Dict[str, Any]:
+        """
+        Transform event data for submission.
+
+        Args:
+            event: Event to transform
+
+        Returns:
+            Transformed data ready for submission
+        """
         pass
-    
-    @abstractmethod
-    def _create_transformer(self) -> BaseTransformer:
-        """Create the data transformer"""
-        pass
-    
-    @abstractmethod
-    def _create_selectors(self) -> Dict[str, BaseSelector]:
-        """Create available selectors"""
-        pass
-    
-    @property
-    @abstractmethod
-    def service_name(self) -> str:
-        """Name of the service this submitter handles"""
-        pass
-    
+
+    @handle_errors_async(reraise=True)
     async def submit_events(
         self, 
         selector_name: str = "unsubmitted", 
         dry_run: bool = False
     ) -> Dict[str, Any]:
-        """Submit events using specified selector"""
-        from ..shared.database.connection import get_db_session
-        
+        """
+        Submit events to the integration.
+
+        Args:
+            selector_name: Name of selector to use
+            dry_run: If True, don't actually submit
+
+        Returns:
+            Dictionary with submission results
+        """
+        # Get events to submit
+        events = await Event.filter(selector=selector_name)
+        if not events:
+            logger.info(f"No events found with selector: {selector_name}")
+            return {
+                "submitted": [],
+                "errors": [],
+                "total": 0
+            }
+
+        logger.info(f"Found {len(events)} events to submit")
         results = {
-            "service": self.service_name,
-            "selector": selector_name,
-            "dry_run": dry_run,
             "submitted": [],
             "errors": [],
-            "total": 0
+            "total": len(events)
         }
-        
-        with get_db_session() as db:
-            # Get selector
-            if selector_name not in self.selectors:
-                raise ValueError(f"Unknown selector: {selector_name}")
-            
-            selector = self.selectors[selector_name]
-            events = selector.select_events(db, self.service_name)
-            results["total"] = len(events)
-            
-            for event in events:
-                try:
-                    # Transform data
-                    transformed_data = self.transformer.transform(event.scraped_data)
-                    
-                    if dry_run:
-                        results["submitted"].append({
-                            "event_id": event.id,
-                            "url": event.source_url,
-                            "data": transformed_data
-                        })
-                        continue
-                    
-                    # Create submission record
-                    submission = Submission(
-                        event_cache_id=event.id,
-                        service_name=self.service_name,
-                        status="pending",
-                        selection_criteria={"selector": selector_name}
-                    )
-                    db.add(submission)
-                    db.flush()  # Get the ID
-                    
-                    try:
-                        # Submit to service
-                        response = await self.client.submit(transformed_data)
-                        
-                        # Update submission with success
-                        submission.status = "success"
-                        submission.response_data = response
-                        
-                        results["submitted"].append({
-                            "event_id": event.id,
-                            "submission_id": submission.id,
-                            "url": event.source_url,
-                            "status": "success"
-                        })
-                        
-                    except Exception as submit_error:
-                        # Update submission with error
-                        submission.status = "failed"
-                        
-                        # Get traceback
-                        tb_str = traceback.format_exc()
-                        
-                        # Log detailed error and traceback
-                        error_details = f"Error: {submit_error}\nTraceback:\n{tb_str}"
-                        submission.error_message = error_details
-                        
-                        # Use the real error message if it's a retry error
-                        error_to_show = str(submit_error)
-                        if isinstance(submit_error, RetryError):
-                            # Get the last exception that caused the failure
-                            last_attempt_exc = submit_error.last_attempt.exception()
-                            if last_attempt_exc:
-                                error_to_show = f"{type(last_attempt_exc).__name__}: {last_attempt_exc}"
 
-                        results["errors"].append({
-                            "event_id": event.id,
-                            "submission_id": submission.id,
-                            "url": event.source_url,
-                            "error": error_to_show
-                        })
-                
-                except Exception as event_error:
-                    tb_str = traceback.format_exc()
-                    error_details = f"Error: {event_error}\nTraceback:\n{tb_str}"
+        # Process each event
+        for event in events:
+            try:
+                # Create submission record
+                submission = Submission(
+                    event=event,
+                    integration=self.client.__class__.__name__,
+                    status="pending"
+                )
+                await submission.save()
+
+                # Transform event data
+                try:
+                    transformed_data = await self.transform_event(event)
+                except Exception as transform_error:
+                    # Update submission with error
+                    submission.status = "failed"
+                    submission.error_message = str(transform_error)
+                    await submission.save()
+
+                    results["errors"].append({
+                        "event_id": event.id,
+                        "submission_id": submission.id,
+                        "url": event.source_url,
+                        "error": str(transform_error)
+                    })
+                    continue
+
+                if dry_run:
+                    # Update submission for dry run
+                    submission.status = "dry_run"
+                    submission.response_data = {"dry_run": True}
+                    await submission.save()
+
+                    results["submitted"].append({
+                        "event_id": event.id,
+                        "submission_id": submission.id,
+                        "url": event.source_url,
+                        "status": "dry_run"
+                    })
+                    continue
+
+                # Submit to service
+                try:
+                    response = await self.client.submit(transformed_data)
+                    
+                    # Update submission with success
+                    submission.status = "success"
+                    submission.response_data = response
+                    await submission.save()
+                    
+                    results["submitted"].append({
+                        "event_id": event.id,
+                        "submission_id": submission.id,
+                        "url": event.source_url,
+                        "status": "success"
+                    })
+                    
+                except Exception as submit_error:
+                    # Update submission with error
+                    submission.status = "failed"
+                    submission.error_message = str(submit_error)
+                    await submission.save()
                     
                     results["errors"].append({
                         "event_id": event.id,
+                        "submission_id": submission.id,
                         "url": event.source_url,
-                        "error": error_details
+                        "error": str(submit_error)
                     })
-        
+
+            except Exception as event_error:
+                results["errors"].append({
+                    "event_id": event.id,
+                    "url": event.source_url,
+                    "error": str(event_error)
+                })
+
         return results 

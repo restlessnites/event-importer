@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 
 from app.config import Config
 from app.schemas import (
@@ -25,6 +25,7 @@ from app.services.claude import ClaudeService
 from app.services.image import ImageService
 from app.services.zyte import ZyteService
 from app.services.genre import GenreService
+from app.services.llm import LLMService
 # Add database imports
 from app.shared.database import cache_event, get_cached_event
 
@@ -50,10 +51,12 @@ class EventImporter:
     def _create_shared_services(self) -> Dict:
         """Create services that will be shared across agents."""
         claude_service = ClaudeService(self.config)
+        llm_service = LLMService(self.config)
 
         return {
             "http": self.http,
             "claude": claude_service,
+            "llm": llm_service,
             "image": ImageService(self.config, self.http),
             "zyte": ZyteService(self.config, self.http),
             "genre": GenreService(self.config, self.http, claude_service),
@@ -285,7 +288,20 @@ class EventImporter:
             
             logger.warning(f"Forced method '{force_method}' not available")
 
-        # Content-type based routing
+        # URL pattern based routing for specialized agents first
+        from app.shared.url_analyzer import URLAnalyzer
+        analyzer = URLAnalyzer()
+        analysis = analyzer.analyze(url)
+        
+        # Route to specialized agents based on URL analysis
+        if analysis.get("type") == "resident_advisor" and "event_id" in analysis:
+            return self._get_agent_by_name("ResidentAdvisor")
+        elif analysis.get("type") == "ticketmaster" and "event_id" in analysis:
+            agent = self._get_agent_by_name("Ticketmaster") 
+            # Only return if API key is configured
+            return agent if self.config.api.ticketmaster_key else None
+
+        # Content-type based routing for remaining URLs
         try:
             response = await self.http.head(
                 url,
@@ -303,19 +319,6 @@ class EventImporter:
                             
         except Exception as e:
             logger.warning(f"Failed to check content-type for {url}: {e}")
-
-        # URL pattern based routing for specialized agents
-        from app.shared.url_analyzer import URLAnalyzer
-        analyzer = URLAnalyzer()
-        analysis = analyzer.analyze(url)
-        
-        # Route to specialized agents based on URL analysis
-        if analysis.get("type") == "resident_advisor" and "event_id" in analysis:
-            return self._get_agent_by_name("ResidentAdvisor")
-        elif analysis.get("type") == "ticketmaster" and "event_id" in analysis:
-            agent = self._get_agent_by_name("Ticketmaster") 
-            # Only return if API key is configured
-            return agent if self.config.api.ticketmaster_key else None
 
         # Default fallback to WebAgent for any remaining URLs
         return self._get_agent_by_name("WebScraper")
@@ -338,3 +341,29 @@ class EventImporter:
     def get_progress_history(self, request_id: str):
         """Get the progress history for a request."""
         return self.progress_tracker.get_history(request_id)
+
+    async def extract_event_data(self, prompt: str, image_b64: Optional[str] = None, mime_type: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Extract event data from prompt or image."""
+        try:
+            if image_b64 and mime_type:
+                return await self._services["llm"].extract_event_data(
+                    prompt="",  # Empty prompt for image extraction
+                    image_b64=image_b64,
+                    mime_type=mime_type
+                )
+            else:
+                return await self._services["llm"].extract_event_data(
+                    prompt=prompt,
+                    image_b64=None,
+                    mime_type=None
+                )
+        except Exception as e:
+            logger.error(f"Failed to extract event data: {e}")
+            return None
+
+    async def enhance_genres(self, event_data: EventData) -> EventData:
+        try:
+            return await self._services["genre"].enhance_genres(event_data)
+        except Exception as e:
+            logger.warning(f"Genre enhancement failed: {e}")
+            return event_data

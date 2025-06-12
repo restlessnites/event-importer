@@ -1,76 +1,94 @@
-import httpx
+"""TicketFairy API client."""
+
 import json
-from typing import Dict, Any
-from tenacity import retry, stop_after_attempt, wait_exponential
+import logging
+from typing import Dict, Any, Optional
 
-from ..base import BaseClient
-from .config import (
-    TICKETFAIRY_API_KEY,
-    TICKETFAIRY_API_URL,
-    TICKETFAIRY_ORIGIN,
-    REQUEST_TIMEOUT,
-    MAX_RETRIES,
-    RETRY_DELAY
-)
+import httpx
+
+from app.errors import handle_errors_async, APIError, TimeoutError
+from app.config import Config
 
 
-class TicketFairyClient(BaseClient):
-    """HTTP client for TicketFairy API"""
-    
-    @retry(
-        stop=stop_after_attempt(MAX_RETRIES),
-        wait=wait_exponential(multiplier=RETRY_DELAY, min=1, max=10)
-    )
+logger = logging.getLogger(__name__)
+
+
+class TicketFairyClient:
+    """Client for TicketFairy API."""
+
+    # API configuration
+    TICKETFAIRY_API_URL = "https://api.ticketfairy.com/v1/events"
+    REQUEST_TIMEOUT = 30.0
+    MAX_RETRIES = 3
+    RETRY_DELAY = 1.0
+
+    def __init__(self, config: Config):
+        """Initialize client with configuration."""
+        self.config = config
+        self.api_key = config.api.ticketfairy_api_key
+        if not self.api_key:
+            raise ValueError("TicketFairy API key not configured")
+
+    @handle_errors_async(reraise=True)
     async def submit(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Submit event data to TicketFairy API"""
+        """
+        Submit event data to TicketFairy.
+
+        Args:
+            data: Event data to submit
+
+        Returns:
+            API response data
+
+        Raises:
+            APIError: On API errors
+            TimeoutError: On timeout
+        """
+        # Prepare headers
         headers = {
+            "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {TICKETFAIRY_API_KEY}",
-            "Origin": TICKETFAIRY_ORIGIN,
         }
-        
-        async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+
+        # Make request
+        async with httpx.AsyncClient(timeout=self.REQUEST_TIMEOUT) as client:
+            response = await client.post(
+                self.TICKETFAIRY_API_URL,
+                headers=headers,
+                json=data
+            )
+
+            # Handle empty response
+            response_text = response.text
+            if not response_text or response_text.strip() == "":
+                raise APIError("TicketFairy", "Empty response from API")
+
+            # Parse response
             try:
-                response = await client.post(
-                    TICKETFAIRY_API_URL,
-                    headers=headers,
-                    json=data
+                response_data = response.json()
+            except json.JSONDecodeError as e:
+                raise APIError(
+                    "TicketFairy",
+                    f"Invalid JSON response: {e}. Response: {response_text}"
                 )
-                
-                # Handle empty response
-                response_text = response.text
-                if not response_text or response_text.strip() == "":
-                    raise Exception("Empty response from TicketFairy API")
-                
-                # Parse response
-                try:
-                    response_data = response.json()
-                except json.JSONDecodeError as e:
-                    raise Exception(f"Invalid JSON response: {e}. Response: {response_text}")
-                
-                # Check for API errors
-                if not response.is_success:
-                    error_msg = "Unknown error"
-                    if isinstance(response_data, dict):
-                        if "message" in response_data:
-                            if isinstance(response_data["message"], dict):
-                                error_msg = response_data["message"].get("message", str(response_data["message"]))
-                            else:
-                                error_msg = str(response_data["message"])
-                        elif "error" in response_data:
-                            error_msg = str(response_data["error"])
-                    
-                    raise Exception(f"TicketFairy API error ({response.status_code}): {error_msg}")
-                
-                return response_data
-                
-            except httpx.TimeoutException:
-                raise Exception("Request to TicketFairy API timed out")
-            except httpx.RequestError as e:
-                raise Exception(f"Request error: {str(e)}")
-            except Exception as e:
-                # Re-raise our custom exceptions
-                if "TicketFairy API error" in str(e) or "Empty response" in str(e):
-                    raise
-                # Wrap other exceptions
-                raise Exception(f"Unexpected error submitting to TicketFairy: {str(e)}") 
+
+            # Check for API errors
+            if not response.is_success:
+                error_msg = "Unknown error"
+                if isinstance(response_data, dict):
+                    if "message" in response_data:
+                        if isinstance(response_data["message"], dict):
+                            error_msg = response_data["message"].get(
+                                "message", str(response_data["message"])
+                            )
+                        else:
+                            error_msg = str(response_data["message"])
+                    elif "error" in response_data:
+                        error_msg = str(response_data["error"])
+
+                raise APIError(
+                    "TicketFairy",
+                    f"API error ({response.status_code}): {error_msg}"
+                )
+
+            return response_data 
