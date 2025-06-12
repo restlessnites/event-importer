@@ -132,6 +132,10 @@ class OpenAIService:
                 # If no valid images remain, set to None
                 data["images"] = cleaned_images if cleaned_images else None
         
+        # Convert empty string for ticket_url to None to avoid validation errors
+        if "ticket_url" in data and data["ticket_url"] == "":
+            data["ticket_url"] = None
+            
         return data
 
     @handle_errors_async(reraise=True)
@@ -271,42 +275,42 @@ class OpenAIService:
     async def _call_with_vision(
         self, prompt: str, image_b64: str, mime_type: str
     ) -> Optional[Dict[str, Any]]:
-        """Make API call with vision."""
-        try:
-            response = await self.client.chat.completions.create(
-                model="gpt-4-vision-preview",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt},
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:{mime_type};base64,{image_b64}"
-                                }
+        """Call OpenAI's vision model with a prompt and image."""
+        if not self.client:
+            raise ConfigurationError("OpenAI client not initialized")
+
+        # Call OpenAI vision model
+        response = await self.client.chat.completions.create(
+            model="gpt-4-turbo",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{mime_type};base64,{image_b64}"
                             }
-                        ]
-                    }
-                ],
-                response_format={"type": "json_object"},
-                max_tokens=self.max_tokens,
-                temperature=0.1,
-            )
-            content = response.choices[0].message.content
-            try:
-                json_start = content.find('{')
-                json_end = content.rfind('}') + 1
-                if json_start != -1 and json_end != -1:
-                    return json.loads(content[json_start:json_end])
-                else:
-                    raise ValueError("No JSON object found in response")
-            except Exception as e:
-                logger.error(f"Failed to parse JSON from OpenAI vision response: {e}; content: {content}")
-                raise APIError("OpenAI", f"Failed to parse JSON: {e}")
+                        }
+                    ]
+                }
+            ],
+            response_format={"type": "json_object"},
+            max_tokens=self.max_tokens,
+            temperature=0.1,
+        )
+        content = response.choices[0].message.content
+        try:
+            json_start = content.find('{')
+            json_end = content.rfind('}') + 1
+            if json_start != -1 and json_end != -1:
+                return json.loads(content[json_start:json_end])
+            else:
+                raise ValueError("No JSON object found in response")
         except Exception as e:
-            logger.error(f"OpenAI vision call failed: {e}")
-            raise APIError("OpenAI", str(e))
+            logger.error(f"Failed to parse JSON from OpenAI vision response: {e}; content: {content}")
+            raise APIError("OpenAI", f"Failed to parse JSON: {e}")
 
     async def enhance_genres(self, event_data: EventData) -> EventData:
         """Enhance event genres using OpenAI."""

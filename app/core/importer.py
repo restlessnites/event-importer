@@ -51,13 +51,11 @@ class EventImporter:
 
     def _create_shared_services(self) -> Dict:
         """Create services that will be shared across agents."""
-        claude_service = ClaudeService(self.config)
         llm_service = LLMService(self.config)
         genre_service = GenreService(self.config, self.http, llm_service)
 
         return {
             "http": self.http,
-            "claude": claude_service,
             "llm": llm_service,
             "image": ImageService(self.config, self.http),
             "zyte": ZyteService(self.config, self.http),

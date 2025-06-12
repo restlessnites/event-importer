@@ -7,11 +7,10 @@ import json
 import os
 
 from anthropic import AsyncAnthropic
-from anthropic.types import ToolUseBlock
 
 from app.config import Config
 from app.schemas import EventData
-from app.errors import APIError, handle_errors_async
+from app.errors import APIError, AuthenticationError
 from app.prompts import EventPrompts
 
 
@@ -122,30 +121,33 @@ class ClaudeService:
         self.max_tokens = 4096
 
     def _clean_response_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Clean Claude response data to ensure Pydantic validation compatibility."""
+        """Clean response data to handle potential inconsistencies."""
         if not data:
             return data
-        
-        # Handle images field - remove None values from the dict
-        if "images" in data and data["images"]:
-            images = data["images"]
-            if isinstance(images, dict):
-                # Remove any None values from the images dict
-                cleaned_images = {k: v for k, v in images.items() if v is not None}
-                # If no valid images remain, set to None
-                data["images"] = cleaned_images if cleaned_images else None
-        
-        # Handle coordinates field - if lat/lng are null, invalidate the coordinates object
-        if "location" in data and isinstance(data.get("location"), dict):
-            location = data["location"]
-            if "coordinates" in location and isinstance(location.get("coordinates"), dict):
-                coords = location["coordinates"]
-                if coords.get("lat") is None or coords.get("lng") is None:
-                    location["coordinates"] = None
+
+        # If time is an empty object, convert to None
+        if "time" in data and data["time"] == {}:
+            data["time"] = None
+
+        # If location is an empty object, convert to None
+        if "location" in data and data["location"] == {}:
+            data["location"] = None
+
+        # Convert empty string for ticket_url to None
+        if "ticket_url" in data and data["ticket_url"] == "":
+            data["ticket_url"] = None
+
+        # If coordinates is an empty object, convert to None
+        if (
+            "location" in data
+            and isinstance(data.get("location"), dict)
+            and "coordinates" in data["location"]
+            and data["location"]["coordinates"] == {}
+        ):
+            data["location"]["coordinates"] = None
 
         return data
 
-    @handle_errors_async(reraise=True)
     async def extract_from_html(
         self, html: str, url: str, max_length: int = 50000
     ) -> Optional[EventData]:
@@ -171,7 +173,6 @@ class ClaudeService:
             return EventData(**cleaned_result)
         return None
 
-    @handle_errors_async(reraise=True)
     async def extract_from_image(
         self, image_data: bytes, mime_type: str, url: str
     ) -> Optional[EventData]:
@@ -197,7 +198,6 @@ class ClaudeService:
             return EventData(**cleaned_result)
         return None
 
-    @handle_errors_async(reraise=True)
     async def generate_descriptions(self, event_data: EventData) -> EventData:
         """Generate missing descriptions for an event."""
         # Check if we need to generate descriptions
@@ -231,7 +231,6 @@ class ClaudeService:
 
         return event_data
 
-    @handle_errors_async(reraise=True)
     async def analyze_text(self, prompt: str) -> Optional[str]:
         """Analyze text with Claude and return raw response."""
         response = await self.client.messages.create(
@@ -246,39 +245,56 @@ class ClaudeService:
         self, prompt: str, tool: Optional[dict] = None, tool_name: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         """Make API call with tool use."""
+        if not self.client:
+            raise AuthenticationError("Claude")
+
         if not tool:
             tool = self.EXTRACTION_TOOL
             tool_name = "extract_event_data"
         try:
-            response = await self.client.messages.create(
+            message = await self.client.messages.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 tools=[tool],
+                tool_choice={"type": "tool", "name": tool_name},
                 max_tokens=self.max_tokens,
                 temperature=0.1,
-                tool_choice={"type": "tool", "name": tool_name}
             )
-            content = response.content[0].input
-            try:
-                if isinstance(content, dict):
-                    return content
-                return json.loads(content)
-            except Exception as e:
-                logger.error(f"Failed to parse JSON from Claude response: {e}; content: {content}")
-                raise APIError("Claude", f"Failed to parse JSON: {e}")
+
+            # Find the tool use content block
+            tool_use = next(
+                (content for content in message.content if content.type == "tool_use"),
+                None,
+            )
+
+            if tool_use and hasattr(tool_use, 'input'):
+                content = tool_use.input
+                try:
+                    if isinstance(content, dict):
+                        return content
+                    return json.loads(content)
+                except (json.JSONDecodeError, TypeError):
+                    logger.warning(f"Claude tool response was not a valid JSON object: {content}")
+                    return {"raw_text": str(content)}
+            else:
+                logger.warning("No tool use block found in Claude response")
+                return None
+
         except Exception as e:
-            logger.error(f"Claude tool call failed: {e}")
+            # Don't log as error, let the LLMService handle it as a fallback
+            logger.debug(f"Claude tool call failed: {e}")
             raise APIError("Claude", str(e))
 
     async def _call_with_vision(
         self, prompt: str, image_b64: str, mime_type: str
     ) -> Optional[Dict[str, Any]]:
-        """Make API call with vision."""
+        """Call Claude's vision model with a prompt and image."""
+        if not self.client:
+            raise AuthenticationError("Claude")
+
         try:
-            logger.debug("Calling Claude with vision...")
             response = await self.client.messages.create(
                 model=self.model,
-                max_tokens=4096,
                 messages=[
                     {
                         "role": "user",
@@ -295,23 +311,36 @@ class ClaudeService:
                         ],
                     }
                 ],
-                tools=[self.EXTRACTION_TOOL],
-                tool_choice={"type": "tool", "name": "extract_event_data"},
+                max_tokens=self.max_tokens,
+                temperature=0.1,
             )
 
-            # Find the tool use input
-            # The actual tool input is in response.content[0].input
-            content = response.content[0].input
-            try:
-                if isinstance(content, dict):
-                    return content
-                return json.loads(content)
-            except Exception as e:
-                logger.error(f"Failed to parse JSON from Claude vision response: {e}; content: {content}")
-                raise APIError("Claude", f"Failed to parse JSON: {e}")
+            # In vision responses, the result is often in a text block
+            text_content = next(
+                (content.text for content in response.content if content.type == "text"),
+                None,
+            )
+
+            if text_content:
+                try:
+                    # Try to parse the first valid JSON object from the response
+                    json_start = text_content.find('{')
+                    json_end = text_content.rfind('}') + 1
+                    if json_start != -1 and json_end != -1:
+                        return json.loads(text_content[json_start:json_end])
+                    else:
+                        raise ValueError("No JSON object found in response")
+                except Exception as e:
+                    logger.warning(f"Failed to parse JSON from Claude vision response: {e}; content: {text_content}")
+                    raise APIError("Claude", f"Failed to parse JSON: {e}")
+            else:
+                logger.warning("No text content found in Claude vision response")
+                return None
+            
         except Exception as e:
-            logger.error(f"Claude vision call failed: {e}")
-            raise APIError("Claude", str(e))
+            # Don't log as error, let the LLMService handle it as a fallback
+            logger.debug(f"Claude vision call failed: {e}")
+            raise APIError("Claude", f"Vision call failed: {e}")
 
     async def enhance_genres(self, event_data: EventData) -> EventData:
         """Enhance event genres using Claude."""
