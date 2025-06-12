@@ -117,6 +117,20 @@ class EventImporter:
                 agent.import_event(url, request.request_id), timeout=request.timeout
             )
 
+            # --- Fallback to WebAgent if TicketmasterAgent fails ---
+            if (
+                not event_data
+                and agent.name == "Ticketmaster"
+                and self._get_agent_by_name("WebScraper") is not None
+            ):
+                logger.info(f"TicketmasterAgent failed, falling back to WebAgent for {url}")
+                web_agent = self._get_agent_by_name("WebScraper")
+                event_data = await asyncio.wait_for(
+                    web_agent.import_event(url, request.request_id), timeout=request.timeout
+                )
+                if event_data:
+                    logger.info(f"WebAgent succeeded for {url} after TicketmasterAgent failure")
+
             if event_data and not event_data.genres:
                 await self.progress_tracker.send_progress(
                     ImportProgress(
@@ -175,6 +189,7 @@ class EventImporter:
                     request_id=request.request_id,
                     status=ImportStatus.FAILED,
                     url=request.url,
+                    method_used=agent.import_method.value,
                     error=error,
                     import_time=(
                         datetime.now(timezone.utc) - start_time
@@ -196,6 +211,7 @@ class EventImporter:
                 request_id=request.request_id,
                 status=ImportStatus.FAILED,
                 url=request.url,
+                method_used=agent.import_method.value,
                 error=error,
                 import_time=(datetime.now(timezone.utc) - start_time).total_seconds(),
             )
@@ -216,6 +232,7 @@ class EventImporter:
                 request_id=request.request_id,
                 status=ImportStatus.FAILED,
                 url=request.url,
+                method_used=agent.import_method.value,
                 error=error,
                 import_time=(datetime.now(timezone.utc) - start_time).total_seconds(),
             )
@@ -256,7 +273,7 @@ class EventImporter:
         if force_method:
             # Find agent by method name mapping
             method_mapping = {
-                "api": ["ResidentAdvisorAgent", "TicketmasterAgent"],
+                "api": ["ResidentAdvisor", "Ticketmaster"],
                 "web": ["WebScraper"], 
                 "image": ["ImageAgent"],
             }
@@ -294,9 +311,9 @@ class EventImporter:
         
         # Route to specialized agents based on URL analysis
         if analysis.get("type") == "resident_advisor" and "event_id" in analysis:
-            return self._get_agent_by_name("ResidentAdvisorAgent")
+            return self._get_agent_by_name("ResidentAdvisor")
         elif analysis.get("type") == "ticketmaster" and "event_id" in analysis:
-            agent = self._get_agent_by_name("TicketmasterAgent") 
+            agent = self._get_agent_by_name("Ticketmaster") 
             # Only return if API key is configured
             return agent if self.config.api.ticketmaster_key else None
 
