@@ -1,5 +1,6 @@
 from typing import Dict
 
+from app.config import get_config
 from ..base import BaseSubmitter, BaseClient, BaseTransformer, BaseSelector
 from .client import TicketFairyClient
 from .transformer import TicketFairyTransformer
@@ -15,12 +16,15 @@ from .selectors import (
 class TicketFairySubmitter(BaseSubmitter):
     """Complete submitter for TicketFairy integration"""
     
+    def __init__(self):
+        super().__init__()
+    
     @property
     def service_name(self) -> str:
         return "ticketfairy"
     
     def _create_client(self) -> BaseClient:
-        return TicketFairyClient()
+        return TicketFairyClient(config=get_config())
     
     def _create_transformer(self) -> BaseTransformer:
         return TicketFairyTransformer()

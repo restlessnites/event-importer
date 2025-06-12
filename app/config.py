@@ -17,6 +17,7 @@ class APIConfig:
     google_api_key: Optional[str] = None
     google_cse_id: Optional[str] = None
     main_app_token: Optional[str] = None  # Token for main application API
+    ticketfairy_api_key: Optional[str] = None
 
     def validate(self) -> Dict[str, bool]:
         """Validate which APIs are configured."""
@@ -26,6 +27,7 @@ class APIConfig:
             "ticketmaster": bool(self.ticketmaster_key),
             "google_search": bool(self.google_api_key and self.google_cse_id),
             "main_app": bool(self.main_app_token),  # Add validation for main app token
+            "ticketfairy": bool(self.ticketfairy_api_key),
         }
 
 
@@ -105,6 +107,7 @@ class Config:
         config.api.google_api_key = os.getenv("GOOGLE_API_KEY")
         config.api.google_cse_id = os.getenv("GOOGLE_CSE_ID")
         config.api.main_app_token = os.getenv("MAIN_APP_TOKEN")  # Load main app token
+        config.api.ticketfairy_api_key = os.getenv("TICKETFAIRY_API_KEY")
 
         # Load optional overrides
         if timeout := os.getenv("HTTP_TIMEOUT"):
@@ -154,6 +157,11 @@ class Config:
 
             logging.warning("Google Search API not configured - image search disabled")
 
+        if not api_status["ticketfairy"]:
+            import logging
+
+            logging.warning("TicketFairy API key not configured - TicketFairy integration disabled")
+
     def get_enabled_features(self) -> Dict[str, bool]:
         """Get which features are enabled based on configuration."""
         api_status = self.api.validate()
@@ -162,6 +170,7 @@ class Config:
             "ticketmaster": api_status["ticketmaster"],
             "image_search": api_status["google_search"],
             "web_scraping": api_status["zyte"],
+            "ticketfairy_integration": api_status["ticketfairy"],
         }
 
 
