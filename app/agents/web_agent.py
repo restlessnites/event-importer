@@ -20,7 +20,6 @@ class WebAgent(Agent):
         # Use shared services from parent
         self.http = self.services["http"]
         self.zyte = self.services["zyte"]
-        self.claude = self.services["claude"]
         self.image_service = self.services["image"]
 
     @property
@@ -104,7 +103,7 @@ class WebAgent(Agent):
             cleaned_html = self._clean_html(html)
 
             # Extract with Claude - it will generate descriptions if needed
-            return await self.claude.extract_from_html(cleaned_html, url)
+            return await self.services["llm"].extract_from_html(cleaned_html, url)
 
         except Exception as e:
             logger.warning(f"HTML extraction failed: {e}")
@@ -123,7 +122,9 @@ class WebAgent(Agent):
             )
 
             # Extract with Claude - it will generate descriptions if needed
-            return await self.claude.extract_from_image(screenshot_data, mime_type, url)
+            return await self.services["llm"].extract_from_image(
+                screenshot_data, mime_type, url
+            )
 
         except Exception as e:
             logger.warning(f"Screenshot extraction failed: {e}")

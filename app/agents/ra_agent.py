@@ -21,7 +21,6 @@ class ResidentAdvisorAgent(Agent):
         self.url_analyzer = URLAnalyzer()
         # Use shared services
         self.http = self.services["http"]
-        self.claude = self.services["claude"]
 
     @property
     def name(self) -> str:
@@ -76,7 +75,7 @@ class ResidentAdvisorAgent(Agent):
                 await self.send_progress(
                     request_id, ImportStatus.RUNNING, "Generating descriptions", 0.85
                 )
-                event_data = await self.claude.generate_descriptions(event_data)
+                event_data = await self.services["llm"].generate_descriptions(event_data)
 
             await self.send_progress(
                 request_id,

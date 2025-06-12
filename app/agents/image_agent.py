@@ -17,7 +17,6 @@ class ImageAgent(Agent):
         super().__init__(*args, **kwargs)
         # Use shared services
         self.http = self.services["http"]
-        self.claude = self.services["claude"]
         self.image_service = self.services["image"]
 
     @property
@@ -52,7 +51,7 @@ class ImageAgent(Agent):
             )
 
             # Extract with Claude - it will generate descriptions if needed
-            event_data = await self.claude.extract_from_image(
+            event_data = await self.services["llm"].extract_from_image(
                 image_data, mime_type, url
             )
 

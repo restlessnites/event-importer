@@ -1,4 +1,4 @@
-"""Genre enhancement service using web search and Claude."""
+"""Genre enhancement service using web search and LLMs."""
 
 import logging
 import json
@@ -7,11 +7,11 @@ from typing import List, Optional, Dict, Any
 
 from app.config import Config
 from app.shared.http import HTTPService
-from app.services.claude import ClaudeService
-from app.data.genres import MusicGenres
 from app.prompts import GenrePrompts
-from app.schemas import EventData
 from app.errors import retry_on_error
+from app.services.llm import LLMService
+from app.data.genres import MusicGenres
+from app.schemas import EventData
 
 
 logger = logging.getLogger(__name__)
@@ -21,15 +21,15 @@ class GenreService:
     """Service for enhancing events with missing genre information."""
 
     def __init__(
-        self, config: Config, http_service: HTTPService, claude_service: ClaudeService
+        self, config: Config, http_service: HTTPService, llm_service: LLMService
     ):
         """Initialize genre service."""
         self.config = config
         self.http = http_service
-        self.claude = claude_service
-        self.google_enabled = bool(
-            config.api.google_api_key and config.api.google_cse_id
-        )
+        self.llm = llm_service
+        self.api_key = self.config.api.google_api_key
+        self.cse_id = self.config.api.google_cse_id
+        self.google_enabled = bool(self.api_key and self.cse_id)
 
         if not self.google_enabled:
             logger.debug(
@@ -89,7 +89,7 @@ class GenreService:
     async def _search_artist_genres(
         self, artist_name: str, event_context: Dict[str, Any]
     ) -> List[str]:
-        """Search for an artist's genres using Google and Claude."""
+        """Search for an artist's genres using Google and an LLM."""
 
         # Build search query
         query = f'"{artist_name}" music genre artist'
@@ -104,8 +104,8 @@ class GenreService:
             # Extract text from results
             search_text = self._extract_search_text(search_results)
 
-            # Use Claude to analyze and extract genres
-            genres = await self._extract_genres_with_claude(
+            # Use LLM to analyze and extract genres
+            genres = await self._extract_genres_with_llm(
                 artist_name, search_text, event_context
             )
 
@@ -118,8 +118,8 @@ class GenreService:
     async def _google_search(self, query: str) -> List[Dict[str, Any]]:
         """Execute Google search for artist information."""
         params = {
-            "key": self.config.api.google_api_key,
-            "cx": self.config.api.google_cse_id,
+            "key": self.api_key,
+            "cx": self.cse_id,
             "q": query,
             "num": 5,  # Just need a few good results
         }
@@ -154,33 +154,24 @@ class GenreService:
 
         return "\n\n---\n\n".join(texts)
 
-    async def _extract_genres_with_claude(
+    async def _extract_genres_with_llm(
         self, artist_name: str, search_text: str, event_context: Dict[str, Any]
     ) -> List[str]:
-        """Use Claude to verify artist and extract genres."""
-
-        # Build prompt using centralized prompt builder
+        """Use LLM to extract genres from search text."""
         prompt = GenrePrompts.build_artist_verification_prompt(
             artist_name, search_text, event_context
         )
-
         try:
-            # Use Claude's analyze method
-            response = await self.claude.analyze_text(prompt)
-
-            if response:
-                # Extract JSON array from response
-                genres = self._parse_genre_response(response)
-                return genres
-
-            return []
-
+            response = await self.llm.analyze_text(prompt)
+            if not response:
+                return []
+            return self._parse_genre_response(response)
         except Exception as e:
-            logger.error(f"Claude genre extraction failed for {artist_name}: {e}")
+            logger.warning(f"LLM genre analysis failed: {e}")
             return []
 
     def _parse_genre_response(self, response: str) -> List[str]:
-        """Parse Claude's response to extract genre list."""
+        """Parse genre response from LLM."""
         try:
             # Look for JSON array in response
             match = re.search(r"\[.*?\]", response, re.DOTALL)

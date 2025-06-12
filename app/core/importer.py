@@ -53,6 +53,7 @@ class EventImporter:
         """Create services that will be shared across agents."""
         claude_service = ClaudeService(self.config)
         llm_service = LLMService(self.config)
+        genre_service = GenreService(self.config, self.http, llm_service)
 
         return {
             "http": self.http,
@@ -60,7 +61,7 @@ class EventImporter:
             "llm": llm_service,
             "image": ImageService(self.config, self.http),
             "zyte": ZyteService(self.config, self.http),
-            "genre": GenreService(self.config, self.http, claude_service),
+            "genre": genre_service,
         }
 
     @handle_errors_async(reraise=True)

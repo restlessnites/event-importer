@@ -12,6 +12,7 @@ class APIConfig:
     """Configuration for external API services."""
 
     anthropic_key: Optional[str] = None
+    openai_key: Optional[str] = None
     zyte_key: Optional[str] = None
     ticketmaster_key: Optional[str] = None
     google_api_key: Optional[str] = None
@@ -23,6 +24,7 @@ class APIConfig:
         """Validate which APIs are configured."""
         return {
             "anthropic": bool(self.anthropic_key),
+            "openai": bool(self.openai_key),
             "zyte": bool(self.zyte_key),
             "ticketmaster": bool(self.ticketmaster_key),
             "google_search": bool(self.google_api_key and self.google_cse_id),
@@ -102,6 +104,7 @@ class Config:
 
         # Load API keys
         config.api.anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+        config.api.openai_key = os.getenv("OPENAI_API_KEY")
         config.api.zyte_key = os.getenv("ZYTE_API_KEY")
         config.api.ticketmaster_key = os.getenv("TICKETMASTER_API_KEY")
         config.api.google_api_key = os.getenv("GOOGLE_API_KEY")
@@ -138,8 +141,8 @@ class Config:
         """Validate configuration and raise if critical keys are missing."""
         api_status = self.api.validate()
 
-        if not api_status["anthropic"]:
-            raise ValueError("ANTHROPIC_API_KEY is required")
+        if not api_status["anthropic"] and not api_status.get("openai"):
+            raise ValueError("At least one of ANTHROPIC_API_KEY or OPENAI_API_KEY is required.")
 
         if not api_status["zyte"]:
             raise ValueError("ZYTE_API_KEY is required")
@@ -165,13 +168,16 @@ class Config:
     def get_enabled_features(self) -> Dict[str, bool]:
         """Get which features are enabled based on configuration."""
         api_status = self.api.validate()
-        return {
+        features = {
             "resident_advisor": True,  # Always enabled (no auth needed)
             "ticketmaster": api_status["ticketmaster"],
             "image_search": api_status["google_search"],
             "web_scraping": api_status["zyte"],
             "ticketfairy_integration": api_status["ticketfairy"],
         }
+        if api_status.get("openai"):
+            features["openai_fallback"] = True
+        return features
 
 
 # Global config instance

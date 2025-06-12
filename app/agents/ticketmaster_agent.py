@@ -21,7 +21,6 @@ class TicketmasterAgent(Agent):
         self.url_analyzer = URLAnalyzer()
         # Use shared services
         self.http = self.services["http"]
-        self.claude = self.services["claude"]
         self.api_key = self.config.api.ticketmaster_key
 
     @property
