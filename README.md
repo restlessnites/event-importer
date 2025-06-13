@@ -66,7 +66,7 @@ A tool that extracts structured event data from websites, images, and APIs. Use 
 5. **Configure API keys**:
 
    ```bash
-   cp .env.example .env
+   cp env.example .env
    # Edit .env with your API keys (see Getting API Keys below)
    ```
 
@@ -138,9 +138,13 @@ uv run event-importer list --details
 uv run event-importer show 123
 ```
 
-### Manage Integrations
+### Integrations Framework
 
-The new integration framework allows you to interact with external services. The `ticketfairy` integration is provided as an example.
+The integration framework allows interactions with external services.
+
+#### TicketFairy
+
+The `ticketfairy` integration lets you submit events to TicketFairy.
 
 ```bash
 # Check the status of the ticketfairy integration
@@ -433,11 +437,11 @@ uv run event-importer-mcp
 
 ```plaintext
 app/
-├── core/                # Business logic
-├── interfaces/          # CLI, API, MCP interfaces
+├── core/               # Business logic
+├── interfaces/         # CLI, API, MCP interfaces
 ├── services/           # External service integrations (LLMs, Zyte, etc.)
 ├── agents/             # Import agents for different sources
-├── integrations/       # Submitter integrations (e.g., TicketFairy)
+├── integrations/       # Integrations (e.g., TicketFairy)
 ├── shared/             # Shared utilities
 └── data/               # Reference data
 ```

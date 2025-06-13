@@ -133,7 +133,7 @@ Integrations Framework (reads from DB, uses HTTP)
     - One or more `Selector`s to query events from the database.
     - A `Submitter` to orchestrate the process.
 3. (Optional) Add a `cli.py` to define custom CLI commands or `routes.py` to add API endpoints.
-4. The integration will be auto-discovered and available. Add any required API keys to `.env.example` and `config.py`.
+4. The integration will be auto-discovered and available. Add any required API data to `env.example` and `config.py`.
 
 ### Adding a New Import Source
 
