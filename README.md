@@ -233,20 +233,13 @@ Add to your Claude Desktop configuration:
 {
   "mcpServers": {
     "event-importer": {
-      "command": "uv",
+      "command": "/full/path/to/uv",
       "args": [
         "--directory",
         "/full/path/to/event-importer",
         "run",
         "event-importer-mcp"
       ],
-      "env": {
-        "ANTHROPIC_API_KEY": "KEY",
-        "ZYTE_API_KEY": "KEY",
-        "TICKETMASTER_API_KEY": "KEY",
-        "GOOGLE_API_KEY": "KEY",
-        "GOOGLE_CSE_ID": "ID"
-      }
     }
   }
 }
@@ -377,15 +370,17 @@ uv run python scripts/api_example.py
 ```bash
 # Required
 ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
 
 # Required for web scraping
 ZYTE_API_KEY=...
 
 # Optional - enables more features  
+OPENAI_API_KEY=sk-...
 TICKETMASTER_API_KEY=...
 GOOGLE_API_KEY=...
 GOOGLE_CSE_ID=...
+
+# Integrations
 TICKETFAIRY_API_KEY=...
 
 # Advanced settings
@@ -398,14 +393,14 @@ LOG_LEVEL=INFO                     # Logging level
 
 ### Feature Requirements
 
-| Feature           | Required Keys                       | Description                |
-|-------------------|-------------------------------------|----------------------------|
-| Primary LLM       | `ANTHROPIC_API_KEY`                 | Core functionality         |
-| Web scraping      | `ZYTE_API_KEY`                      | Core functionality         |
-| Fallback LLM      | `OPENAI_API_KEY`                    | Redundancy                 |
-| Ticketmaster      | `TICKETMASTER_API_KEY`              | Official API access        |
-| Genre enhancement | `GOOGLE_API_KEY`, `GOOGLE_CSE_ID`   | AI-powered genre discovery |
-| Image enhancement | `GOOGLE_API_KEY`, `GOOGLE_CSE_ID`   | AI-powered image search    |
+| Feature           | Required Keys                       | Description                  |
+|-------------------|-------------------------------------|------------------------------|
+| Primary LLM       | `ANTHROPIC_API_KEY`                 | Core functionality           |
+| Web scraping      | `ZYTE_API_KEY`                      | Core functionality           |
+| Fallback LLM      | `OPENAI_API_KEY`                    | Redundancy                   |
+| Ticketmaster      | `TICKETMASTER_API_KEY`              | Official API access          |
+| Genre enhancement | `GOOGLE_API_KEY`, `GOOGLE_CSE_ID`   | AI-powered genre discovery   |
+| Image enhancement | `GOOGLE_API_KEY`, `GOOGLE_CSE_ID`   | AI-powered image search      |
 | TicketFairy       | `TICKETFAIRY_API_KEY`               | Submit events to TicketFairy |
 
 ## Additional Documentation

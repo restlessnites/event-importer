@@ -30,7 +30,7 @@ Next, you need to tell your AI assistant how to connect to the Event Importer. I
 {
   "mcpServers": {
     "event-importer": {
-      "command": "uv",
+      "command": "/full/path/to/uv",
       "args": [
         "--directory",
         "/full/path/to/event-importer",
@@ -43,9 +43,30 @@ Next, you need to tell your AI assistant how to connect to the Event Importer. I
 }
 ```
 
+**Replace `/full/path/to/uv` with your actual path:**
+
+### Path to `uv` on Mac/Linux
+
+1. Press `Cmd+Space`, type "terminal", and press Enter.
+2. A black window will open. This is the Terminal.
+3. In the Terminal, type `which uv` and press Enter.
+4. The terminal will print a path, for example `/opt/homebrew/bin/uv`.
+5. Select and copy this path.
+6. Replace `/full/path/to/uv` in your configuration file with the path you copied.
+
+### Path to `uv` on Windows
+
+1. Press the Windows key, type `cmd`, and press Enter.
+2. A black window will open. This is the Command Prompt.
+3. In the Command Prompt, type `where uv` and press Enter.
+4. The command prompt will print a path, for example `C:\Users\YourUser\.cargo\bin\uv.exe`.
+5. Select and copy this path.
+6. Replace `/full/path/to/uv` in your configuration file with the path you copied.
+7. **Important**: You must replace the backslashes (`\`) with forward slashes (`/`). For example, if you copied `C:\Users\YourUser\.cargo\bin\uv.exe`, you should paste `C:/Users/YourUser/.cargo/bin/uv.exe` into the configuration file.
+
 **Replace `/full/path/to/event-importer` with your actual path:**
 
-### For Mac
+### Path to `event-importer` on Mac/Linux
 
 1. Press Cmd+Space, type "terminal", press Enter
 2. A black window opens - this is Terminal
@@ -61,7 +82,7 @@ Next, you need to tell your AI assistant how to connect to the Event Importer. I
 9. Replace `/full/path/to/event-importer` with what you copied
 10. Save the file and restart your AI assistant.
 
-### For Windows
+### Path to `event-importer` on Windows
 
 1. Press Windows key, type "cmd", press Enter
 2. A black window opens
