@@ -17,7 +17,7 @@ class TicketFairyClient:
     """Client for TicketFairy API."""
 
     # API configuration
-    TICKETFAIRY_API_URL = "https://api.ticketfairy.com/v1/events"
+    TICKETFAIRY_API_URL = "https://www.ticketfairy.com/api/events"
     REQUEST_TIMEOUT = 30.0
     MAX_RETRIES = 3
     RETRY_DELAY = 1.0
