@@ -214,6 +214,7 @@ class HTTPService:
         json: Optional[Dict[str, Any]] = None,
         data: Optional[Any] = None,
         timeout: Optional[float] = None,
+        raise_for_status: bool = True,
         **kwargs,
     ) -> ClientResponse:
         """
@@ -226,6 +227,7 @@ class HTTPService:
             json: JSON payload
             data: Form data or raw data
             timeout: Override default timeout
+            raise_for_status: Whether to raise an exception for non-2xx status codes
             **kwargs: Additional arguments for aiohttp
 
         Returns:
@@ -255,7 +257,7 @@ class HTTPService:
                 **kwargs,
             )
 
-            if response.status >= 400:
+            if raise_for_status and response.status >= 400:
                 error_text = await response.text()
                 self._handle_response_error(response, service, error_text)
 

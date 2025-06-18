@@ -74,13 +74,25 @@ The client is responsible for making the API call, handling authentication, and 
 **Example (`TicketFairyClient`):**
 
 ```python
+from app.shared.http import get_http_service
+
 class TicketFairyClient(BaseClient):
+    def __init__(self):
+        self.http = get_http_service()
+        # You would typically get the API key from config
+        self.api_key = "your_api_key" 
+
     async def submit(self, data: Dict[str, Any]) -> Dict[str, Any]:
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        async with httpx.AsyncClient() as client:
-            response = await client.post(API_URL, headers=headers, json=data)
-            response.raise_for_status()
-            return response.json()
+        
+        response_data = await self.http.post_json(
+            API_URL, 
+            service="TicketFairy",
+            headers=headers, 
+            json=data
+        )
+        
+        return response_data
 ```
 
 ### 4. Submitter
