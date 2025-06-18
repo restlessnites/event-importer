@@ -17,7 +17,6 @@ class APIConfig:
     ticketmaster_key: Optional[str] = None
     google_api_key: Optional[str] = None
     google_cse_id: Optional[str] = None
-    main_app_token: Optional[str] = None  # Token for main application API
     ticketfairy_api_key: Optional[str] = None
 
     def validate(self) -> Dict[str, bool]:
@@ -28,7 +27,6 @@ class APIConfig:
             "zyte": bool(self.zyte_key),
             "ticketmaster": bool(self.ticketmaster_key),
             "google_search": bool(self.google_api_key and self.google_cse_id),
-            "main_app": bool(self.main_app_token),  # Add validation for main app token
             "ticketfairy": bool(self.ticketfairy_api_key),
         }
 
@@ -109,7 +107,6 @@ class Config:
         config.api.ticketmaster_key = os.getenv("TICKETMASTER_API_KEY")
         config.api.google_api_key = os.getenv("GOOGLE_API_KEY")
         config.api.google_cse_id = os.getenv("GOOGLE_CSE_ID")
-        config.api.main_app_token = os.getenv("MAIN_APP_TOKEN")  # Load main app token
         config.api.ticketfairy_api_key = os.getenv("TICKETFAIRY_API_KEY")
 
         # Load optional overrides
