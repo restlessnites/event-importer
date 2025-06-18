@@ -8,7 +8,8 @@ import aiohttp
 
 from app.config import Config
 from app.shared.http import HTTPService
-from app.errors import APIError, retry_on_error
+from app.errors import APIError, SecurityPageError, retry_on_error
+from app.services.security_detector import SecurityPageDetector
 
 
 logger = logging.getLogger(__name__)
@@ -24,9 +25,9 @@ class ZyteService:
         self.api_url = config.zyte.api_url
         self.api_key = config.api.zyte_key
 
-    @retry_on_error(max_attempts=3)
+    @retry_on_error(max_attempts=2)
     async def fetch_html(self, url: str) -> str:
-        """Fetch rendered HTML from a URL."""
+        """Fetch rendered HTML from a URL with security page detection."""
         payload = {
             "url": url,
             "browserHtml": True,
@@ -56,8 +57,19 @@ class ZyteService:
             if "browserHtml" not in response:
                 raise APIError("Zyte", "No HTML in response")
 
-            return response["browserHtml"]
+            html = response["browserHtml"]
+            
+            # Check for security page before returning
+            is_security, reason = SecurityPageDetector.detect_security_page(html, url)
+            if is_security:
+                logger.warning(f"Security page detected for {url}: {reason}")
+                raise SecurityPageError(reason, url)
 
+            return html
+
+        except SecurityPageError:
+            # Re-raise security page errors without retry
+            raise
         except Exception as e:
             logger.error(f"Zyte HTML fetch failed: {e}")
             raise

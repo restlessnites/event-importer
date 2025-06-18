@@ -89,6 +89,13 @@ class UnsupportedURLError(ExtractionError):
         super().__init__(f"No agent can handle URL: {url}")
 
 
+class SecurityPageError(ExtractionError):
+    """Raised when a security or protection page is detected."""
+    
+    def __init__(self, message: str, url: Optional[str] = None):
+        self.url = url
+        super().__init__(f"Security page detected: {message}")
+
 @dataclass
 class ErrorContext:
     """Context information for error handling."""
@@ -186,17 +193,28 @@ def retry_on_error(
 ) -> Callable:
     """
     Decorator to retry a function on specific errors using tenacity.
-
+    
     Args:
         max_attempts: Maximum number of attempts
         delay: Initial delay between retries in seconds
         backoff: Backoff multiplier for exponential backoff
-        exceptions: Tuple of exceptions to catch
+        exceptions: Tuple of exceptions to retry on
     """
+    def should_retry(retry_state):
+        """Custom retry condition that excludes non-retryable errors."""
+        if retry_state.outcome and retry_state.outcome.failed:
+            exception = retry_state.outcome.exception()
+            # Never retry these error types
+            if isinstance(exception, (AuthenticationError, SecurityPageError, ValidationError)):
+                return False
+            # Only retry specified exceptions
+            return isinstance(exception, exceptions)
+        return False
+    
     return retry(
         stop=stop_after_attempt(max_attempts),
         wait=wait_exponential(multiplier=delay, exp_base=backoff),
-        retry=retry_if_exception_type(exceptions),
+        retry=should_retry,
         before_sleep=before_sleep_log(logger, logging.WARNING),
         reraise=True,
     )

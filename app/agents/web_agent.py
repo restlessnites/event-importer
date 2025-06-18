@@ -7,7 +7,7 @@ import re
 
 from app.shared.agent import Agent
 from app.schemas import EventData, ImportMethod, ImportStatus, ImageSearchResult
-
+from app.errors import SecurityPageError
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,9 @@ class WebAgent(Agent):
         return ImportMethod.WEB
 
     async def import_event(self, url: str, request_id: str) -> Optional[EventData]:
-        """Import event by scraping web page."""
+        """Import event by scraping web page with enhanced error handling."""
+        from app.errors import SecurityPageError
+        
         self.start_timer()
 
         await self.send_progress(
@@ -42,7 +44,7 @@ class WebAgent(Agent):
             # Try HTML extraction first
             event_data = await self._try_html_extraction(url, request_id)
 
-            # If HTML failed, try screenshot
+            # If HTML failed, try screenshot (but not if it was a security page)
             if not event_data:
                 await self.send_progress(
                     request_id,
@@ -53,7 +55,7 @@ class WebAgent(Agent):
                 event_data = await self._try_screenshot_extraction(url, request_id)
 
             if not event_data:
-                raise Exception("Could not extract event data")
+                raise Exception("Could not extract event data from any method")
 
             # Enhance image if web extraction and Google is enabled
             if self.image_service.google_enabled:
@@ -76,6 +78,17 @@ class WebAgent(Agent):
 
             return event_data
 
+        except SecurityPageError as e:
+            error_msg = f"Security page detected - website is blocking automated access: {e}"
+            logger.error(f"Security page blocking import for {url}: {e}")
+            await self.send_progress(
+                request_id,
+                ImportStatus.FAILED,
+                error_msg,
+                1.0,
+                error=error_msg,
+            )
+            return None
         except Exception as e:
             logger.error(f"Web import failed: {e}")
             await self.send_progress(
@@ -87,10 +100,10 @@ class WebAgent(Agent):
             )
             return None
 
-    async def _try_html_extraction(
-        self, url: str, request_id: str
-    ) -> Optional[EventData]:
+    async def _try_html_extraction(self, url: str, request_id: str) -> Optional[EventData]:
         """Try to extract from HTML."""
+        from app.errors import SecurityPageError
+        
         try:
             # Fetch HTML
             html = await self.zyte.fetch_html(url)
@@ -105,6 +118,9 @@ class WebAgent(Agent):
             # Extract with Claude - it will generate descriptions if needed
             return await self.services["llm"].extract_from_html(cleaned_html, url)
 
+        except SecurityPageError:
+            # Re-raise security page errors - don't try screenshot on security pages
+            raise
         except Exception as e:
             logger.warning(f"HTML extraction failed: {e}")
             return None
