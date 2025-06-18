@@ -24,7 +24,7 @@ class TicketFairySubmitter(BaseSubmitter):
         return "ticketfairy"
     
     def _create_client(self) -> BaseClient:
-        return TicketFairyClient(config=get_config())
+        return TicketFairyClient()
     
     def _create_transformer(self) -> BaseTransformer:
         return TicketFairyTransformer()
