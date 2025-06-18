@@ -17,7 +17,7 @@ class TicketFairyClient:
     """Client for TicketFairy API."""
 
     # API configuration
-    TICKETFAIRY_API_URL = "https://www.ticketfairy.com/api/events"
+    TICKETFAIRY_API_URL = "https://www.theticketfairy.com/api"
     REQUEST_TIMEOUT = 30.0
     MAX_RETRIES = 3
     RETRY_DELAY = 1.0
@@ -48,12 +48,13 @@ class TicketFairyClient:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
+            "Origin": "https://restlessnites.com",
         }
 
         # Make request
         async with httpx.AsyncClient(timeout=self.REQUEST_TIMEOUT) as client:
             response = await client.post(
-                self.TICKETFAIRY_API_URL,
+                f"{self.TICKETFAIRY_API_URL}/draft-events",
                 headers=headers,
                 json=data
             )
