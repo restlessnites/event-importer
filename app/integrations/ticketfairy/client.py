@@ -1,33 +1,23 @@
-"""TicketFairy API client."""
+"""TicketFairy API client for submitting events."""
 
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
-from app.errors import handle_errors_async, APIError, TimeoutError
-from app.config import Config
+from app.integrations.base import BaseClient
 from app.shared.http import get_http_service
-
+from app.errors import handle_errors_async, APIError
+from .config import get_ticketfairy_config
 
 logger = logging.getLogger(__name__)
 
 
-class TicketFairyClient:
-    """Client for TicketFairy API."""
+class TicketFairyClient(BaseClient):
+    """Client for submitting events to TicketFairy API."""
 
-    # API configuration
-    TICKETFAIRY_API_URL = "https://www.theticketfairy.com/api"
-    REQUEST_TIMEOUT = 30.0
-    MAX_RETRIES = 3
-    RETRY_DELAY = 1.0
-
-    def __init__(self, config: Config):
-        """Initialize client with configuration."""
-        self.config = config
-        self.api_key = config.api.ticketfairy_api_key
-        if not self.api_key:
-            raise ValueError("TicketFairy API key not configured")
+    def __init__(self):
         self.http = get_http_service()
+        self.config = get_ticketfairy_config()
 
     @handle_errors_async(reraise=True)
     async def submit(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -42,23 +32,27 @@ class TicketFairyClient:
 
         Raises:
             APIError: On API errors
-            TimeoutError: On timeout
+            ValueError: If API key not configured
         """
+        if not self.config.api_key:
+            raise ValueError("TicketFairy API key not configured")
+
         # Prepare headers
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {self.config.api_key}",
             "Content-Type": "application/json",
-            "Origin": "https://restlessnites.com",
+            "Accept": "application/json",
+            "Origin": self.config.origin,
         }
 
-        # Make request
+        # Make request using the lower-level post method to handle custom response parsing
         response = await self.http.post(
-            f"{self.TICKETFAIRY_API_URL}/draft-events",
+            f"{self.config.api_base_url}{self.config.draft_events_endpoint}",
             service="TicketFairy",
             headers=headers,
             json=data,
-            timeout=self.REQUEST_TIMEOUT,
-            raise_for_status=False,
+            timeout=self.config.timeout,
+            raise_for_status=False, 
         )
 
         # Handle empty response
@@ -90,7 +84,9 @@ class TicketFairyClient:
                     error_msg = str(response_data["error"])
 
             raise APIError(
-                "TicketFairy", f"API error ({response.status}): {error_msg}", response.status
+                "TicketFairy", 
+                f"API error ({response.status}): {error_msg}", 
+                response.status
             )
 
-        return response_data 
+        return response_data
