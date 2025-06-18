@@ -1,3 +1,5 @@
+"""Service for OpenAI API interactions."""
+
 import os
 from openai import AsyncOpenAI
 from typing import Any, Dict, Optional
@@ -13,7 +15,6 @@ import re
 logger = logging.getLogger(__name__)
 
 class OpenAIService:
-    """Service for OpenAI API interactions."""
 
     # Tool definition for structured extraction
     EXTRACTION_TOOL = {
@@ -110,8 +111,16 @@ class OpenAIService:
     def __init__(self, config: Config):
         """Initialize OpenAI service."""
         self.config = config
-        self.api_key = getattr(config.api, 'openai_api_key', None) or os.getenv("OPENAI_API_KEY")
-        self.client = AsyncOpenAI(api_key=self.api_key)
+        # Fix: Use config.api.openai_key instead of openai_api_key
+        api_key = config.api.openai_key
+        if not api_key:
+            api_key = os.getenv("OPENAI_API_KEY")
+        
+        if api_key:
+            self.client = AsyncOpenAI(api_key=api_key)
+        else:
+            self.client = None
+            
         self.model = "gpt-4-turbo-preview"
         self.max_tokens = 4096
 
@@ -123,6 +132,17 @@ class OpenAIService:
         """Clean OpenAI response data to ensure Pydantic validation compatibility."""
         if not data:
             return data
+        
+        # Check if this is an error response from the model
+        if "error" in data and isinstance(data["error"], str):
+            logger.error(f"OpenAI returned error response: {data}")
+            raise APIError("OpenAI", f"Model returned error: {data['error']}")
+        
+        # Handle nested response structures (unwrap if needed)
+        # Sometimes OpenAI returns {"event": {...}} instead of just {...}
+        if "event" in data and isinstance(data["event"], dict) and len(data) == 1:
+            logger.debug("Unwrapping nested 'event' structure from OpenAI response")
+            data = data["event"]
         
         # Handle images field - remove None values from the dict
         if "images" in data and data["images"]:
@@ -144,6 +164,9 @@ class OpenAIService:
         self, html: str, url: str, max_length: int = 50000
     ) -> Optional[EventData]:
         """Extract event data from HTML content."""
+        if not self.client:
+            raise ConfigurationError("OpenAI client not initialized - check API key")
+            
         # Truncate if too long
         if len(html) > max_length:
             html = html[:max_length] + "\n<!-- truncated -->"
@@ -172,6 +195,9 @@ class OpenAIService:
         self, image_data: bytes, mime_type: str, url: str
     ) -> Optional[EventData]:
         """Extract event data from an image."""
+        if not self.client:
+            raise ConfigurationError("OpenAI client not initialized - check API key")
+            
         image_b64 = base64.b64encode(image_data).decode("utf-8")
 
         # Build prompt using EventPrompts
@@ -198,6 +224,9 @@ class OpenAIService:
     @handle_errors_async(reraise=True)
     async def generate_descriptions(self, event_data: EventData) -> EventData:
         """Generate missing descriptions for an event."""
+        if not self.client:
+            raise ConfigurationError("OpenAI client not initialized - check API key")
+            
         # Check if we need to generate descriptions
         needs_long = not bool(event_data.long_description)
         needs_short = not bool(event_data.short_description)
@@ -234,6 +263,9 @@ class OpenAIService:
     @handle_errors_async(reraise=True)
     async def analyze_text(self, prompt: str) -> Optional[str]:
         """Analyze text with OpenAI and return raw response."""
+        if not self.client:
+            raise ConfigurationError("OpenAI client not initialized - check API key")
+            
         response = await self.client.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
@@ -241,6 +273,50 @@ class OpenAIService:
             temperature=0.2,
         )
         return response.choices[0].message.content.strip()
+
+    @handle_errors_async(reraise=True)
+    async def extract_event_data(
+        self,
+        prompt: str,
+        image_b64: Optional[str] = None,
+        mime_type: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Extract structured event data from a text prompt or image."""
+        if not self.client:
+            raise ConfigurationError("OpenAI client not initialized - check API key")
+            
+        if image_b64 and mime_type:
+            # Use vision for image extraction
+            return await self._call_with_vision(prompt, image_b64, mime_type)
+        else:
+            # Use regular tool for text extraction
+            return await self._call_with_tool(prompt)
+
+    async def enhance_genres(self, event_data: EventData) -> EventData:
+        """Enhance event genres using OpenAI."""
+        if not self.client:
+            raise ConfigurationError("OpenAI client not initialized - check API key")
+            
+        if not event_data.genres:
+            return event_data
+
+        # Build prompt using EventPrompts
+        prompt = EventPrompts.build_genre_enhancement_prompt(
+            event_data.model_dump(exclude_unset=True)
+        )
+        # Add JSON requirement for OpenAI
+        prompt = self._add_json_requirement(prompt)
+
+        try:
+            result = await self._call_with_tool(
+                prompt, tool=self.GENRE_TOOL, tool_name="enhance_genres"
+            )
+            if result and result.get("genres"):
+                event_data.genres = result["genres"]
+            return event_data
+        except Exception as e:
+            logger.error(f"Failed to enhance genres: {e}")
+            return event_data
 
     async def _call_with_tool(
         self, prompt: str, tool: Optional[dict] = None, tool_name: Optional[str] = None
@@ -263,7 +339,19 @@ class OpenAIService:
                 json_start = content.find('{')
                 json_end = content.rfind('}') + 1
                 if json_start != -1 and json_end != -1:
-                    return json.loads(content[json_start:json_end])
+                    json_str = content[json_start:json_end]
+                    parsed = json.loads(json_str)
+                    
+                    # Validate that this looks like event data and not an error
+                    if isinstance(parsed, dict):
+                        # Check for common error patterns
+                        if "error" in parsed and len(parsed) == 1:
+                            raise APIError("OpenAI", f"Model returned error: {parsed['error']}")
+                        # Check if it has minimal required structure
+                        if not any(key in parsed for key in ["title", "event"]):
+                            logger.warning(f"OpenAI response missing expected fields: {parsed}")
+                    
+                    return parsed
                 else:
                     raise ValueError("No JSON object found in response")
             except Exception as e:
@@ -319,33 +407,18 @@ class OpenAIService:
                     # This handles the case where the model returns *only* the JSON.
                     json_str = content
             
-            return json.loads(json_str)
+            parsed = json.loads(json_str)
+            
+            # Validate response structure
+            if isinstance(parsed, dict):
+                # Check for error responses
+                if "error" in parsed and len(parsed) == 1:
+                    raise APIError("OpenAI", f"Vision model returned error: {parsed['error']}")
+            
+            return parsed
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse JSON from OpenAI vision response: {e}; content: {content}")
             raise APIError("OpenAI", f"Failed to parse JSON from vision response: {e}")
         except Exception as e:
             logger.error(f"OpenAI vision call failed: {e}")
             raise APIError("OpenAI", f"Vision call failed: {e}")
-
-    async def enhance_genres(self, event_data: EventData) -> EventData:
-        """Enhance event genres using OpenAI."""
-        if not event_data.genres:
-            return event_data
-
-        # Build prompt using EventPrompts
-        prompt = EventPrompts.build_genre_enhancement_prompt(
-            event_data.model_dump(exclude_unset=True)
-        )
-        # Add JSON requirement for OpenAI
-        prompt = self._add_json_requirement(prompt)
-
-        try:
-            result = await self._call_with_tool(
-                prompt, tool=self.GENRE_TOOL, tool_name="enhance_genres"
-            )
-            if result and result.get("genres"):
-                event_data.genres = result["genres"]
-            return event_data
-        except Exception as e:
-            logger.error(f"Failed to enhance genres: {e}")
-            return event_data 
