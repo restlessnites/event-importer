@@ -1,6 +1,5 @@
 from typing import Dict
 
-from app.config import get_config
 from ..base import BaseSubmitter, BaseClient, BaseTransformer, BaseSelector
 from .client import TicketFairyClient
 from .transformer import TicketFairyTransformer

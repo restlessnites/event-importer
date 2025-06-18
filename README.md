@@ -52,6 +52,13 @@ A tool that extracts structured event data from websites, images, and APIs. Use 
 4. **Clone and setup**:
 
    ```bash
+   # macOS, Windows
+   cd Documents
+   ```
+
+   NOTE: If you are an experienced developer, clone the repository to your preferred location.
+
+   ```bash
    # Using GitHub CLI
    gh repo clone restlessnites/event-importer
    cd event-importer
