@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any, AsyncGenerator
 from contextlib import asynccontextmanager
 
 import aiohttp
-from aiohttp import ClientTimeout, ClientSession, ClientResponse
+from aiohttp import ClientTimeout, ClientSession, ClientResponse, BasicAuth
 
 from app.config import get_config, Config
 from app.errors import APIError, TimeoutError, RateLimitError, AuthenticationError, handle_errors_async
@@ -87,13 +87,13 @@ class HTTPService:
         try:
             yield
         except asyncio.TimeoutError:
-            logger.error(f"{service} timeout for URL: {url}")
+            logger.debug(f"{service} timeout for URL: {url}")
             raise TimeoutError(f"{service} request timed out")
         except aiohttp.ClientError as e:
-            logger.error(f"{service} client error for URL {url}: {e}")
+            logger.debug(f"{service} client error for URL {url}: {e}")
             raise APIError(service, str(e))
         except Exception as e:
-            logger.error(f"{service} unexpected error for URL {url}: {e}")
+            logger.debug(f"{service} unexpected error for URL {url}: {e}")
             raise
 
     @handle_errors_async(reraise=True)
@@ -245,8 +245,13 @@ class HTTPService:
 
         request_timeout = ClientTimeout(total=timeout or self.config.http.timeout)
 
+        # Allow auth to be passed via kwargs and handle it
+        auth = kwargs.get("auth")
+        if auth and isinstance(auth, tuple):
+            kwargs["auth"] = BasicAuth(*auth)
+
         async with self._error_handler(service, url):
-            logger.debug(f"{service} POST: {url}")
+            logger.debug(f"POST to {url} with timeout {request_timeout}s")
 
             response = await session.post(
                 url,

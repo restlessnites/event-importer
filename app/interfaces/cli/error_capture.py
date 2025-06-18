@@ -45,17 +45,10 @@ class ErrorCapture:
         self._handler = CaptureHandler(self)
         self._handler.setLevel(min_level)
 
-        # Key loggers to capture from
+        # Key loggers to capture from - ONLY CAPTURE FROM THE TOP-LEVEL 'app' LOGGER
+        # to avoid duplicate messages from propagation.
         logger_names = [
             "app",
-            "app.http", 
-            "app.agents",
-            "app.agents.web_agent",
-            "app.services",
-            "app.services.zyte",
-            "app.core",
-            "app.core.router",
-            "app.core.importer"
         ]
 
         # Add handler and temporarily set appropriate levels
@@ -101,7 +94,7 @@ class ErrorCapture:
         return [e for e in self.captured if e.is_error()]
 
     def get_warnings(self) -> List[CapturedError]:
-        """Get only warning-level messages."""
+        """Get only warning-level messages.""" 
         return [e for e in self.captured if e.is_warning()]
 
     def has_errors(self) -> bool:

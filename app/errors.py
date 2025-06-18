@@ -193,7 +193,7 @@ def retry_on_error(
 ) -> Callable:
     """
     Decorator to retry a function on specific errors using tenacity.
-    
+
     Args:
         max_attempts: Maximum number of attempts
         delay: Initial delay between retries in seconds

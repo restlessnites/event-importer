@@ -32,8 +32,6 @@ class WebAgent(Agent):
 
     async def import_event(self, url: str, request_id: str) -> Optional[EventData]:
         """Import event by scraping web page with enhanced error handling."""
-        from app.errors import SecurityPageError
-        
         self.start_timer()
 
         await self.send_progress(
@@ -78,17 +76,11 @@ class WebAgent(Agent):
 
             return event_data
 
-        except SecurityPageError as e:
-            error_msg = f"Security page detected - website is blocking automated access: {e}"
-            logger.error(f"Security page blocking import for {url}: {e}")
-            await self.send_progress(
-                request_id,
-                ImportStatus.FAILED,
-                error_msg,
-                1.0,
-                error=error_msg,
-            )
-            return None
+        except SecurityPageError:
+            # Re-raise security page errors to be handled by the main importer.
+            # This provides a clearer error message to the user and prevents fallback
+            # to other methods that will also fail.
+            raise
         except Exception as e:
             logger.error(f"Web import failed: {e}")
             await self.send_progress(
@@ -102,49 +94,34 @@ class WebAgent(Agent):
 
     async def _try_html_extraction(self, url: str, request_id: str) -> Optional[EventData]:
         """Try to extract from HTML."""
-        from app.errors import SecurityPageError
-        
-        try:
-            # Fetch HTML
-            html = await self.zyte.fetch_html(url)
+        # Fetch HTML
+        html = await self.zyte.fetch_html(url)
 
-            await self.send_progress(
-                request_id, ImportStatus.RUNNING, "Extracting data from HTML", 0.3
-            )
+        await self.send_progress(
+            request_id, ImportStatus.RUNNING, "Extracting data from HTML", 0.3
+        )
 
-            # Clean HTML
-            cleaned_html = self._clean_html(html)
+        # Clean HTML
+        cleaned_html = self._clean_html(html)
 
-            # Extract with Claude - it will generate descriptions if needed
-            return await self.services["llm"].extract_from_html(cleaned_html, url)
-
-        except SecurityPageError:
-            # Re-raise security page errors - don't try screenshot on security pages
-            raise
-        except Exception as e:
-            logger.warning(f"HTML extraction failed: {e}")
-            return None
+        # Extract with Claude - it will generate descriptions if needed
+        return await self.services["llm"].extract_from_html(cleaned_html, url)
 
     async def _try_screenshot_extraction(
         self, url: str, request_id: str
     ) -> Optional[EventData]:
         """Try to extract from screenshot."""
-        try:
-            # Get screenshot
-            screenshot_data, mime_type = await self.zyte.fetch_screenshot(url)
+        # Get screenshot
+        screenshot_data, mime_type = await self.zyte.fetch_screenshot(url)
 
-            await self.send_progress(
-                request_id, ImportStatus.RUNNING, "Extracting data from screenshot", 0.8
-            )
+        await self.send_progress(
+            request_id, ImportStatus.RUNNING, "Extracting data from screenshot", 0.8
+        )
 
-            # Extract with Claude - it will generate descriptions if needed
-            return await self.services["llm"].extract_from_image(
-                screenshot_data, mime_type, url
-            )
-
-        except Exception as e:
-            logger.warning(f"Screenshot extraction failed: {e}")
-            return None
+        # Extract with Claude - it will generate descriptions if needed
+        return await self.services["llm"].extract_from_image(
+            screenshot_data, mime_type, url
+        )
 
     def _clean_html(self, html: str) -> str:
         """

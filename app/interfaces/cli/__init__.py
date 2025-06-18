@@ -4,6 +4,8 @@ import asyncio
 import sys
 import logging
 
+from rich.logging import RichHandler
+
 from app.interfaces.cli.core import CLI
 from app.interfaces.cli.theme import Theme
 from app.config import get_config
@@ -45,6 +47,30 @@ def setup_quiet_logging():
     root_logger.setLevel(logging.WARNING)
 
 
+def setup_verbose_logging():
+    """Set up logging for verbose mode using rich for pretty, conflict-free output."""
+    root_logger = logging.getLogger()
+    # Remove existing handlers to avoid duplicates
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    # Add a RichHandler that uses the same console as the CLI
+    # This ensures logging doesn't conflict with spinners/progress bars
+    rich_handler = RichHandler(
+        console=get_cli().console,
+        show_path=False,
+        rich_tracebacks=True,
+        log_time_format="[%X]",
+    )
+    rich_handler.setLevel(logging.INFO)
+
+    root_logger.addHandler(rich_handler)
+    root_logger.setLevel(logging.INFO)
+
+    # Explicitly set the 'app' logger level
+    logging.getLogger("app").setLevel(logging.INFO)
+
+
 async def main(args):
     """Main CLI entry point with clean error handling."""
     cli = get_cli()
@@ -52,8 +78,12 @@ async def main(args):
     # Check if verbose mode is enabled
     verbose = getattr(args, 'verbose', False)
     
-    # Only set up quiet logging if not in verbose mode
-    if not verbose:
+    if verbose:
+        # Set up verbose logging
+        setup_verbose_logging()
+        cli.info("Verbose logging enabled")
+    else:
+        # Set up quiet logging
         setup_quiet_logging()
     
     try:
@@ -94,9 +124,15 @@ async def main(args):
         if verbose:
             cli.info("Verbose logging enabled")
         
-        # Show progress with clean output
-        with cli.progress("Importing event data...") as progress_cli:
-            result = await router.route_request(request_data)
+        # Show progress differently based on verbose mode
+        if verbose:
+            # In verbose mode, use a spinner instead of progress bar to avoid conflicts
+            with cli.spinner("Importing event data..."):
+                result = await router.route_request(request_data)
+        else:
+            # In quiet mode, use the progress bar
+            with cli.progress("Importing event data...") as progress_cli:
+                result = await router.route_request(request_data)
         
         # Stop capturing errors (if we started it)
         if not verbose:
@@ -107,8 +143,11 @@ async def main(args):
             cli.success("Import successful")
             cli.event_card(result["data"])
         else:
-            error_msg = result.get("error", "Unknown error")
-            cli.error(f"Import failed: {error_msg}")
+            # In verbose mode, the logger has already printed the detailed error.
+            # In quiet mode, we need to show the final summary error.
+            if not verbose:
+                error_msg = result.get("error", "Unknown error")
+                cli.error(f"Import failed: {error_msg}")
             
             # Show captured errors if any (only in non-verbose mode)
             if not verbose and (cli.error_capture.has_errors() or cli.error_capture.has_warnings()):
