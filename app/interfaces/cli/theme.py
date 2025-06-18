@@ -6,21 +6,34 @@ from rich import box
 
 @dataclass
 class Icons:
-    """Icon set for CLI display."""
-
-    # Status
-    running: str = "▸"
-    success: str = "✓"
-    error: str = "✗"
-    warning: str = "⚠"
-    info: str = "•"
-
-    # Progress
-    spinner: str = "◠"
-
-    # Structure
-    bullet: str = "•"
-    arrow: str = "→"
+    """Icon set for CLI - clean text symbols instead of emojis."""
+    
+    # Core status icons
+    success = "✓"
+    error = "✗" 
+    warning = "!"
+    info = "•"
+    
+    # Progress and activity
+    running = "→"
+    waiting = "⋯"
+    spinner = "⋯"
+    
+    # Operations  
+    import_icon = "↓"
+    export = "↑"
+    sync = "⟳"
+    
+    # Objects
+    event = "◆"
+    url = "⎘"
+    time = "◷"
+    location = "◉"
+    
+    # Status indicators
+    cached = "⚡"
+    fresh = "⟳" 
+    failed = "✗"
 
 
 @dataclass

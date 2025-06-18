@@ -1,8 +1,8 @@
 """Error capture system for clean CLI output."""
 
 import logging
-from typing import List, Optional, Dict, Any
-from dataclasses import dataclass, field
+from typing import List, Optional, Dict
+from dataclasses import dataclass
 from datetime import datetime
 from contextlib import contextmanager
 
@@ -33,7 +33,7 @@ class ErrorCapture:
     def __init__(self):
         self.captured: List[CapturedError] = []
         self._handler: Optional[CaptureHandler] = None
-        self._original_level: Optional[int] = None
+        self._original_levels: Dict[str, int] = {}
         self._loggers_modified: List[logging.Logger] = []
 
     def start(self, min_level: int = logging.WARNING) -> None:
@@ -45,29 +45,52 @@ class ErrorCapture:
         self._handler = CaptureHandler(self)
         self._handler.setLevel(min_level)
 
-        # Add to root logger and key loggers
-        root = logging.getLogger()
-        self._loggers_modified = [root]
-        root.addHandler(self._handler)
+        # Key loggers to capture from
+        logger_names = [
+            "app",
+            "app.http", 
+            "app.agents",
+            "app.agents.web_agent",
+            "app.services",
+            "app.services.zyte",
+            "app.core",
+            "app.core.router",
+            "app.core.importer"
+        ]
 
-        # Also add to specific loggers we know generate messages
-        for logger_name in ["app", "app.http", "app.agents", "app.services"]:
+        # Add handler and temporarily set appropriate levels
+        for logger_name in logger_names:
             logger = logging.getLogger(logger_name)
-            if logger != root:
-                logger.addHandler(self._handler)
-                self._loggers_modified.append(logger)
+            
+            # Store original level
+            self._original_levels[logger_name] = logger.level
+            
+            # Set level to allow warnings/errors to be captured
+            # But only if the current level is higher than WARNING
+            if logger.level > logging.WARNING:
+                logger.setLevel(logging.WARNING)
+            
+            # Add our handler
+            logger.addHandler(self._handler)
+            self._loggers_modified.append(logger)
 
     def stop(self) -> None:
         """Stop capturing and restore original state."""
         if self._handler is None:
             return
 
-        # Remove handler from all loggers
+        # Remove handler and restore original levels
         for logger in self._loggers_modified:
             logger.removeHandler(self._handler)
+            
+            # Restore original level
+            original_level = self._original_levels.get(logger.name)
+            if original_level is not None:
+                logger.setLevel(original_level)
 
         self._handler = None
         self._loggers_modified = []
+        self._original_levels = {}
 
     def clear(self) -> None:
         """Clear captured errors."""
@@ -210,20 +233,33 @@ class CLIErrorDisplay:
 
     def _clean_message(self, message: str) -> str:
         """Clean up error messages for display."""
-        # Remove duplicate logger prefixes
         import re
-
+        
         # Remove timestamps that might be in the message
         message = re.sub(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d+ - ", "", message)
         message = re.sub(r"^\[\d{2}:\d{2}:\d{2}\] ", "", message)
-
-        # Remove logger names
+        
+        # Remove logger names and level prefixes
         message = re.sub(r"^[\w\.]+\s+-\s+\w+\s+-\s+", "", message)
-
+        message = re.sub(r"^[\w\.]+ - \w+ - ", "", message)
+        
         # Clean up common patterns
         message = message.replace("ERROR - ", "").replace("WARNING - ", "")
-
-        return message.strip()
+        message = message.replace("INFO - ", "").replace("DEBUG - ", "")
+        
+        # Remove redundant error indicators
+        message = re.sub(r"^(Error|Warning|Info):\s*", "", message, flags=re.IGNORECASE)
+        
+        # Clean up security page messages
+        message = re.sub(r"Security page blocking import for [^:]+: ", "", message)
+        message = re.sub(r"Security page detected for [^:]+: ", "", message)
+        
+        # Make first letter uppercase if it's not already
+        message = message.strip()
+        if message and message[0].islower():
+            message = message[0].upper() + message[1:]
+        
+        return message
 
 
 # Global instance for CLI use

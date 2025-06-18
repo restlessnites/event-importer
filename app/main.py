@@ -5,12 +5,16 @@ import logging
 from app import __version__
 from app.startup import startup_checks
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+def configure_logging(verbose: bool = False):
+    """Configure logging with appropriate levels."""
+    if verbose:
+        level = logging.INFO
+        format_str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    else:
+        level = logging.WARNING
+        format_str = "%(name)s - %(levelname)s - %(message)s"
+    
+    logging.basicConfig(level=level, format=format_str, force=True)
 
 
 def main():
@@ -24,6 +28,11 @@ def main():
         action="version", 
         version=f"event-importer {__version__}"
     )
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Enable verbose logging"
+    )
     
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
     
@@ -33,6 +42,8 @@ def main():
     import_parser.add_argument("--method", choices=["api", "web", "image"], help="Force import method")
     import_parser.add_argument("--timeout", type=int, default=60, help="Timeout in seconds")
     import_parser.add_argument("--ignore-cache", action="store_true", help="Skip cache and force fresh import")
+    # Add verbose flag to import subparser as well for flexibility
+    import_parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     
     # List command
     list_parser = subparsers.add_parser("list", help="List imported events")
@@ -59,6 +70,13 @@ def main():
     api_parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
     
     args = parser.parse_args()
+    
+    # Check for verbose flag from either global or subcommand
+    verbose = getattr(args, 'verbose', False)
+    
+    # Configure logging based on verbosity
+    configure_logging(verbose=verbose)
+    logger = logging.getLogger(__name__)
     
     if not args.command:
         # Default behavior - show help
