@@ -6,8 +6,8 @@ import re
 from typing import Any
 
 from app.config import Config
-from app.genres import MusicGenres
 from app.errors import retry_on_error
+from app.genres import MusicGenres
 from app.prompts import GenrePrompts
 from app.schemas import EventData
 from app.services.llm import LLMService

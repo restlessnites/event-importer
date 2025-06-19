@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import re
-
 
 class MusicGenres:
     """Music genre definitions and validation utilities."""
@@ -210,7 +208,7 @@ class MusicGenres:
         "math": "math rock",
         "hardcore": "post-hardcore",
         "screamo": "post-hardcore",
-        "noise": "noise rock",
+        "noise music": "noise rock",
         "stoner": "stoner rock",
         "hip-hop": "hip hop",
         "hiphop": "hip hop",
@@ -235,8 +233,6 @@ class MusicGenres:
         "cool": "cool jazz",
         "hard": "hard bop",
         "post-bop": "post-bop",
-        "avant-garde": "avant-garde jazz",
-        "latin": "latin jazz",
         "swing": "swing",
         "big": "big band",
         "ragtime": "ragtime",
@@ -286,7 +282,7 @@ class MusicGenres:
         "string": "string quartet",
         "experimental": "experimental",
         "noise": "noise",
-        "avant-garde": "avant-garde",
+        "avant-garde music": "avant-garde",
         "drone": "drone",
         "field": "field recordings",
         "sound": "sound art",
@@ -353,9 +349,9 @@ class MusicGenres:
     def get_category(cls: type[MusicGenres], genre: str) -> str:
         """Get the category for a given genre."""
         normalized = cls.normalize_genre(genre)
-        
+
         for category, genres in cls.CATEGORIES.items():
             if normalized in genres:
                 return category
-        
-        return "other" 
+
+        return "other"

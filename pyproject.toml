@@ -67,7 +67,7 @@ select = [
     "UP",  # pyupgrade
     "ANN", # flake8-annotations
 ]
-ignore = ["E501"]  # line too long, handled by black
+ignore = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
