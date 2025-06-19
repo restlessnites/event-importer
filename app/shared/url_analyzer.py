@@ -40,29 +40,22 @@ class URLAnalyzer:
             if match:
                 return {"type": URLType.RESIDENT_ADVISOR, "event_id": match.group(1)}
 
-        # Check for Ticketmaster family
-        if any(
-            domain.endswith(d)
-            for d in [
-                "ticketmaster.com",
-                "ticketmaster.ca",
-                "ticketmaster.co.uk",
-                "livenation.com",
-                "ticketweb.com",
-            ]
-        ):
-            # Try to extract event ID from path first
-            path_match = re.search(r"/event/([0-9A-Fa-f]{16})", url)
-            if path_match:
-                return {"type": URLType.TICKETMASTER, "event_id": path_match.group(1)}
+        # Ticketmaster and affiliates
+        ticketmaster_domains = [
+            "ticketmaster.com",
+            "livenation.com",
+            "frontgatetickets.com",
+            "ticketweb.com",
+        ]
+        if any(domain in domain for domain in ticketmaster_domains):
+            # Regex to find TM/LiveNation event IDs (alphanumeric with dashes)
+            # Example: /event/G5vYZ9v1AUf-G
+            match = re.search(r"/event/([a-zA-Z0-9-]{16,})", path)
+            if match:
+                return {"type": URLType.TICKETMASTER, "event_id": match.group(1)}
 
-            # Also check query parameters
-            query_params = parse_qs(parsed.query)
-            if "id" in query_params and query_params["id"]:
-                event_id = query_params["id"][0]
-                # Validate it looks like a TM event ID
-                if re.match(r"^[0-9A-Fa-f]{16}$", event_id):
-                    return {"type": URLType.TICKETMASTER, "event_id": event_id}
+            # If no ID is found in the URL, that's okay. The agent can use search.
+            return {"type": URLType.TICKETMASTER}
 
         # Check for Dice.fm
         if domain in ["dice.fm"]:

@@ -370,6 +370,8 @@ uv run python scripts/test_image_enhancer.py
 uv run python scripts/api_example.py
 ```
 
+Check the `scripts/` folder for more examples.
+
 ## Configuration
 
 ### Environment Variables

@@ -240,76 +240,67 @@ class TicketmasterAgent(Agent):
         )
 
     def _extract_search_info_from_url(self, url: str) -> dict:
-        """Extract searchable information from a Ticketmaster URL (robust version)."""
+        """Extract searchable information from a Ticketmaster URL using domain/source and path keywords."""
         import re
         from urllib.parse import urlparse
+
         search_info = {}
         parsed = urlparse(url)
+        domain = parsed.netloc.replace("www.", "")
         path = parsed.path.strip("/")
 
-        # For Ticketmaster URLs, the format is usually:
-        # /event-slug/event/EVENT_ID
-        if "/event/" in path:
-            parts = path.split("/event/")
-            if len(parts) >= 2:
-                event_slug = parts[0].split("/")[-1]  # Get the last part before /event/
-            else:
-                event_slug = path
-        else:
-            path_parts = path.split("/")
-            event_slug = path_parts[-1] if path_parts else ""
-
-        # Try to extract date (format: MM-DD-YYYY)
-        date_pattern = re.compile(r"(\d{2})-(\d{2})-(\d{4})")
-        date_match = date_pattern.search(event_slug)
-        if date_match:
-            month, day, year = date_match.groups()
-            search_info["startDate"] = f"{year}-{month}-{day}"
-            # Remove date from slug for keyword extraction
-            date_str = date_match.group(0)
-            event_slug = event_slug.replace(date_str, " ")
-
-        # State name to code mapping
-        STATE_ABBR = {
-            "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR", "california": "CA",
-            "colorado": "CO", "connecticut": "CT", "delaware": "DE", "florida": "FL", "georgia": "GA",
-            "hawaii": "HI", "idaho": "ID", "illinois": "IL", "indiana": "IN", "iowa": "IA", "kansas": "KS",
-            "kentucky": "KY", "louisiana": "LA", "maine": "ME", "maryland": "MD", "massachusetts": "MA",
-            "michigan": "MI", "minnesota": "MN", "mississippi": "MS", "missouri": "MO", "montana": "MT",
-            "nebraska": "NE", "nevada": "NV", "new-hampshire": "NH", "new-jersey": "NJ", "new-mexico": "NM",
-            "new-york": "NY", "north-carolina": "NC", "north-dakota": "ND", "ohio": "OH", "oklahoma": "OK",
-            "oregon": "OR", "pennsylvania": "PA", "rhode-island": "RI", "south-carolina": "SC", "south-dakota": "SD",
-            "tennessee": "TN", "texas": "TX", "utah": "UT", "vermont": "VT", "virginia": "VA", "washington": "WA",
-            "west-virginia": "WV", "wisconsin": "WI", "wyoming": "WY", "district-of-columbia": "DC"
+        # Use the 'source' parameter for documented sources
+        source_mapping = {
+            "universe.com": "universe",
+            "frontgatetickets.com": "frontgate",
         }
-        slug_lower = event_slug.lower()
-        for state_name, state_code in STATE_ABBR.items():
-            if state_name in slug_lower or state_name.replace("-", "") in slug_lower.replace("-", ""):
-                search_info["stateCode"] = state_code
-                event_slug = (
-                    event_slug.lower()
-                    .replace(state_name, " ")
-                    .replace(state_name.replace("-", ""), " ")
-                )
+        source_found = False
+        for d, s in source_mapping.items():
+            if d in domain:
+                search_info["source"] = s
+                source_found = True
                 break
 
-        # Clean up the remaining slug for keyword
-        keyword_parts = []
-        for part in event_slug.split("-"):
-            # Skip common words, cities, and very short parts
-            if len(part) > 2 and part.lower() not in {
-                "the", "and", "tour", "show", "concert", "event", "good", "vibes", "only",
-                "inglewood", "los", "angeles"
-            }:
-                keyword_parts.append(part)
-        if keyword_parts:
-            search_info["keyword"] = " ".join(keyword_parts[:3])
+        # For other affiliates like TicketWeb, use the 'domain' parameter
+        if not source_found:
+            affiliate_domains = ["ticketweb.com", "livenation.com"]
+            for d in affiliate_domains:
+                if d in domain:
+                    search_info["domain"] = d
+                    break
+        
+        # Extract a keyword from the URL path, as it's often descriptive
+        keyword_str = path
+        
+        # Remove '/event/' prefix if present
+        if "/event/" in keyword_str:
+            keyword_str = keyword_str.split("/event/")[1]
+            
+        # Clean up string for use as a keyword:
+        # 1. Replace separators with spaces
+        keyword_str = keyword_str.replace("-", " ").replace("/", " ")
+        
+        # 2. Remove long alphanumeric IDs (like TM event IDs)
+        keyword_str = re.sub(r'\b[a-zA-Z0-9]{16,}\b', '', keyword_str)
+        
+        # 3. Remove any standalone numbers (likely affiliate event IDs)
+        keyword_str = re.sub(r'\b\d+\b', '', keyword_str)
+        
+        # 4. Remove common unhelpful terms
+        common_terms = ["tickets", "event", "detail", "purchase"]
+        for term in common_terms:
+            keyword_str = re.sub(rf'\b{term}\b', '', keyword_str, flags=re.IGNORECASE)
+            
+        # 5. Clean up whitespace and take the first 6 words for a concise keyword
+        cleaned_words = keyword_str.split()
+        if cleaned_words:
+            search_info["keyword"] = " ".join(cleaned_words[:6])
 
         logger.info(f"Extracted search info from URL: {search_info}")
-        return search_info if search_info else {}
+        return search_info
 
     async def _search_for_event(self, search_info: dict) -> Optional[dict]:
-        """Search for an event using the Discovery API search endpoint (robust version)."""
+        """Search for an event using the Discovery API search endpoint with domain/source filtering."""
         try:
             params = {
                 "apikey": self.api_key,
@@ -317,12 +308,11 @@ class TicketmasterAgent(Agent):
                 "sort": "date,asc",
             }
             if "keyword" in search_info:
-                # Use hyphens in keywords for better results
-                params["keyword"] = search_info["keyword"].replace(" ", "-")
-            if "startDate" in search_info:
-                params["startDate"] = search_info["startDate"]
-            if "stateCode" in search_info:
-                params["stateCode"] = search_info["stateCode"]
+                params["keyword"] = search_info["keyword"]
+            if "domain" in search_info:
+                params["domain"] = search_info["domain"]
+            if "source" in search_info:
+                params["source"] = search_info["source"]
 
             logger.info(f"Searching Discovery API with params: {params}")
             data = await self.http.get_json(
@@ -334,19 +324,8 @@ class TicketmasterAgent(Agent):
             if not events:
                 logger.info("No events found in search results")
                 return None
-            # If we have a date, try to find the exact match
-            if "startDate" in search_info and len(events) > 1:
-                search_date = search_info["startDate"]
-                for event in events:
-                    if (
-                        event.get("dates", {}).get("start", {}).get("localDate")
-                        == search_date
-                    ):
-                        logger.info(
-                            f"Found exact date match: {event.get('name')} (ID: {event.get('id')})"
-                        )
-                        return event
-            # Otherwise, return the first result
+
+            # Return the first result, which is the most likely match
             event = events[0]
             logger.info(
                 f"Using first search result: {event.get('name')} (ID: {event.get('id')})"

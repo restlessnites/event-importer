@@ -300,11 +300,11 @@ class EventImporter:
         # Route to specialized agents based on URL analysis
         if analysis.get("type") == "resident_advisor" and "event_id" in analysis:
             return self._get_agent_by_name("ResidentAdvisor")
-        elif analysis.get("type") == "ticketmaster" and "event_id" in analysis:
-            agent = self._get_agent_by_name("Ticketmaster") 
+        elif analysis.get("type") == "ticketmaster":
+            agent = self._get_agent_by_name("Ticketmaster")
             # Only return if API key is configured
             return agent if self.config.api.ticketmaster_key else None
-        elif analysis.get("type") == "dice": 
+        elif analysis.get("type") == "dice":
             return self._get_agent_by_name("Dice")
 
         # Check for image URLs by extension or keywords before falling back to web scraping
