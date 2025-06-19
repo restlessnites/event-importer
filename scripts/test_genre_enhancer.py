@@ -7,7 +7,7 @@ import logging
 from dotenv import load_dotenv
 
 from app.config import get_config
-from app.data.genres import MusicGenres
+from app.genres import MusicGenres
 from app.interfaces.cli import get_cli
 from app.schemas import EventData
 from app.services.claude import ClaudeService

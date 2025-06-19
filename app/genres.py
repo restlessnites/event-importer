@@ -200,98 +200,162 @@ class MusicGenres:
         "alt rock": "alternative rock",
         "indie": "indie rock",
         "punk": "punk rock",
-        "hardcore punk": "hardcore",
-        "metalcore": "metal",
-        "deathcore": "death metal",
-        "black metal": "metal",
+        "metal": "heavy metal",
+        "death": "death metal",
+        "black": "black metal",
         "doom": "doom metal",
+        "thrash": "thrash metal",
+        "core": "metalcore",
+        "post": "post-rock",
+        "math": "math rock",
+        "hardcore": "post-hardcore",
+        "screamo": "post-hardcore",
+        "noise": "noise rock",
         "stoner": "stoner rock",
-        "post rock": "post-rock",
-        "math rock": "math rock",
         "hip-hop": "hip hop",
-        "rap music": "rap",
-        "trap music": "trap",
+        "hiphop": "hip hop",
+        "trap": "trap",
+        "boom": "boom bap",
+        "conscious": "conscious hip hop",
+        "drill": "drill",
+        "mumble": "mumble rap",
         "old school": "old school hip hop",
-        "conscious rap": "conscious hip hop",
         "gangsta": "gangsta rap",
-        "r'n'b": "r&b",
-        "rnb": "r&b",
-        "rhythm & blues": "r&b",
-        "soul music": "soul",
-        "funk music": "funk",
-        "disco music": "disco",
-        "reggae music": "reggae",
+        "underground": "underground hip hop",
+        "experimental hip": "experimental hip hop",
+        "lo-fi": "lo-fi hip hop",
+        "lofi": "lo-fi hip hop",
+        "phonk": "phonk",
+        "crunk": "crunk",
+        "bebop": "bebop",
+        "smooth": "smooth jazz",
+        "fusion": "jazz fusion",
+        "free": "free jazz",
+        "acid": "acid jazz",
+        "cool": "cool jazz",
+        "hard": "hard bop",
+        "post-bop": "post-bop",
+        "avant-garde": "avant-garde jazz",
+        "latin": "latin jazz",
+        "swing": "swing",
+        "big": "big band",
+        "ragtime": "ragtime",
+        "nu": "nu jazz",
+        "r&b": "r&b",
+        "soul": "soul",
+        "funk": "funk",
+        "disco": "disco",
+        "motown": "motown",
+        "contemporary": "contemporary r&b",
+        "neo": "neo-soul",
+        "gospel": "gospel",
+        "blues": "blues",
+        "rhythm": "rhythm and blues",
+        "doo-wop": "doo-wop",
+        "new jack": "new jack swing",
+        "quiet": "quiet storm",
         "world": "world music",
-        "folk music": "folk",
-        "country music": "country",
-        "bluegrass music": "bluegrass",
-        "latin music": "latin",
-        "afro": "afrobeat",
-        "african": "afrobeat",
+        "folk": "folk",
+        "country": "country",
+        "bluegrass": "bluegrass",
+        "reggae": "reggae",
+        "afrobeat": "afrobeat",
+        "latin": "latin",
+        "salsa": "salsa",
+        "cumbia": "cumbia",
+        "reggaeton": "reggaeton",
+        "bossa": "bossa nova",
+        "samba": "samba",
+        "flamenco": "flamenco",
+        "celtic": "celtic",
+        "traditional": "traditional",
+        "ethnic": "ethnic",
+        "tribal": "tribal",
+        "classical": "classical",
+        "orchestral": "orchestral",
+        "chamber": "chamber music",
+        "opera": "opera",
+        "contemporary classical": "contemporary classical",
+        "baroque": "baroque",
+        "romantic": "romantic",
+        "impressionist": "impressionist",
+        "modern": "modern classical",
+        "minimalist": "minimalist",
+        "symphonic": "symphonic",
+        "choral": "choral",
+        "string": "string quartet",
+        "experimental": "experimental",
+        "noise": "noise",
+        "avant-garde": "avant-garde",
+        "drone": "drone",
+        "field": "field recordings",
+        "sound": "sound art",
+        "musique": "musique concrète",
+        "electroacoustic": "electroacoustic",
+        "improvisation": "improvisation",
+        "free improvisation": "free improvisation",
+        "glitch": "glitch",
+        "microsound": "microsound",
+    }
+
+    # Genre categories mapping
+    CATEGORIES = {
+        "electronic": ELECTRONIC,
+        "rock": ROCK,
+        "hip hop": HIP_HOP,
+        "jazz": JAZZ,
+        "pop/r&b": POP_RNB,
+        "world/folk": WORLD_FOLK,
+        "classical": CLASSICAL,
+        "experimental": EXPERIMENTAL,
     }
 
     @classmethod
     def normalize_genre(cls: type[MusicGenres], genre: str) -> str:
-        """Normalize a genre string."""
+        """Normalize a genre string to a standard format."""
         if not genre:
             return ""
 
-        # Clean up
-        cleaned = genre.lower().strip()
+        # Convert to lowercase and strip whitespace
+        normalized = genre.lower().strip()
 
-        # Remove common suffixes
-        cleaned = re.sub(r"\s*music$", "", cleaned)
-        cleaned = re.sub(r"\s*genre$", "", cleaned)
+        # Check if it's an alias
+        if normalized in cls.ALIASES:
+            return cls.ALIASES[normalized]
 
-        # Check aliases first
-        if cleaned in cls.ALIASES:
-            return cls.ALIASES[cleaned]
+        # Check if it's already a valid genre
+        if normalized in cls.ALL_GENRES:
+            return normalized
 
-        # Check if it's already a known genre
-        if cleaned in cls.ALL_GENRES:
-            return cleaned
+        # Try to find a close match
+        for valid_genre in cls.ALL_GENRES:
+            if normalized == valid_genre or normalized in valid_genre or valid_genre in normalized:
+                return valid_genre
 
-        # Check for partial matches
-        for known_genre in cls.ALL_GENRES:
-            if cleaned in known_genre or known_genre in cleaned:
-                return known_genre
-
-        return cleaned
+        # If no match found, return the original (normalized)
+        return normalized
 
     @classmethod
     def validate_genres(cls: type[MusicGenres], genres: list[str]) -> list[str]:
         """Validate and normalize a list of genres."""
-        validated = []
-        seen = set()
+        if not genres:
+            return []
 
+        validated = []
         for genre in genres:
             normalized = cls.normalize_genre(genre)
-            if normalized and normalized in cls.ALL_GENRES and normalized not in seen:
-                seen.add(normalized)
-                validated.append(normalized.title())  # Return with proper casing
+            if normalized and normalized in cls.ALL_GENRES:
+                validated.append(normalized)
 
-        return validated
+        return list(set(validated))  # Remove duplicates
 
     @classmethod
     def get_category(cls: type[MusicGenres], genre: str) -> str:
-        """Get the category for a genre."""
+        """Get the category for a given genre."""
         normalized = cls.normalize_genre(genre)
-
-        if normalized in cls.ELECTRONIC:
-            return "Electronic"
-        elif normalized in cls.ROCK:
-            return "Rock"
-        elif normalized in cls.HIP_HOP:
-            return "Hip Hop"
-        elif normalized in cls.JAZZ:
-            return "Jazz"
-        elif normalized in cls.POP_RNB:
-            return "Pop/R&B"
-        elif normalized in cls.WORLD_FOLK:
-            return "World/Folk"
-        elif normalized in cls.CLASSICAL:
-            return "Classical"
-        elif normalized in cls.EXPERIMENTAL:
-            return "Experimental"
-        else:
-            return "Other"
+        
+        for category, genres in cls.CATEGORIES.items():
+            if normalized in genres:
+                return category
+        
+        return "other" 
