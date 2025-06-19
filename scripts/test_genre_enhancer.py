@@ -3,15 +3,16 @@
 
 import asyncio
 import logging
+
 from dotenv import load_dotenv
 
 from app.config import get_config
-from app.schemas import EventData
-from app.services.genre import GenreService
-from app.services.claude import ClaudeService
-from app.shared.http import get_http_service, close_http_service
 from app.data.genres import MusicGenres
 from app.interfaces.cli import get_cli
+from app.schemas import EventData
+from app.services.claude import ClaudeService
+from app.services.genre import GenreService
+from app.shared.http import close_http_service, get_http_service
 
 # Load environment variables
 load_dotenv()
@@ -20,7 +21,7 @@ load_dotenv()
 logging.basicConfig(level=logging.WARNING)
 
 
-async def test_genre_data():
+async def test_genre_data() -> None:
     """Test the genre data and validation utilities."""
     cli = get_cli()
 
@@ -65,7 +66,7 @@ async def test_genre_data():
     cli.info(f"Validated: {validated}")
 
 
-async def test_genre_service():
+async def test_genre_service() -> None:
     """Test the genre enhancement service."""
     cli = get_cli()
 
@@ -142,7 +143,7 @@ async def test_genre_service():
                 cli.warning("No genres found or event skipped")
 
 
-async def test_individual_artist():
+async def test_individual_artist() -> None:
     """Test searching for a specific artist's genres."""
     cli = get_cli()
 
@@ -203,7 +204,7 @@ async def test_individual_artist():
             cli.code(traceback.format_exc(), "python", "Exception Details")
 
 
-async def test_claude_analysis():
+async def test_claude_analysis() -> None:
     """Test Claude's genre analysis directly."""
     cli = get_cli()
 
@@ -253,7 +254,7 @@ Source: discogs.com"""
             cli.code(traceback.format_exc(), "python", "Exception Details")
 
 
-async def main():
+async def main() -> None:
     """Run all genre enhancement tests."""
     cli = get_cli()
 

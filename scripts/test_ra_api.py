@@ -2,16 +2,17 @@
 """Test script for RA.co GraphQL API exploration with CLI output."""
 
 import asyncio
-from typing import Dict, Any
+from typing import Any
 
-from app.shared.http import get_http_service, close_http_service
 from app.interfaces.cli import get_cli
+from app.interfaces.cli.core import CLI
+from app.shared.http import close_http_service, get_http_service
 
 
 class RAGraphQLTester:
     """Test RA.co GraphQL API functionality."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.api_url = "https://ra.co/graphql"
         self.headers = {
             "accept": "*/*",
@@ -29,8 +30,8 @@ class RAGraphQLTester:
         self.http = get_http_service()
 
     async def make_graphql_request(
-        self, operation_name: str, query: str, variables: Dict[str, Any] = None
-    ) -> Dict[str, Any]:
+        self, operation_name: str, query: str, variables: dict[str, Any] = None
+    ) -> dict[str, Any]:
         """Make a GraphQL request to RA.co."""
         payload = {
             "operationName": operation_name,
@@ -48,7 +49,7 @@ class RAGraphQLTester:
 
         return response
 
-    async def test_get_areas(self, cli) -> Dict[str, Any]:
+    async def test_get_areas(self, cli: CLI) -> dict[str, Any]:
         """Test GET_AREAS query to find location IDs."""
         cli.section("1. GET AREAS (Find Location IDs)")
 
@@ -114,7 +115,7 @@ class RAGraphQLTester:
             cli.error(f"GET_AREAS failed: {e}")
             return {"error": str(e)}
 
-    async def test_get_event_listings(self, cli) -> Dict[str, Any]:
+    async def test_get_event_listings(self, cli: CLI) -> dict[str, Any]:
         """Test GET_EVENT_LISTINGS query for paginated events."""
         cli.section("2. GET EVENT LISTINGS (Paginated, Historical Data)")
 
@@ -185,8 +186,8 @@ class RAGraphQLTester:
             return {"error": str(e)}
 
     async def test_get_single_event(
-        self, cli, event_id: str = "2141090"
-    ) -> Dict[str, Any]:
+        self, cli: CLI, event_id: str = "2141090"
+    ) -> dict[str, Any]:
         """Test GET_FULL_EVENT query for complete event details."""
         cli.section(f"3. GET SINGLE EVENT (Complete Details) - ID: {event_id}")
 
@@ -302,8 +303,8 @@ class RAGraphQLTester:
             return {"error": str(e)}
 
     async def test_get_promoter_events(
-        self, cli, promoter_id: str = "27171"
-    ) -> Dict[str, Any]:
+        self, cli: CLI, promoter_id: str = "27171"
+    ) -> dict[str, Any]:
         """Test GET_PROMOTER_EVENTS query for 6AM Group LA events."""
         cli.section(f"4. GET PROMOTER EVENTS (ID: {promoter_id} - 6AM Group)")
 
@@ -416,7 +417,7 @@ class RAGraphQLTester:
             cli.error(f"GET_PROMOTER_EVENTS failed: {e}")
             return {"error": str(e)}
 
-    async def test_help_scout_configs(self, cli) -> Dict[str, Any]:
+    async def test_help_scout_configs(self, cli: CLI) -> dict[str, Any]:
         """Test GET_HELPSCOUT_CONFIGS query."""
         cli.section("5. HELP SCOUT CONFIGS (Working Example)")
 
@@ -470,7 +471,7 @@ class RAGraphQLTester:
             cli.error(f"GET_HELPSCOUT_CONFIGS failed: {e}")
             return {"error": str(e)}
 
-    def show_findings_summary(self, cli):
+    def show_findings_summary(self, cli: CLI) -> None:
         """Show key findings and notes."""
         cli.section("KEY FINDINGS & IMPORTANT NOTES")
 
@@ -539,7 +540,7 @@ class RAGraphQLTester:
             cli.info(f"  • {strategy}")
 
 
-async def main():
+async def main() -> None:
     """Run all RA.co GraphQL API tests."""
     cli = get_cli()
 

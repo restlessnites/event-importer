@@ -1,1 +1,1 @@
-"""Interface implementations for different interaction methods.""" 
+"""Interface implementations for different interaction methods."""

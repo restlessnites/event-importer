@@ -1,1 +1,1 @@
-"""Shared utilities across interfaces.""" 
+"""Shared utilities across interfaces."""

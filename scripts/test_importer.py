@@ -6,12 +6,14 @@ import sys
 from datetime import datetime
 
 from app import EventImporter
-from app.schemas import ImportRequest
-from app.shared.http import close_http_service
+from app.config import get_config
 from app.interfaces.cli import get_cli
+from app.interfaces.cli.core import CLI
+from app.schemas import ImportProgress, ImportRequest
+from app.shared.http import close_http_service
 
 
-async def test_import(url: str, cli, show_raw: bool = False):
+async def test_import(url: str, cli: CLI, show_raw: bool = False) -> None:
     """Test importing an event with progress display."""
     # Clear any previous errors
     cli.clear_errors()
@@ -19,7 +21,7 @@ async def test_import(url: str, cli, show_raw: bool = False):
     # Start capturing errors during the import
     cli.error_capture.start()
 
-    cli.section(f"Import Request")
+    cli.section("Import Request")
     cli.info(f"URL: {url}")
     cli.info(f"Started: {datetime.now().strftime('%H:%M:%S')}")
 
@@ -27,13 +29,15 @@ async def test_import(url: str, cli, show_raw: bool = False):
     importer = EventImporter()
 
     # Create request
-    request = ImportRequest(url=url, include_raw_data=show_raw, ignore_cache=True, timeout=120)
+    request = ImportRequest(
+        url=url, include_raw_data=show_raw, ignore_cache=True, timeout=120
+    )
 
     # Store progress updates for display
     progress_history = []
 
     # Track progress with our CLI
-    async def handle_progress(progress):
+    async def handle_progress(progress: ImportProgress) -> None:
         update = progress.model_dump()
         progress_history.append(update)
         cli.progress_update(update)
@@ -42,7 +46,7 @@ async def test_import(url: str, cli, show_raw: bool = False):
 
     try:
         # Run import with progress context
-        with cli.progress(f"Importing event") as progress_cli:
+        with cli.progress("Importing event") as progress_cli:
             # Start the import
             import_task = asyncio.create_task(importer.import_event(request))
 
@@ -77,8 +81,11 @@ async def test_import(url: str, cli, show_raw: bool = False):
             cli.show_captured_errors("Issues During Import")
 
 
-async def main():
+async def main() -> None:
     """Run tests with CLI."""
+    # This is the critical fix: Initialize the configuration from .env
+    get_config()
+
     cli = get_cli()
 
     # Parse command line arguments
@@ -113,7 +120,6 @@ async def main():
 
     try:
         # Track overall stats
-        total_success = 0
         total_time = 0.0
 
         for i, url in enumerate(test_urls, 1):
@@ -135,7 +141,7 @@ async def main():
         cli.rule("Test Summary")
         cli.info(f"Total tests: {len(test_urls)}")
         cli.info(f"Total time: {total_time:.1f}s")
-        cli.info(f"Average time: {total_time/len(test_urls):.1f}s per import")
+        cli.info(f"Average time: {total_time / len(test_urls):.1f}s per import")
         cli.success("All tests completed")
 
     except KeyboardInterrupt:

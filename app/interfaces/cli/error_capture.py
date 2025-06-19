@@ -1,10 +1,16 @@
 """Error capture system for clean CLI output."""
 
+from __future__ import annotations
+
 import logging
-from typing import List, Optional, Dict
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
-from contextlib import contextmanager
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.interfaces.cli.core import CLI
 
 
 @dataclass
@@ -16,13 +22,13 @@ class CapturedError:
     level_name: str
     logger_name: str
     message: str
-    exc_info: Optional[str] = None
+    exc_info: str | None = None
 
-    def is_error(self) -> bool:
+    def is_error(self: CapturedError) -> bool:
         """Check if this is an error level message."""
         return self.level >= logging.ERROR
 
-    def is_warning(self) -> bool:
+    def is_warning(self: CapturedError) -> bool:
         """Check if this is a warning level message."""
         return self.level == logging.WARNING
 
@@ -30,13 +36,13 @@ class CapturedError:
 class ErrorCapture:
     """Captures log messages for later display."""
 
-    def __init__(self):
-        self.captured: List[CapturedError] = []
-        self._handler: Optional[CaptureHandler] = None
-        self._original_levels: Dict[str, int] = {}
-        self._loggers_modified: List[logging.Logger] = []
+    def __init__(self: ErrorCapture) -> None:
+        self.captured: list[CapturedError] = []
+        self._handler: CaptureHandler | None = None
+        self._original_levels: dict[str, int] = {}
+        self._loggers_modified: list[logging.Logger] = []
 
-    def start(self, min_level: int = logging.WARNING) -> None:
+    def start(self: ErrorCapture, min_level: int = logging.WARNING) -> None:
         """Start capturing log messages."""
         if self._handler is not None:
             return  # Already capturing
@@ -54,20 +60,20 @@ class ErrorCapture:
         # Add handler and temporarily set appropriate levels
         for logger_name in logger_names:
             logger = logging.getLogger(logger_name)
-            
+
             # Store original level
             self._original_levels[logger_name] = logger.level
-            
+
             # Set level to allow warnings/errors to be captured
             # But only if the current level is higher than WARNING
             if logger.level > logging.WARNING:
                 logger.setLevel(logging.WARNING)
-            
+
             # Add our handler
             logger.addHandler(self._handler)
             self._loggers_modified.append(logger)
 
-    def stop(self) -> None:
+    def stop(self: ErrorCapture) -> None:
         """Stop capturing and restore original state."""
         if self._handler is None:
             return
@@ -75,7 +81,7 @@ class ErrorCapture:
         # Remove handler and restore original levels
         for logger in self._loggers_modified:
             logger.removeHandler(self._handler)
-            
+
             # Restore original level
             original_level = self._original_levels.get(logger.name)
             if original_level is not None:
@@ -85,49 +91,51 @@ class ErrorCapture:
         self._loggers_modified = []
         self._original_levels = {}
 
-    def clear(self) -> None:
+    def clear(self: ErrorCapture) -> None:
         """Clear captured errors."""
         self.captured.clear()
 
-    def get_errors(self) -> List[CapturedError]:
+    def get_errors(self: ErrorCapture) -> list[CapturedError]:
         """Get only error-level messages."""
         return [e for e in self.captured if e.is_error()]
 
-    def get_warnings(self) -> List[CapturedError]:
-        """Get only warning-level messages.""" 
+    def get_warnings(self: ErrorCapture) -> list[CapturedError]:
+        """Get only warning-level messages."""
         return [e for e in self.captured if e.is_warning()]
 
-    def has_errors(self) -> bool:
+    def has_errors(self: ErrorCapture) -> bool:
         """Check if any errors were captured."""
         return any(e.is_error() for e in self.captured)
 
-    def has_warnings(self) -> bool:
+    def has_warnings(self: ErrorCapture) -> bool:
         """Check if any warnings were captured."""
         return any(e.is_warning() for e in self.captured)
 
     @contextmanager
-    def capture(self, min_level: int = logging.WARNING):
+    def capture(self: ErrorCapture, min_level: int = logging.WARNING) -> Iterator[None]:
         """Context manager for capturing errors."""
         self.start(min_level)
         try:
-            yield self
+            yield
         finally:
             self.stop()
 
-    def async_capture(self, min_level: int = logging.WARNING):
+    def async_capture(
+        self: ErrorCapture, min_level: int = logging.WARNING
+    ) -> Iterator[None]:
         """Async context manager wrapper (just uses sync version)."""
         # Since logging is sync, we can just use the sync context manager
-        return self.capture(min_level)
+        yield from self.capture(min_level)
 
 
 class CaptureHandler(logging.Handler):
     """Logging handler that captures messages."""
 
-    def __init__(self, capture: ErrorCapture):
+    def __init__(self: CaptureHandler, capture: ErrorCapture) -> None:
         super().__init__()
         self.capture = capture
 
-    def emit(self, record: logging.LogRecord) -> None:
+    def emit(self: CaptureHandler, record: logging.LogRecord) -> None:
         """Capture a log record."""
         # Format the message
         try:
@@ -158,12 +166,12 @@ class CaptureHandler(logging.Handler):
 class CLIErrorDisplay:
     """Display captured errors in the CLI."""
 
-    def __init__(self, cli):
+    def __init__(self: CLIErrorDisplay, cli: CLI) -> None:
         """Initialize with CLI instance."""
         self.cli = cli
 
     def show_captured_errors(
-        self, capture: ErrorCapture, title: str = "Captured Errors"
+        self: CLIErrorDisplay, capture: ErrorCapture, title: str = "Captured Errors"
     ) -> None:
         """Display captured errors in a nice format."""
         errors = capture.get_errors()
@@ -187,7 +195,7 @@ class CLIErrorDisplay:
             self._show_messages(errors, "Errors", "error")
 
     def _show_messages(
-        self, messages: List[CapturedError], label: str, style: str
+        self: CLIErrorDisplay, messages: list[CapturedError], label: str, style: str
     ) -> None:
         """Show a group of messages."""
         self.cli.console.print(
@@ -224,39 +232,39 @@ class CLIErrorDisplay:
             if i < len(messages):
                 self.cli.console.print()  # Space between errors
 
-    def _clean_message(self, message: str) -> str:
+    def _clean_message(self: CLIErrorDisplay, message: str) -> str:
         """Clean up error messages for display."""
         import re
-        
+
         # Remove timestamps that might be in the message
         message = re.sub(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d+ - ", "", message)
         message = re.sub(r"^\[\d{2}:\d{2}:\d{2}\] ", "", message)
-        
+
         # Remove logger names and level prefixes
         message = re.sub(r"^[\w\.]+\s+-\s+\w+\s+-\s+", "", message)
         message = re.sub(r"^[\w\.]+ - \w+ - ", "", message)
-        
+
         # Clean up common patterns
         message = message.replace("ERROR - ", "").replace("WARNING - ", "")
         message = message.replace("INFO - ", "").replace("DEBUG - ", "")
-        
+
         # Remove redundant error indicators
         message = re.sub(r"^(Error|Warning|Info):\s*", "", message, flags=re.IGNORECASE)
-        
+
         # Clean up security page messages
         message = re.sub(r"Security page blocking import for [^:]+: ", "", message)
         message = re.sub(r"Security page detected for [^:]+: ", "", message)
-        
+
         # Make first letter uppercase if it's not already
         message = message.strip()
         if message and message[0].islower():
             message = message[0].upper() + message[1:]
-        
+
         return message
 
 
 # Global instance for CLI use
-_error_capture: Optional[ErrorCapture] = None
+_error_capture: ErrorCapture | None = None
 
 
 def get_error_capture() -> ErrorCapture:

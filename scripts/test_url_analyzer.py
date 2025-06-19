@@ -1,11 +1,11 @@
 #!/usr/bin/env -S uv run python
 """Test the URL analyzer with various URLs using CLI."""
 
-from app.shared.url_analyzer import URLAnalyzer
 from app.interfaces.cli import get_cli
+from app.shared.url_analyzer import URLAnalyzer
 
 
-def test_url_analyzer():
+def test_url_analyzer() -> None:
     """Test URL analyzer with various URL types."""
     cli = get_cli()
     analyzer = URLAnalyzer()
@@ -44,7 +44,8 @@ def test_url_analyzer():
         with cli.progress("Analyzing URLs") as progress:
             for i, url in enumerate(test_urls):
                 progress.update_progress(
-                    (i / len(test_urls)) * 100, f"Analyzing URL {i+1}/{len(test_urls)}"
+                    (i / len(test_urls)) * 100,
+                    f"Analyzing URL {i + 1}/{len(test_urls)}",
                 )
 
                 analysis = analyzer.analyze(url)

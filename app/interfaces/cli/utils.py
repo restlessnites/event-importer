@@ -1,10 +1,9 @@
 """Utility functions for CLI (separated from theme/styling)."""
 
-from typing import Optional
 from datetime import datetime
 
 
-def format_timestamp(dt) -> str:
+def format_timestamp(dt: datetime | str) -> str:
     """Format datetime for display."""
     if hasattr(dt, "strftime"):
         return dt.strftime("%H:%M:%S")
@@ -14,7 +13,7 @@ def format_timestamp(dt) -> str:
             return datetime.fromisoformat(dt.replace("Z", "+00:00")).strftime(
                 "%H:%M:%S"
             )
-        except:
+        except Exception:
             return "??:??:??"
     return "??:??:??"
 
@@ -26,7 +25,7 @@ def truncate(text: str, max_length: int, suffix: str = "...") -> str:
     return text[: max_length - len(suffix)] + suffix
 
 
-def pluralize(count: int, singular: str, plural: Optional[str] = None) -> str:
+def pluralize(count: int, singular: str, plural: str | None = None) -> str:
     """Pluralize a word based on count."""
     if count == 1:
         return f"{count} {singular}"

@@ -1,13 +1,15 @@
 """Base agent class for event import agents."""
 
-from abc import ABC, abstractmethod
-from typing import Optional, Callable, Awaitable, Dict, Any
+from __future__ import annotations
+
 import logging
+from abc import ABC, abstractmethod
+from collections.abc import Awaitable, Callable
 from datetime import datetime
+from typing import Any
 
-from app.schemas import EventData, ImportProgress, ImportStatus, ImportMethod
 from app.config import Config
-
+from app.schemas import EventData, ImportMethod, ImportProgress, ImportStatus
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +18,11 @@ class Agent(ABC):
     """Base class for all import agents."""
 
     def __init__(
-        self,
+        self: Agent,
         config: Config,
-        progress_callback: Optional[Callable[[ImportProgress], Awaitable[None]]] = None,
-        services: Dict[str, Any] = None,
-    ):
+        progress_callback: Callable[[ImportProgress], Awaitable[None]] | None = None,
+        services: dict[str, Any] = None,
+    ) -> None:
         """
         Initialize agent.
 
@@ -36,18 +38,18 @@ class Agent(ABC):
 
     @property
     @abstractmethod
-    def name(self) -> str:
+    def name(self: Agent) -> str:
         """Agent name for logging."""
         pass
 
     @property
     @abstractmethod
-    def import_method(self) -> ImportMethod:
+    def import_method(self: Agent) -> ImportMethod:
         """The import method this agent uses."""
         pass
 
     @abstractmethod
-    async def import_event(self, url: str, request_id: str) -> Optional[EventData]:
+    async def import_event(self: Agent, url: str, request_id: str) -> EventData | None:
         """
         Import event data from the URL.
 
@@ -61,13 +63,13 @@ class Agent(ABC):
         pass
 
     async def send_progress(
-        self,
+        self: Agent,
         request_id: str,
         status: ImportStatus,
         message: str,
         progress: float,
-        data: Optional[EventData] = None,
-        error: Optional[str] = None,
+        data: EventData | None = None,
+        error: str | None = None,
     ) -> None:
         """Send progress update if callback is available."""
         if self.progress_callback:
@@ -84,11 +86,11 @@ class Agent(ABC):
             except Exception as e:
                 logger.error(f"Failed to send progress update: {e}")
 
-    def start_timer(self) -> None:
+    def start_timer(self: Agent) -> None:
         """Start timing the import."""
         self._start_time = datetime.utcnow()
 
-    def get_elapsed_time(self) -> float:
+    def get_elapsed_time(self: Agent) -> float:
         """Get elapsed time in seconds."""
         if self._start_time:
             return (datetime.utcnow() - self._start_time).total_seconds()

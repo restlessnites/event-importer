@@ -2,11 +2,10 @@
 
 import asyncio
 import logging
-from typing import Dict, List, Callable, Awaitable, Optional
 from collections import defaultdict
+from collections.abc import Awaitable, Callable
 
 from app.schemas import ImportProgress, ImportStatus
-
 
 logger = logging.getLogger(__name__)
 
@@ -14,20 +13,24 @@ logger = logging.getLogger(__name__)
 class ProgressTracker:
     """Tracks and distributes progress updates for import requests."""
 
-    def __init__(self):
+    def __init__(self: "ProgressTracker") -> None:
         """Initialize the progress tracker."""
-        self._listeners: Dict[str, List[Callable]] = defaultdict(list)
-        self._history: Dict[str, List[ImportProgress]] = defaultdict(list)
+        self._listeners: dict[str, list[Callable]] = defaultdict(list)
+        self._history: dict[str, list[ImportProgress]] = defaultdict(list)
         self._max_history = 100
 
     def add_listener(
-        self, request_id: str, callback: Callable[[ImportProgress], Awaitable[None]]
+        self: "ProgressTracker",
+        request_id: str,
+        callback: Callable[[ImportProgress], Awaitable[None]],
     ) -> None:
         """Add a progress listener for a request."""
         self._listeners[request_id].append(callback)
 
     def remove_listener(
-        self, request_id: str, callback: Callable[[ImportProgress], Awaitable[None]]
+        self: "ProgressTracker",
+        request_id: str,
+        callback: Callable[[ImportProgress], Awaitable[None]],
     ) -> None:
         """Remove a progress listener."""
         if request_id in self._listeners:
@@ -38,7 +41,7 @@ class ProgressTracker:
             except ValueError:
                 pass
 
-    async def send_progress(self, progress: ImportProgress) -> None:
+    async def send_progress(self: "ProgressTracker", progress: ImportProgress) -> None:
         """Send progress update to all listeners."""
         request_id = progress.request_id
 
@@ -64,7 +67,7 @@ class ProgressTracker:
             self._listeners.pop(request_id, None)
 
     async def _safe_send(
-        self,
+        self: "ProgressTracker",
         callback: Callable[[ImportProgress], Awaitable[None]],
         progress: ImportProgress,
     ) -> None:
@@ -74,15 +77,17 @@ class ProgressTracker:
         except Exception as e:
             logger.error(f"Error sending progress: {e}")
 
-    def get_history(self, request_id: str) -> List[ImportProgress]:
+    def get_history(self: "ProgressTracker", request_id: str) -> list[ImportProgress]:
         """Get progress history for a request."""
         return list(self._history.get(request_id, []))
 
-    def clear_history(self, request_id: str) -> None:
+    def clear_history(self: "ProgressTracker", request_id: str) -> None:
         """Clear history for a request."""
         self._history.pop(request_id, None)
 
-    def get_latest_status(self, request_id: str) -> Optional[ImportStatus]:
+    def get_latest_status(
+        self: "ProgressTracker", request_id: str
+    ) -> ImportStatus | None:
         """Get the latest status for a request."""
         history = self._history.get(request_id)
         if history:

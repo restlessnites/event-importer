@@ -1,29 +1,32 @@
 """Unified theme system with all visual configuration in one place."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
+
 from rich import box
 
 
 @dataclass
 class Icons:
     """Icon set for CLI - clean text symbols instead of emojis."""
-    
+
     # Core status icons
     success = "✓"
-    error = "✗" 
+    error = "✗"
     warning = "!"
     info = "•"
-    
+
     # Progress and activity
     running = "→"
     waiting = "⋯"
     spinner = "⋯"
-    
-    # Operations  
+
+    # Operations
     import_icon = "↓"
     export = "↑"
     sync = "⟳"
-    
+
     # Objects
     event = "◆"
     artist = "♪"
@@ -31,10 +34,10 @@ class Icons:
     url = "⎘"
     time = "◷"
     location = "◉"
-    
+
     # Status indicators
     cached = "⚡"
-    fresh = "⟳" 
+    fresh = "⟳"
     failed = "✗"
 
     # General
@@ -113,7 +116,7 @@ class Theme:
     width: int = 100
     indent: str = "  "
 
-    def transform_text(self, text: str, transform: str) -> str:
+    def transform_text(self: Theme, text: str, transform: str) -> str:
         """Apply text transformation."""
         if transform == "upper":
             return text.upper()

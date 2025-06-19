@@ -1,14 +1,15 @@
 # app/core/router.py
 """Simple request router using the importer."""
 
+from __future__ import annotations
+
 import logging
-from typing import Dict, Any
+from typing import Any
 
 from app.config import get_config
-from app.core.importer import EventImporter  
-from app.schemas import ImportRequest, ImportStatus
+from app.core.importer import EventImporter
 from app.errors import handle_errors_async
-
+from app.schemas import ImportRequest, ImportStatus
 
 logger = logging.getLogger(__name__)
 
@@ -16,13 +17,15 @@ logger = logging.getLogger(__name__)
 class Router:
     """Routes import requests to the importer."""
 
-    def __init__(self):
+    def __init__(self: Router) -> None:
         """Initialize router with importer."""
         self.config = get_config()
         self.importer = EventImporter(self.config)
 
     @handle_errors_async(reraise=False)
-    async def route_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def route_request(
+        self: Router, request_data: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Route an import request.
 
@@ -46,14 +49,18 @@ class Router:
                 return {
                     "success": True,
                     "data": result.event_data.model_dump(mode="json"),
-                    "method_used": result.method_used.value if result.method_used else None,
+                    "method_used": result.method_used.value
+                    if result.method_used
+                    else None,
                     "import_time": result.import_time,
                 }
             else:
                 return {
                     "success": False,
                     "error": result.error or "Import failed",
-                    "method_used": result.method_used.value if result.method_used else None,
+                    "method_used": result.method_used.value
+                    if result.method_used
+                    else None,
                 }
 
         except Exception as e:
@@ -63,7 +70,7 @@ class Router:
                 "error": str(e),
             }
 
-    async def get_progress(self, request_id: str) -> Dict[str, Any]:
+    async def get_progress(self: Router, request_id: str) -> dict[str, Any]:
         """Get progress history for a request."""
         history = self.importer.get_progress_history(request_id)
 

@@ -3,13 +3,14 @@
 
 import asyncio
 import logging
+
 from dotenv import load_dotenv
 
 from app.config import get_config
+from app.interfaces.cli import get_cli
 from app.schemas import EventData
 from app.services.image import ImageService
-from app.shared.http import get_http_service, close_http_service
-from app.interfaces.cli import get_cli
+from app.shared.http import close_http_service, get_http_service
 
 # Load environment variables
 load_dotenv()
@@ -18,7 +19,7 @@ load_dotenv()
 logging.basicConfig(level=logging.WARNING)
 
 
-async def test_image_search():
+async def test_image_search() -> None:
     """Test the image search with sample data."""
     cli = get_cli()
 
@@ -75,7 +76,7 @@ async def test_image_search():
         with cli.progress("Rating images") as progress:
             for i, candidate in enumerate(candidates[:5]):
                 progress.update_progress(
-                    (i / min(5, len(candidates))) * 100, f"Rating image {i+1}"
+                    (i / min(5, len(candidates))) * 100, f"Rating image {i + 1}"
                 )
 
                 rated = await image_service.rate_image(candidate.url)
@@ -121,7 +122,7 @@ async def test_image_search():
     cli.success("Image search test completed")
 
 
-async def test_specific_url():
+async def test_specific_url() -> None:
     """Test rating a specific image URL."""
     cli = get_cli()
 
@@ -155,23 +156,23 @@ async def test_specific_url():
         w, h = map(int, candidate.dimensions.split("x"))
         aspect_ratio = h / w
 
-        cli.info(f"Base score: 50")
+        cli.info("Base score: 50")
 
         if w >= 1000 or h >= 1000:
-            cli.info(f"Size bonus (large): +100")
+            cli.info("Size bonus (large): +100")
         elif w >= 800 or h >= 800:
-            cli.info(f"Size bonus (medium): +50")
+            cli.info("Size bonus (medium): +50")
         elif w >= 600 or h >= 600:
-            cli.info(f"Size bonus (small): +25")
+            cli.info("Size bonus (small): +25")
 
         if aspect_ratio >= 1.4:
-            cli.info(f"Aspect ratio (portrait): +300")
+            cli.info("Aspect ratio (portrait): +300")
         elif aspect_ratio >= 1.2:
-            cli.info(f"Aspect ratio (portrait): +250")
+            cli.info("Aspect ratio (portrait): +250")
         elif 0.9 <= aspect_ratio <= 1.1:
-            cli.info(f"Aspect ratio (square): +150")
+            cli.info("Aspect ratio (square): +150")
         elif aspect_ratio >= 0.7:
-            cli.info(f"Aspect ratio (landscape): +50")
+            cli.info("Aspect ratio (landscape): +50")
 
         cli.info(f"Final score: {candidate.score}")
 
@@ -180,7 +181,7 @@ async def test_specific_url():
     cli.success("Image rating test completed")
 
 
-async def main():
+async def main() -> None:
     """Run tests based on command line arguments."""
     import sys
 

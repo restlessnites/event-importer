@@ -4,11 +4,11 @@
 import asyncio
 import logging
 
-from app.shared.http import get_http_service, close_http_service
 from app.interfaces.cli import get_cli
+from app.shared.http import close_http_service, get_http_service
 
 
-async def test_error_capture():
+async def test_error_capture() -> None:
     """Test error capture functionality."""
     cli = get_cli()
 

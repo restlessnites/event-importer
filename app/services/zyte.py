@@ -1,14 +1,15 @@
 """Zyte API service for web scraping."""
 
+from __future__ import annotations
+
 import base64
 import logging
-from typing import Tuple, Dict, Any
+from typing import Any
 
 from app.config import Config
 from app.errors import APIError, SecurityPageError
-from app.shared.http import HTTPService
 from app.services.security_detector import SecurityPageDetector
-
+from app.shared.http import HTTPService
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +17,12 @@ logger = logging.getLogger(__name__)
 class ZyteService:
     """Service for interacting with the Zyte API."""
 
-    def __init__(self, config: Config, http_service: HTTPService):
+    def __init__(self: ZyteService, config: Config, http_service: HTTPService) -> None:
         """Initialize Zyte service."""
         self.config = config
         self.http = http_service
 
-    async def fetch_html(self, url: str) -> str:
+    async def fetch_html(self: ZyteService, url: str) -> str:
         """
         Fetch HTML from a URL using Zyte API.
         This version has retries removed to simplify error handling.
@@ -39,24 +40,26 @@ class ZyteService:
         }
         if self.config.zyte.use_residential_proxy:
             payload["geolocation"] = self.config.zyte.geolocation
-        
+
         try:
             html, response_url = await self._make_request(payload)
-            
+
             # Check for security pages
-            is_security, reason = SecurityPageDetector.detect_security_page(html, response_url)
+            is_security, reason = SecurityPageDetector.detect_security_page(
+                html, response_url
+            )
             if is_security:
                 # Log a warning with details
                 logger.warning(f"Security page detected for {url}: {reason}")
                 raise SecurityPageError(reason, url=url)
-            
+
             return html
         except Exception as e:
-            if not isinstance(e, (SecurityPageError, APIError)):
+            if not isinstance(e, SecurityPageError | APIError):
                 logger.error(f"Zyte HTML fetch failed for {url}: {e}")
             raise
 
-    async def fetch_screenshot(self, url: str) -> Tuple[bytes, str]:
+    async def fetch_screenshot(self: ZyteService, url: str) -> tuple[bytes, str]:
         """
         Fetch a screenshot of a web page using Zyte API.
         This version has retries removed to simplify error handling.
@@ -82,11 +85,13 @@ class ZyteService:
             image_bytes, _ = await self._make_request(payload, is_screenshot=True)
             return image_bytes, "image/png"  # Zyte screenshots are PNGs
         except Exception as e:
-            if not isinstance(e, (SecurityPageError, APIError)):
+            if not isinstance(e, SecurityPageError | APIError):
                 logger.error(f"Zyte screenshot fetch failed for {url}: {e}")
             raise
 
-    async def _make_request(self, payload: Dict[str, Any], is_screenshot: bool = False) -> Tuple[Any, str]:
+    async def _make_request(
+        self: ZyteService, payload: dict[str, Any], is_screenshot: bool = False
+    ) -> tuple[Any, str]:
         """Make the actual request to Zyte API."""
         if not self.config.api.zyte_key:
             raise APIError("Zyte", "No API key provided")
@@ -111,7 +116,7 @@ class ZyteService:
                 if "browserHtml" not in response:
                     raise APIError("Zyte", "No HTML in response")
                 return response["browserHtml"], response_url
-                
+
         except Exception as e:
             logger.debug(f"Zyte request failed: {e}")
             raise APIError("Zyte", f"Request failed: {e}") from e

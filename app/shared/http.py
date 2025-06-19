@@ -1,18 +1,28 @@
 """Shared HTTP service with session management and consistent error handling."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import ssl
-import certifi
-from typing import Optional, Dict, Any, AsyncGenerator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from types import TracebackType
+from typing import Any
 
 import aiohttp
-from aiohttp import ClientTimeout, ClientSession, ClientResponse, BasicAuth
+import certifi
+from aiohttp import BasicAuth, ClientResponse, ClientSession, ClientTimeout
+from typing_extensions import Unpack
 
-from app.config import get_config, Config
-from app.errors import APIError, TimeoutError, RateLimitError, AuthenticationError, handle_errors_async
-
+from app.config import Config, get_config
+from app.errors import (
+    APIError,
+    AuthenticationError,
+    RateLimitError,
+    TimeoutError,
+    handle_errors_async,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,13 +30,13 @@ logger = logging.getLogger(__name__)
 class HTTPService:
     """Centralized HTTP client with session management."""
 
-    def __init__(self, config: Config):
+    def __init__(self: HTTPService, config: Config) -> None:
         """Initialize HTTP service with configuration."""
         self.config = config
-        self._session: Optional[ClientSession] = None
+        self._session: ClientSession | None = None
         self._lock = asyncio.Lock()
 
-    async def _ensure_session(self) -> ClientSession:
+    async def _ensure_session(self: HTTPService) -> ClientSession:
         """Ensure a session exists, creating one if needed."""
         if self._session is None or self._session.closed:
             async with self._lock:
@@ -46,26 +56,31 @@ class HTTPService:
                     logger.debug("Created new HTTP session")
         return self._session
 
-    async def close(self) -> None:
+    async def close(self: HTTPService) -> None:
         """Close the HTTP session."""
         if self._session and not self._session.closed:
             await self._session.close()
             self._session = None
             logger.debug("Closed HTTP session")
 
-    async def __aenter__(self):
+    async def __aenter__(self: HTTPService) -> HTTPService:
         """Context manager entry."""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self: HTTPService,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Context manager exit."""
         await self.close()
 
     def _handle_response_error(
-        self,
+        self: HTTPService,
         response: ClientResponse,
         service: str,
-        error_text: Optional[str] = None,
+        error_text: str | None = None,
     ) -> None:
         """Handle HTTP response errors consistently."""
         status = response.status
@@ -82,30 +97,32 @@ class HTTPService:
             raise APIError(service, message, status)
 
     @asynccontextmanager
-    async def _error_handler(self, service: str, url: str):
+    async def _error_handler(
+        self: HTTPService, service: str, url: str
+    ) -> AsyncGenerator[None, None]:
         """Context manager for consistent error handling."""
         try:
             yield
-        except asyncio.TimeoutError:
+        except asyncio.TimeoutError as e:
             logger.debug(f"{service} timeout for URL: {url}")
-            raise TimeoutError(f"{service} request timed out")
+            raise TimeoutError(f"{service} request timed out") from e
         except aiohttp.ClientError as e:
             logger.debug(f"{service} client error for URL {url}: {e}")
-            raise APIError(service, str(e))
+            raise APIError(service, str(e)) from e
         except Exception as e:
             logger.debug(f"{service} unexpected error for URL {url}: {e}")
             raise
 
     @handle_errors_async(reraise=True)
     async def head(
-        self,
+        self: HTTPService,
         url: str,
         *,
         service: str = "HTTP",
-        headers: Optional[Dict[str, str]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        timeout: Optional[float] = None,
-        **kwargs,
+        headers: dict[str, str] | None = None,
+        params: dict[str, Any] | None = None,
+        timeout: float | None = None,
+        **kwargs: Unpack[dict[str, Any]],
     ) -> ClientResponse:
         """
         Perform HEAD request with error handling.
@@ -152,14 +169,14 @@ class HTTPService:
 
     @handle_errors_async(reraise=True)
     async def get(
-        self,
+        self: HTTPService,
         url: str,
         *,
         service: str = "HTTP",
-        headers: Optional[Dict[str, str]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        timeout: Optional[float] = None,
-        **kwargs,
+        headers: dict[str, str] | None = None,
+        params: dict[str, Any] | None = None,
+        timeout: float | None = None,
+        **kwargs: Unpack[dict[str, Any]],
     ) -> ClientResponse:
         """
         Perform GET request with error handling.
@@ -206,16 +223,16 @@ class HTTPService:
 
     @handle_errors_async(reraise=True)
     async def post(
-        self,
+        self: HTTPService,
         url: str,
         *,
         service: str = "HTTP",
-        headers: Optional[Dict[str, str]] = None,
-        json: Optional[Dict[str, Any]] = None,
-        data: Optional[Any] = None,
-        timeout: Optional[float] = None,
+        headers: dict[str, str] | None = None,
+        json: dict[str, Any] | None = None,
+        data: dict[str, Any] | str | bytes | None = None,
+        timeout: float | None = None,
         raise_for_status: bool = True,
-        **kwargs,
+        **kwargs: Unpack[dict[str, Any]],
     ) -> ClientResponse:
         """
         Perform POST request with error handling.
@@ -270,15 +287,15 @@ class HTTPService:
 
     @handle_errors_async(reraise=True)
     async def get_json(
-        self,
+        self: HTTPService,
         url: str,
         *,
         service: str = "HTTP",
-        headers: Optional[Dict[str, str]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        timeout: Optional[float] = None,
-        **kwargs,
-    ) -> Dict[str, Any]:
+        headers: dict[str, str] | None = None,
+        params: dict[str, Any] | None = None,
+        timeout: float | None = None,
+        **kwargs: Unpack[dict[str, Any]],
+    ) -> dict[str, Any]:
         """
         GET request that returns JSON.
 
@@ -305,16 +322,16 @@ class HTTPService:
 
     @handle_errors_async(reraise=True)
     async def post_json(
-        self,
+        self: HTTPService,
         url: str,
         *,
         service: str = "HTTP",
-        headers: Optional[Dict[str, str]] = None,
-        json: Optional[Dict[str, Any]] = None,
-        data: Optional[Any] = None,
-        timeout: Optional[float] = None,
-        **kwargs,
-    ) -> Dict[str, Any]:
+        headers: dict[str, str] | None = None,
+        json: dict[str, Any] | None = None,
+        data: dict[str, Any] | str | bytes | None = None,
+        timeout: float | None = None,
+        **kwargs: Unpack[dict[str, Any]],
+    ) -> dict[str, Any]:
         """
         POST request that returns JSON.
 
@@ -343,15 +360,15 @@ class HTTPService:
 
     @handle_errors_async(reraise=True)
     async def download(
-        self,
+        self: HTTPService,
         url: str,
         *,
         service: str = "HTTP",
-        headers: Optional[Dict[str, str]] = None,
-        max_size: Optional[int] = None,
-        timeout: Optional[float] = None,
+        headers: dict[str, str] | None = None,
+        max_size: int | None = None,
+        timeout: float | None = None,
         verify_ssl: bool = True,
-        **kwargs,
+        **kwargs: Unpack[dict[str, Any]],
     ) -> bytes:
         """
         Download binary content from a URL.
@@ -408,14 +425,14 @@ class HTTPService:
 
     @handle_errors_async(reraise=True)
     async def stream(
-        self,
+        self: HTTPService,
         url: str,
         *,
         service: str = "HTTP",
-        headers: Optional[Dict[str, str]] = None,
-        params: Optional[Dict[str, Any]] = None,
-        timeout: Optional[float] = None,
-        **kwargs,
+        headers: dict[str, str] | None = None,
+        params: dict[str, Any] | None = None,
+        timeout: float | None = None,
+        **kwargs: Unpack[dict[str, Any]],
     ) -> AsyncGenerator[bytes, None]:
         """
         Stream response data.
@@ -449,7 +466,7 @@ class HTTPService:
 
 
 # Global HTTP service instance
-_http_service: Optional[HTTPService] = None
+_http_service: HTTPService | None = None
 
 
 def get_http_service() -> HTTPService:

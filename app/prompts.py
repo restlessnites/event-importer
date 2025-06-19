@@ -1,7 +1,9 @@
 """Centralized prompt templates for Claude interactions."""
 
-from typing import Optional, Dict, Any
-import json
+
+from __future__ import annotations
+
+from typing import Any
 
 
 class EventPrompts:
@@ -59,7 +61,7 @@ EXTRACTION RULES:
      * "Rock concert featuring local bands"
      * "Hip-hop showcase with 5 artists"
    - Bad examples (too marketing-y):
-     * "Amazing night of electronic music!" 
+     * "Amazing night of electronic music!"
      * "Legendary DJ Shadow performance"
      * "Don't miss this incredible show"
    - If a short description exists in the source, extract it as-is"""
@@ -84,11 +86,11 @@ Genre Guidelines:
 
     @classmethod
     def build_extraction_prompt(
-        cls,
+        cls: type[EventPrompts],
         content: str,
         url: str,
         content_type: str = "html",
-        context: Optional[str] = None,
+        context: str | None = None,
         needs_long_description: bool = True,
         needs_short_description: bool = True,
     ) -> str:
@@ -141,14 +143,15 @@ Genre Guidelines:
 
     @classmethod
     def build_description_only_prompt(
-        cls,
-        event_data: Dict[str, Any],
+        cls: type[EventPrompts],
+        event_data: dict[str, Any],
         needs_long: bool = False,
         needs_short: bool = False,
     ) -> str:
         """
         Build prompt for ONLY generating missing descriptions.
         Used when we already have event data but need to fill in descriptions.
+        Also handles cases where descriptions exist but are too long.
         """
         # Build context from event data
         context_parts = [f"Event: {event_data.get('title', 'Unknown Event')}"]
@@ -197,34 +200,56 @@ Genre Guidelines:
 
         # Build the prompt
         prompt_parts = [
-            "Generate ONLY the missing descriptions for this event based on the available information:",
+            "Generate ONLY the missing or invalid descriptions for this event based on the available information:",
             "\\n" + "\\n".join(context_parts),
             "\\nCurrent descriptions:",
         ]
 
-        if event_data.get("long_description"):
-            prompt_parts.append(f"- long_description: Already exists (keep as-is)")
+        # Check long description
+        long_desc = event_data.get("long_description")
+        if long_desc and len(long_desc) <= 500:
+            prompt_parts.append(
+                "- long_description: Already exists and valid (keep as-is)"
+            )
+        elif long_desc and len(long_desc) > 500:
+            prompt_parts.append(
+                f"- long_description: TOO LONG ({len(long_desc)} chars, max 500) - please shorten"
+            )
         else:
-            prompt_parts.append(f"- long_description: MISSING - please generate")
+            prompt_parts.append("- long_description: MISSING - please generate")
 
-        if event_data.get("short_description"):
-            prompt_parts.append(f"- short_description: Already exists (keep as-is)")
+        # Check short description
+        short_desc = event_data.get("short_description")
+        if short_desc and len(short_desc) <= 100:
+            prompt_parts.append(
+                "- short_description: Already exists and valid (keep as-is)"
+            )
+        elif short_desc and len(short_desc) > 100:
+            prompt_parts.append(
+                f"- short_description: TOO LONG ({len(short_desc)} chars, max 100) - please shorten"
+            )
         else:
-            prompt_parts.append(f"- short_description: MISSING - please generate")
+            prompt_parts.append("- short_description: MISSING - please generate")
 
         prompt_parts.append("\\nRequirements:")
 
-        if needs_long and not event_data.get("long_description"):
+        if needs_long and (
+            not event_data.get("long_description")
+            or len(event_data.get("long_description", "")) > 500
+        ):
             prompt_parts.append(
                 """
 **LONG DESCRIPTION**:
 - Create a natural, engaging description incorporating all available information
-- Should be 2-4 sentences, informative and complete
+- Should be 2-4 sentences, informative and complete, but UNDER 500 characters
 - Include lineup/artists, venue, date, genres, promoters, location
 - If a description DOES exist in the source, use it as-is (just clean it up)"""
             )
 
-        if needs_short and not event_data.get("short_description"):
+        if needs_short and (
+            not event_data.get("short_description")
+            or len(event_data.get("short_description", "")) > 100
+        ):
             prompt_parts.append(
                 """
 **SHORT DESCRIPTION**:
@@ -238,17 +263,17 @@ Genre Guidelines:
 
     @classmethod
     def build_genre_enhancement_prompt(
-        cls,
-        event_data: Dict[str, Any],
+        cls: type[EventPrompts],
+        event_data: dict[str, Any],
     ) -> str:
         """Build prompt for genre enhancement."""
         return f"""
         Enhance the genres for the following event:
 
-        Title: {event_data.get('title', 'N/A')}
-        Current Genres: {', '.join(event_data.get('genres', []) or ['N/A'])}
-        Venue: {event_data.get('venue', 'N/A')}
-        Lineup: {', '.join(event_data.get('lineup', []) or ['N/A'])}
+        Title: {event_data.get("title", "N/A")}
+        Current Genres: {", ".join(event_data.get("genres", []) or ["N/A"])}
+        Venue: {event_data.get("venue", "N/A")}
+        Lineup: {", ".join(event_data.get("lineup", []) or ["N/A"])}
 
         {cls.GENRE_ENHANCEMENT}
         """
@@ -259,7 +284,10 @@ class GenrePrompts:
 
     @classmethod
     def build_artist_verification_prompt(
-        cls, artist_name: str, search_results: str, event_context: dict
+        cls: type[GenrePrompts],
+        artist_name: str,
+        search_results: str,
+        event_context: dict,
     ) -> str:
         """Build prompt to verify artist identity and extract genres."""
 
@@ -308,7 +336,9 @@ GENRE GUIDELINES:
 - Maximum 4 genres to avoid clutter"""
 
     @classmethod
-    def build_quick_genre_prompt(cls, artist_name: str, snippet: str) -> str:
+    def build_quick_genre_prompt(
+        cls: type[GenrePrompts], artist_name: str, snippet: str
+    ) -> str:
         """Build a quick prompt for simple genre extraction from a snippet."""
         return f"""Extract music genres for "{artist_name}" from this text:
 

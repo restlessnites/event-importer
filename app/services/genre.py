@@ -1,18 +1,17 @@
 """Genre enhancement service using web search and LLMs."""
 
-import logging
 import json
+import logging
 import re
-from typing import List, Optional, Dict, Any
+from typing import Any
 
 from app.config import Config
-from app.shared.http import HTTPService
-from app.prompts import GenrePrompts
-from app.errors import retry_on_error
-from app.services.llm import LLMService
 from app.data.genres import MusicGenres
+from app.errors import retry_on_error
+from app.prompts import GenrePrompts
 from app.schemas import EventData
-
+from app.services.llm import LLMService
+from app.shared.http import HTTPService
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +20,11 @@ class GenreService:
     """Service for enhancing events with missing genre information."""
 
     def __init__(
-        self, config: Config, http_service: HTTPService, llm_service: LLMService
-    ):
+        self: "GenreService",
+        config: Config,
+        http_service: HTTPService,
+        llm_service: LLMService,
+    ) -> None:
         """Initialize genre service."""
         self.config = config
         self.http = http_service
@@ -36,7 +38,7 @@ class GenreService:
                 "Genre enhancement disabled - Google Search API not configured"
             )
 
-    async def enhance_genres(self, event_data: EventData) -> EventData:
+    async def enhance_genres(self: "GenreService", event_data: EventData) -> EventData:
         """
         Enhance event with missing genre information.
 
@@ -71,7 +73,9 @@ class GenreService:
 
         return event_data
 
-    def _build_event_context(self, event_data: EventData) -> Dict[str, Any]:
+    def _build_event_context(
+        self: "GenreService", event_data: EventData
+    ) -> dict[str, Any]:
         """Build context dict for genre search."""
         context = {
             "title": event_data.title,
@@ -87,8 +91,8 @@ class GenreService:
 
     @retry_on_error(max_attempts=2)
     async def _search_artist_genres(
-        self, artist_name: str, event_context: Dict[str, Any]
-    ) -> List[str]:
+        self: "GenreService", artist_name: str, event_context: dict[str, Any]
+    ) -> list[str]:
         """Search for an artist's genres using Google and an LLM."""
 
         # Build search query
@@ -115,7 +119,7 @@ class GenreService:
             logger.error(f"Failed to search genres for {artist_name}: {e}")
             return []
 
-    async def _google_search(self, query: str) -> List[Dict[str, Any]]:
+    async def _google_search(self: "GenreService", query: str) -> list[dict[str, Any]]:
         """Execute Google search for artist information."""
         params = {
             "key": self.api_key,
@@ -133,7 +137,9 @@ class GenreService:
 
         return response.get("items", [])
 
-    def _extract_search_text(self, results: List[Dict[str, Any]]) -> str:
+    def _extract_search_text(
+        self: "GenreService", results: list[dict[str, Any]]
+    ) -> str:
         """Extract relevant text from search results."""
         texts = []
 
@@ -155,8 +161,11 @@ class GenreService:
         return "\n\n---\n\n".join(texts)
 
     async def _extract_genres_with_llm(
-        self, artist_name: str, search_text: str, event_context: Dict[str, Any]
-    ) -> List[str]:
+        self: "GenreService",
+        artist_name: str,
+        search_text: str,
+        event_context: dict[str, Any],
+    ) -> list[str]:
         """Use LLM to extract genres from search text."""
         prompt = GenrePrompts.build_artist_verification_prompt(
             artist_name, search_text, event_context
@@ -170,7 +179,7 @@ class GenreService:
             logger.warning(f"LLM genre analysis failed: {e}")
             return []
 
-    def _parse_genre_response(self, response: str) -> List[str]:
+    def _parse_genre_response(self: "GenreService", response: str) -> list[str]:
         """Parse genre response from LLM."""
         try:
             # Look for JSON array in response

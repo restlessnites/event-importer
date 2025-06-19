@@ -1,9 +1,9 @@
 """URL analysis for event imports."""
 
 import re
-from typing import Dict, Any
-from urllib.parse import urlparse, parse_qs
 from enum import Enum
+from typing import Any
+from urllib.parse import urlparse
 
 
 class URLType(str, Enum):
@@ -12,13 +12,13 @@ class URLType(str, Enum):
     RESIDENT_ADVISOR = "resident_advisor"
     TICKETMASTER = "ticketmaster"
     DICE = "dice"
-    UNKNOWN = "unknown" 
+    UNKNOWN = "unknown"
 
 
 class URLAnalyzer:
     """Simple URL analyzer for routing."""
 
-    def analyze(self, url: str) -> Dict[str, Any]:
+    def analyze(self, url: str) -> dict[str, Any]:
         """
         Analyze a URL and return routing information.
 
@@ -47,7 +47,7 @@ class URLAnalyzer:
             "frontgatetickets.com",
             "ticketweb.com",
         ]
-        if any(domain in domain for domain in ticketmaster_domains):
+        if any(t_domain in domain for t_domain in ticketmaster_domains):
             # Regex to find TM/LiveNation event IDs (alphanumeric with dashes)
             # Example: /event/G5vYZ9v1AUf-G
             match = re.search(r"/event/([a-zA-Z0-9-]{16,})", path)
@@ -65,12 +65,16 @@ class URLAnalyzer:
             match = re.search(r"/event/([^/?]+)", path)
             if match:
                 event_slug = match.group(1)
-                
+
                 # Try to extract ID if it's at the beginning of the slug
                 # Format: {ID}-{slug} where ID is typically alphanumeric
                 id_match = re.match(r"^([a-zA-Z0-9]{6,})-", event_slug)
                 if id_match:
-                    return {"type": URLType.DICE, "event_id": id_match.group(1), "slug": event_slug}
+                    return {
+                        "type": URLType.DICE,
+                        "event_id": id_match.group(1),
+                        "slug": event_slug,
+                    }
                 else:
                     # Return as dice type but without extracted ID
                     # The agent will use the slug to search for the event ID via API

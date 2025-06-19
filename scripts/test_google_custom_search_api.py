@@ -2,16 +2,17 @@
 """Simple test to verify Google Custom Search API is working with CLI."""
 
 import asyncio
+
 from dotenv import load_dotenv
 
-from app.shared.http import get_http_service, close_http_service
 from app.interfaces.cli import get_cli
+from app.shared.http import close_http_service, get_http_service
 
 # Load environment variables
 load_dotenv()
 
 
-async def test_google_api():
+async def test_google_api() -> None:
     """Test Google Custom Search API directly."""
     cli = get_cli()
 
@@ -60,7 +61,7 @@ async def test_google_api():
 
     cli.section("Testing search")
     cli.info(f"Query: {query}")
-    cli.info(f"API endpoint: https://www.googleapis.com/customsearch/v1")
+    cli.info("API endpoint: https://www.googleapis.com/customsearch/v1")
     cli.console.print()
 
     # Start capturing errors

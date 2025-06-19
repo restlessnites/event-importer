@@ -4,16 +4,15 @@
 import asyncio
 import json
 import logging
-from typing import List, Dict, Any
 
-from app.shared.http import get_http_service, close_http_service
 from app.interfaces.cli import get_cli
+from app.shared.http import close_http_service, get_http_service
 
 # Set logging to reduce noise
 logging.basicConfig(level=logging.WARNING)
 
 
-async def test_ra_genres():
+async def test_ra_genres() -> None:
     """Test RA API for genre data."""
     cli = get_cli()
     cli.header("RA Genre Data Test", "Checking which events have genre information")
@@ -41,7 +40,6 @@ async def test_ra_genres():
         "1997137",  # Older event
     ]
 
-    results = []
     events_with_genres = 0
 
     with cli.progress("Testing events") as progress:

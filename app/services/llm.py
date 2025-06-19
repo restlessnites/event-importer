@@ -1,45 +1,50 @@
+""" LLM service. """
+
+from __future__ import annotations
+
 import logging
-from typing import Any, Dict, Optional, TypeVar, Generic, Callable, Awaitable
-from functools import wraps
+from collections.abc import Awaitable, Callable
+from typing import Any, Generic, TypeVar
+
+from app.config import Config
+from app.errors import retry_on_error
+from app.schemas import EventData
 from app.services.claude import ClaudeService
 from app.services.openai import OpenAIService
-from app.config import Config
-from app.errors import retry_on_error, handle_errors_async
-from app.schemas import EventData
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class LLMOperation(Generic[T]):
     """Represents an LLM operation with its providers and fallback logic."""
-    
+
     def __init__(
-        self,
+        self: LLMOperation,
         name: str,
         primary_provider: Callable[..., Awaitable[T]],
         fallback_provider: Callable[..., Awaitable[T]],
-        *args: Any,
-        **kwargs: Any
-    ):
+        *args: Any,  # noqa: ANN401
+        **kwargs: Any,  # noqa: ANN401
+    ) -> None:
         self.name = name
         self.primary_provider = primary_provider
         self.fallback_provider = fallback_provider
         self.args = args
         self.kwargs = kwargs
 
+
 class LLMService:
     """Service for handling LLM operations with automatic fallback."""
-    
-    def __init__(self, config: Config):
+
+    def __init__(self: LLMService, config: Config) -> None:
         """Initialize LLM service with configured providers."""
         self.config = config
         self.primary_service = ClaudeService(config)
-        self.fallback_service = (
-            OpenAIService(config) if config.api.openai_key else None
-        )
+        self.fallback_service = OpenAIService(config) if config.api.openai_key else None
 
-    async def _execute_with_fallback(self, operation: LLMOperation[T]) -> T:
+    async def _execute_with_fallback(self: LLMService, operation: LLMOperation[T]) -> T:
         """Execute an LLM operation with automatic fallback."""
         try:
             logger.info(f"Attempting {operation.name} with primary provider (Claude)")
@@ -50,7 +55,9 @@ class LLMService:
             )
             if self.fallback_service:
                 try:
-                    logger.info(f"Attempting {operation.name} with fallback provider (OpenAI)")
+                    logger.info(
+                        f"Attempting {operation.name} with fallback provider (OpenAI)"
+                    )
                     return await operation.fallback_provider(
                         *operation.args, **operation.kwargs
                     )
@@ -66,7 +73,9 @@ class LLMService:
                 raise e
 
     @retry_on_error(max_attempts=2)
-    async def generate_descriptions(self, event_data: EventData) -> EventData:
+    async def generate_descriptions(
+        self: LLMService, event_data: EventData
+    ) -> EventData:
         """Generate event descriptions with fallback."""
         operation = LLMOperation(
             name="generate_descriptions",
@@ -77,7 +86,7 @@ class LLMService:
         return await self._execute_with_fallback(operation)
 
     @retry_on_error(max_attempts=2)
-    async def analyze_text(self, prompt: str) -> Optional[str]:
+    async def analyze_text(self: LLMService, prompt: str) -> str | None:
         """Analyze text with fallback."""
         operation = LLMOperation(
             name="analyze_text",
@@ -89,11 +98,11 @@ class LLMService:
 
     @retry_on_error(max_attempts=2)
     async def extract_event_data(
-        self,
+        self: LLMService,
         prompt: str,
-        image_b64: Optional[str] = None,
-        mime_type: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
+        image_b64: str | None = None,
+        mime_type: str | None = None,
+    ) -> dict[str, Any] | None:
         """Extract structured event data from a text prompt or image, with fallback."""
         operation = LLMOperation(
             "extract_event_data",
@@ -106,7 +115,7 @@ class LLMService:
         return await self._execute_with_fallback(operation)
 
     @retry_on_error(max_attempts=2)
-    async def enhance_genres(self, event_data: EventData) -> EventData:
+    async def enhance_genres(self: LLMService, event_data: EventData) -> EventData:
         """Enhance genres with fallback."""
         operation = LLMOperation(
             name="enhance_genres",
@@ -117,7 +126,9 @@ class LLMService:
         return await self._execute_with_fallback(operation)
 
     @retry_on_error(max_attempts=2)
-    async def extract_from_html(self, html: str, url: str) -> Optional[EventData]:
+    async def extract_from_html(
+        self: LLMService, html: str, url: str
+    ) -> EventData | None:
         """Extract event data from HTML with fallback."""
         operation = LLMOperation(
             "extract_from_html",
@@ -130,8 +141,8 @@ class LLMService:
 
     @retry_on_error(max_attempts=2)
     async def extract_from_image(
-        self, image_data: bytes, mime_type: str, url: str
-    ) -> Optional[EventData]:
+        self: LLMService, image_data: bytes, mime_type: str, url: str
+    ) -> EventData | None:
         """Extract event data from an image with fallback."""
         operation = LLMOperation(
             "extract_from_image",

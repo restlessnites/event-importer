@@ -1,12 +1,15 @@
 """TicketFairy API client for submitting events."""
 
+from __future__ import annotations
+
 import json
 import logging
-from typing import Dict, Any
+from typing import Any
 
+from app.errors import APIError, handle_errors_async
 from app.integrations.base import BaseClient
 from app.shared.http import get_http_service
-from app.errors import handle_errors_async, APIError
+
 from .config import get_ticketfairy_config
 
 logger = logging.getLogger(__name__)
@@ -15,12 +18,12 @@ logger = logging.getLogger(__name__)
 class TicketFairyClient(BaseClient):
     """Client for submitting events to TicketFairy API."""
 
-    def __init__(self):
+    def __init__(self: TicketFairyClient) -> None:
         self.http = get_http_service()
         self.config = get_ticketfairy_config()
 
     @handle_errors_async(reraise=True)
-    async def submit(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def submit(self: TicketFairyClient, data: dict[str, Any]) -> dict[str, Any]:
         """
         Submit event data to TicketFairy.
 
@@ -52,7 +55,7 @@ class TicketFairyClient(BaseClient):
             headers=headers,
             json=data,
             timeout=self.config.timeout,
-            raise_for_status=False, 
+            raise_for_status=False,
         )
 
         # Handle empty response
@@ -67,7 +70,7 @@ class TicketFairyClient(BaseClient):
             raise APIError(
                 "TicketFairy",
                 f"Invalid JSON response: {e}. Response: {response_text}",
-            )
+            ) from e
 
         # Check for API errors
         if response.status >= 400:
@@ -84,9 +87,9 @@ class TicketFairyClient(BaseClient):
                     error_msg = str(response_data["error"])
 
             raise APIError(
-                "TicketFairy", 
-                f"API error ({response.status}): {error_msg}", 
-                response.status
+                "TicketFairy",
+                f"API error ({response.status}): {error_msg}",
+                response.status,
             )
 
         return response_data

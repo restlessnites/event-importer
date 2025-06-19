@@ -1,13 +1,15 @@
 """Event import API routes."""
 
 import logging
-from typing import Dict, Any
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException
 
 from app.core.router import Router
-from app.interfaces.api.models import ImportEventRequest, ImportEventResponse, ProgressResponse
+from app.interfaces.api.models import (
+    ImportEventRequest,
+    ImportEventResponse,
+    ProgressResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,23 +36,23 @@ async def import_event(request: ImportEventRequest) -> ImportEventResponse:
             "url": str(request.url),
             "timeout": request.timeout,
         }
-        
+
         if request.force_method:
             request_data["force_method"] = request.force_method
-            
+
         if request.include_raw_data:
             request_data["include_raw_data"] = request.include_raw_data
-        
+
         # Route the request
         router_instance = get_router()
         result = await router_instance.route_request(request_data)
-        
+
         # Convert to response model
         return ImportEventResponse(**result)
-        
+
     except Exception as e:
         logger.error(f"Import error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/import/{request_id}/progress", response_model=ProgressResponse)
@@ -59,9 +61,9 @@ async def get_import_progress(request_id: str) -> ProgressResponse:
     try:
         router_instance = get_router()
         result = await router_instance.get_progress(request_id)
-        
+
         return ProgressResponse(**result)
-        
+
     except Exception as e:
         logger.error(f"Progress error: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e)) from e

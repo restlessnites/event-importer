@@ -1,14 +1,16 @@
 """Data models for the Event Importer using Pydantic."""
 
-from datetime import datetime
-from typing import Optional, List, Dict, Any
-from enum import Enum
-import uuid
-import re
+from __future__ import annotations
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
-from dateutil import parser as date_parser
+import re
+import uuid
+from datetime import datetime
+from enum import Enum
+from typing import Any
+
 import nh3
+from dateutil import parser as date_parser
+from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 
 class ImportStatus(str, Enum):
@@ -33,11 +35,12 @@ class ImportMethod(str, Enum):
 class EventTime(BaseModel):
     """Event time information."""
 
-    start: Optional[str] = None  # HH:MM format
-    end: Optional[str] = None  # HH:MM format
+    start: str | None = None  # HH:MM format
+    end: str | None = None  # HH:MM format
+    timezone: str | None = None
 
     @field_validator("start", "end", mode="before")
-    def parse_time(cls, v: Any) -> Optional[str]:
+    def parse_time(cls: type[EventTime], v: str | None) -> str | None:
         """Parse various time formats to HH:MM."""
         if not v:
             return None
@@ -56,7 +59,7 @@ class EventTime(BaseModel):
         except Exception:
             return None
 
-    def __bool__(self) -> bool:
+    def __bool__(self: EventTime) -> bool:
         """Check if any time is set."""
         return bool(self.start or self.end)
 
@@ -71,26 +74,26 @@ class Coordinates(BaseModel):
 class EventLocation(BaseModel):
     """Event location details."""
 
-    address: Optional[str] = None
-    city: Optional[str] = None
-    state: Optional[str] = None
-    country: Optional[str] = None
-    coordinates: Optional[Coordinates] = None
+    address: str | None = None
+    city: str | None = None
+    state: str | None = None
+    country: str | None = None
+    coordinates: Coordinates | None = None
 
     @field_validator("address", "city", "state", "country", mode="before")
-    def clean_text(cls, v: Any) -> Optional[str]:
+    def clean_text(cls: type[EventLocation], v: str | None) -> str | None:
         """Clean location text fields."""
         if not v:
             return None
         return nh3.clean(str(v), tags=set()).strip() or None
 
-    def __bool__(self) -> bool:
+    def __bool__(self: EventLocation) -> bool:
         """Check if any location data is set."""
         return any(
             [self.address, self.city, self.state, self.country, self.coordinates]
         )
 
-    def to_string(self) -> str:
+    def to_string(self: EventLocation) -> str:
         """Format location as a string."""
         parts = []
         if self.address:
@@ -104,7 +107,9 @@ class EventLocation(BaseModel):
         return ", ".join(parts)
 
     @field_validator("coordinates", mode="before")
-    def validate_coordinates(cls, v: Any) -> Optional[Dict]:
+    def validate_coordinates(
+        cls: type[EventLocation], v: dict[str, Any] | None
+    ) -> dict | None:
         """Ensure coordinates are a valid dict or None."""
         if not isinstance(v, dict):
             return None
@@ -120,10 +125,10 @@ class ImageCandidate(BaseModel):
     url: str  # Changed from HttpUrl to avoid validation issues
     score: int = 0
     source: str = "unknown"  # "original", "google_search", "page", etc.
-    dimensions: Optional[str] = None  # "800x600"
-    reason: Optional[str] = None  # Reason for low score/rejection
+    dimensions: str | None = None  # "800x600"
+    reason: str | None = None  # Reason for low score/rejection
 
-    def __lt__(self, other: "ImageCandidate") -> bool:
+    def __lt__(self: ImageCandidate, other: ImageCandidate) -> bool:
         """Sort by score (highest first)."""
         return self.score > other.score
 
@@ -131,11 +136,11 @@ class ImageCandidate(BaseModel):
 class ImageSearchResult(BaseModel):
     """Results from image search/enhancement for non-API imports."""
 
-    original: Optional[ImageCandidate] = None
-    candidates: List[ImageCandidate] = Field(default_factory=list)
-    selected: Optional[ImageCandidate] = None
+    original: ImageCandidate | None = None
+    candidates: list[ImageCandidate] = Field(default_factory=list)
+    selected: ImageCandidate | None = None
 
-    def get_best_candidate(self) -> Optional[ImageCandidate]:
+    def get_best_candidate(self: ImageSearchResult) -> ImageCandidate | None:
         """Get the highest scoring candidate."""
         all_candidates = [
             c for c in [self.original] + self.candidates if c and c.score > 0
@@ -150,48 +155,48 @@ class EventData(BaseModel):
     title: str = Field(..., min_length=1)
 
     # Event details
-    venue: Optional[str] = None
-    date: Optional[str] = None  # ISO format YYYY-MM-DD
-    time: Optional[EventTime] = None
+    venue: str | None = None
+    date: str | None = None  # ISO format YYYY-MM-DD
+    time: EventTime | None = None
 
     # People/organizations
-    promoters: List[str] = Field(default_factory=list)
-    lineup: List[str] = Field(default_factory=list)
+    promoters: list[str] = Field(default_factory=list)
+    lineup: list[str] = Field(default_factory=list)
 
     # Descriptions
-    long_description: Optional[str] = None
-    short_description: Optional[str] = Field(None, max_length=150)
+    long_description: str | None = None
+    short_description: str | None = Field(None, max_length=150)
 
     # Categorization
-    genres: List[str] = Field(default_factory=list)
+    genres: list[str] = Field(default_factory=list)
 
     # Location
-    location: Optional[EventLocation] = None
+    location: EventLocation | None = None
 
     # Media
-    images: Optional[Dict[str, str]] = None  # Changed from EventImages to Dict
-    image_search: Optional[ImageSearchResult] = None  # For non-API imports
+    images: dict[str, str] | None = None  # Changed from EventImages to Dict
+    image_search: ImageSearchResult | None = None  # For non-API imports
 
     # Restrictions and pricing
-    minimum_age: Optional[str] = None  # e.g., "21+", "All Ages"
-    cost: Optional[str] = None
+    minimum_age: str | None = None  # e.g., "21+", "All Ages"
+    cost: str | None = None
 
     # Links
-    ticket_url: Optional[HttpUrl] = None
-    source_url: Optional[HttpUrl] = None
+    ticket_url: HttpUrl | None = None
+    source_url: HttpUrl | None = None
 
     # Metadata
     imported_at: datetime = Field(default_factory=datetime.utcnow)
 
-    @field_validator("time", "location", "images", mode="before")
-    def ensure_dict_or_none(cls, v: Any) -> Optional[Dict]:
+    @field_validator("images", mode="before")
+    def ensure_dict_or_none(cls: type[EventData], v: object | None) -> dict | None:
         """Ensure that fields that should be objects are dicts, or None if invalid."""
         if v and not isinstance(v, dict):
             return None
         return v
 
     @field_validator("title", "venue", mode="before")
-    def clean_text_field(cls, v: Any) -> Optional[str]:
+    def clean_text_field(cls: type[EventData], v: str | None) -> str | None:
         """Strip whitespace and handle None for text fields."""
         if not v:
             return None
@@ -199,7 +204,7 @@ class EventData(BaseModel):
         return cleaned or None
 
     @field_validator("date", mode="before")
-    def parse_date(cls, v: Any) -> Optional[str]:
+    def parse_date(cls: type[EventData], v: str | None) -> str | None:
         """Parse various date formats to ISO format with smart year handling."""
         if not v:
             return None
@@ -207,51 +212,70 @@ class EventData(BaseModel):
         try:
             current_date = datetime.now()
             current_year = current_date.year
-            
+
             # Clean the input string
             date_str = str(v).strip()
             original_str = date_str.lower()
-            
+
             # Check if year is explicitly mentioned in the string
             year_indicators = [
-                str(current_year - 2), str(current_year - 1), str(current_year), 
-                str(current_year + 1), str(current_year + 2), str(current_year + 3),
-                "'22", "'23", "'24", "'25", "'26", "'27", "'28",
-                "2022", "2023", "2024", "2025", "2026", "2027", "2028"
+                str(current_year - 2),
+                str(current_year - 1),
+                str(current_year),
+                str(current_year + 1),
+                str(current_year + 2),
+                str(current_year + 3),
+                "'22",
+                "'23",
+                "'24",
+                "'25",
+                "'26",
+                "'27",
+                "'28",
+                "2022",
+                "2023",
+                "2024",
+                "2025",
+                "2026",
+                "2027",
+                "2028",
             ]
-            
-            has_explicit_year = any(year_str in original_str for year_str in year_indicators)
-            
+
+            has_explicit_year = any(
+                year_str in original_str for year_str in year_indicators
+            )
+
             # IMPORTANT: Always use current year as the default to start with
             default_date = datetime(current_year, 1, 1)
             parsed = date_parser.parse(date_str, fuzzy=True, default=default_date)
-            
+
             # If no explicit year was provided, apply smart year logic
             if not has_explicit_year:
                 # Ensure the parsed date used our current year default
                 if parsed.year != current_year:
                     # If dateutil somehow chose a different year, force it to current year first
                     parsed = parsed.replace(year=current_year)
-                
+
                 # Now check if the date with current year is in the past
                 if parsed.date() < current_date.date():
                     days_diff = (current_date.date() - parsed.date()).days
-                    
+
                     # If it's more than 1 day in the past, assume it's next year
                     if days_diff > 1:
                         parsed = parsed.replace(year=current_year + 1)
-            
+
             return parsed.date().isoformat()
-            
+
         except Exception as e:
             # Import logging here to avoid circular imports
             import logging
+
             logger = logging.getLogger(__name__)
             logger.debug(f"Date parsing failed for '{v}': {e}")
             return None
 
     @field_validator("promoters", "lineup", "genres", mode="before")
-    def clean_list_field(cls, v: Any) -> List[str]:
+    def clean_list_field(cls: type[EventData], v: list[str] | str | None) -> list[str]:
         """Clean and deduplicate list fields."""
         if not v:
             return []
@@ -273,7 +297,7 @@ class EventData(BaseModel):
         return result
 
     @field_validator("long_description", "short_description", mode="before")
-    def clean_description(cls, v: Any) -> Optional[str]:
+    def clean_description(cls: type[EventData], v: str | None) -> str | None:
         """Clean description fields."""
         if not v:
             return None
@@ -290,67 +314,101 @@ class EventData(BaseModel):
         return cleaned or None
 
     @field_validator("cost", mode="before")
-    def parse_cost(cls, v: Any) -> Optional[str]:
+    def parse_cost(cls: type[EventData], v: str | int | float | None) -> str | None:
         """Parse and standardize cost information with comprehensive normalization."""
         if not v:
             return None
 
         # Convert to string and clean
         v_str = str(v).strip().lower()
-        
+
         # Remove common HTML entities and extra whitespace
         v_clean = nh3.clean(v_str, tags=set()).strip()
-        
+
         # Check for free indicators (case insensitive)
         free_indicators = [
             # Direct free terms
-            "free", "gratis", "no cover", "complimentary", "admission free",
-            "free admission", "free entry", "no charge", "gratuito", "gratuit",
-            
+            "free",
+            "gratis",
+            "no cover",
+            "complimentary",
+            "admission free",
+            "free admission",
+            "free entry",
+            "no charge",
+            "gratuito",
+            "gratuit",
             # Zero values
-            "0", "0.00", "$0", "$0.00", "£0", "€0", "¥0",
-            "usd 0", "gbp 0", "eur 0", "cad 0",
-            
-            # None/null indicators  
-            "none", "null", "n/a", "na", "no cost", "no fee",
-            
+            "0",
+            "0.00",
+            "$0",
+            "$0.00",
+            "£0",
+            "€0",
+            "¥0",
+            "usd 0",
+            "gbp 0",
+            "eur 0",
+            "cad 0",
+            # None/null indicators
+            "none",
+            "null",
+            "n/a",
+            "na",
+            "no cost",
+            "no fee",
             # Special free event phrases
-            "free w/ rsvp", "free with rsvp", "free w/rsvp",
-            "donation", "donation only", "donations", "suggested donation",
-            "pay what you want", "pwyw", "by donation"
+            "free w/ rsvp",
+            "free with rsvp",
+            "free w/rsvp",
+            "donation",
+            "donation only",
+            "donations",
+            "suggested donation",
+            "pay what you want",
+            "pwyw",
+            "by donation",
         ]
-        
+
         # Check if it's a free event
         for indicator in free_indicators:
             if indicator in v_clean:
                 return "Free"
-        
+
         # Check for numeric zero values with various formats
         # Match patterns like "0", "$0", "0.00", "$0.00", etc.
         zero_patterns = [
-            r'^0+$',                    # Just zeros
-            r'^0+\.0+$',               # 0.00, 0.000, etc.
-            r'^[\$£€¥]?\s*0+$',        # Currency + zeros
-            r'^[\$£€¥]?\s*0+\.0+$',    # Currency + 0.00
-            r'^\s*0+\s*(usd|gbp|eur|cad|dollars?|pounds?|euros?)\s*$',  # 0 USD, etc.
+            r"^0+$",  # Just zeros
+            r"^0+\.0+$",  # 0.00, 0.000, etc.
+            r"^[\$£€¥]?\s*0+$",  # Currency + zeros
+            r"^[\$£€¥]?\s*0+\.0+$",  # Currency + 0.00
+            r"^\s*0+\s*(usd|gbp|eur|cad|dollars?|pounds?|euros?)\s*$",  # 0 USD, etc.
         ]
-        
+
         for pattern in zero_patterns:
             if re.match(pattern, v_clean):
                 return "Free"
-        
+
         # If we get here, it's not free - clean up the original value
         original_clean = nh3.clean(str(v), tags=set()).strip()
-        
+
         # Return the cleaned cost if it has meaningful content
-        if original_clean and original_clean.lower() not in ["", "n/a", "na", "none", "null", "tbd", "tba"]:
+        if original_clean and original_clean.lower() not in [
+            "",
+            "n/a",
+            "na",
+            "none",
+            "null",
+            "tbd",
+            "tba",
+        ]:
             return original_clean
-        
+
         # Default to None if no meaningful cost information
         return None
 
     @field_validator("minimum_age", mode="before")
-    def standardize_age(cls, v: Any) -> Optional[str]:
+    def standardize_age(cls: type[EventData], v: str | int | None) -> str | None:
         """Standardize age restrictions."""
         if not v:
             return None
@@ -369,7 +427,7 @@ class EventData(BaseModel):
 
         return nh3.clean(v, tags=set()).strip() or None
 
-    def is_complete(self) -> bool:
+    def is_complete(self: EventData) -> bool:
         """Check if the event has all important fields."""
         return all(
             [
@@ -392,10 +450,12 @@ class ImportRequest(BaseModel):
 
     url: HttpUrl
     request_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    force_method: Optional[ImportMethod] = None
+    force_method: ImportMethod | None = None
     include_raw_data: bool = False
     timeout: int = Field(default=60, ge=1, le=300)
-    ignore_cache: bool = Field(default=False, description="Skip cache and force fresh import")
+    ignore_cache: bool = Field(
+        default=False, description="Skip cache and force fresh import"
+    )
 
 
 class ImportProgress(BaseModel):
@@ -406,8 +466,8 @@ class ImportProgress(BaseModel):
     message: str
     progress: float = Field(..., ge=0.0, le=1.0)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    data: Optional[EventData] = None
-    error: Optional[str] = None
+    data: EventData | None = None
+    error: str | None = None
 
     class Config:
         json_encoders = {
@@ -421,10 +481,10 @@ class ImportResult(BaseModel):
     request_id: str
     status: ImportStatus
     url: HttpUrl
-    method_used: Optional[ImportMethod] = None
-    event_data: Optional[EventData] = None
-    error: Optional[str] = None
-    raw_data: Optional[Dict[str, Any]] = None
+    method_used: ImportMethod | None = None
+    event_data: EventData | None = None
+    error: str | None = None
+    raw_data: dict[str, Any] | None = None
     import_time: float = Field(default=0.0, ge=0.0)  # seconds
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 

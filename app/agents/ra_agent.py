@@ -1,12 +1,14 @@
 """Resident Advisor GraphQL API agent."""
 
+from __future__ import annotations
+
 import logging
-from typing import Optional
+from typing import Any
 
+from app.schemas import EventData, EventLocation, EventTime, ImportMethod, ImportStatus
 from app.shared.agent import Agent
-from app.schemas import EventData, ImportMethod, ImportStatus, EventTime, EventLocation
+from app.shared.http import HTTPService
 from app.shared.url_analyzer import URLAnalyzer
-
 
 logger = logging.getLogger(__name__)
 
@@ -15,22 +17,25 @@ class ResidentAdvisorAgent(Agent):
     """Agent for importing events from Resident Advisor."""
 
     GRAPHQL_URL = "https://ra.co/graphql"
+    http: HTTPService
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: tuple[Any, ...], **kwargs: dict[str, Any]) -> None:
         super().__init__(*args, **kwargs)
         self.url_analyzer = URLAnalyzer()
         # Use shared services
         self.http = self.services["http"]
 
     @property
-    def name(self) -> str:
+    def name(self: ResidentAdvisorAgent) -> str:
         return "ResidentAdvisor"
 
     @property
-    def import_method(self) -> ImportMethod:
+    def import_method(self: ResidentAdvisorAgent) -> ImportMethod:
         return ImportMethod.API
-  
-    async def import_event(self, url: str, request_id: str) -> Optional[EventData]:
+
+    async def import_event(
+        self: ResidentAdvisorAgent, url: str, request_id: str
+    ) -> EventData | None:
         """Import event from RA GraphQL API."""
         self.start_timer()
 
@@ -75,7 +80,9 @@ class ResidentAdvisorAgent(Agent):
                 await self.send_progress(
                     request_id, ImportStatus.RUNNING, "Generating descriptions", 0.85
                 )
-                event_data = await self.services["llm"].generate_descriptions(event_data)
+                event_data = await self.services["llm"].generate_descriptions(
+                    event_data
+                )
 
             await self.send_progress(
                 request_id,
@@ -98,7 +105,7 @@ class ResidentAdvisorAgent(Agent):
             )
             return None
 
-    async def _fetch_event(self, event_id: str) -> Optional[dict]:
+    async def _fetch_event(self: ResidentAdvisorAgent, event_id: str) -> dict | None:
         """Fetch event from GraphQL API."""
         query = """
         query GET_EVENT($id: ID!) {
@@ -160,7 +167,7 @@ class ResidentAdvisorAgent(Agent):
 
         return data.get("data", {}).get("event")
 
-    def _parse_event(self, event: dict, url: str) -> EventData:
+    def _parse_event(self: ResidentAdvisorAgent, event: dict, url: str) -> EventData:
         """Parse RA event data to our schema."""
         # Build location
         location = None

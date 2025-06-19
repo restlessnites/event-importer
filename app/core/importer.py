@@ -1,36 +1,38 @@
+""" Importer for events. """
+
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any
+from typing import Any
 
+from pydantic import ValidationError
+
+from app.agents import (
+    DiceAgent,
+    ImageAgent,
+    ResidentAdvisorAgent,
+    TicketmasterAgent,
+    WebAgent,
+)
 from app.config import Config
+from app.core.progress import ProgressTracker
+from app.errors import UnsupportedURLError, handle_errors_async
 from app.schemas import (
+    EventData,
+    ImportMethod,
+    ImportProgress,
     ImportRequest,
     ImportResult,
     ImportStatus,
-    ImportProgress,
-    EventData,
-    ImportMethod,
 )
-from app.shared.agent import Agent
-from app.agents import (
-    ResidentAdvisorAgent,
-    TicketmasterAgent,
-    DiceAgent,
-    WebAgent,
-    ImageAgent,
-)
-from app.core.progress import ProgressTracker
-from app.errors import UnsupportedURLError, handle_errors_async
-from app.shared.http import get_http_service
-from app.services.claude import ClaudeService
-from app.services.image import ImageService
-from app.services.zyte import ZyteService
 from app.services.genre import GenreService
+from app.services.image import ImageService
 from app.services.llm import LLMService
-# Add database imports
+from app.services.zyte import ZyteService
+from app.shared.agent import Agent
 from app.shared.database import cache_event, get_cached_event
-
+from app.shared.http import get_http_service
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,7 @@ logger = logging.getLogger(__name__)
 class EventImporter:
     """Coordinates event imports across different agents."""
 
-    def __init__(self, config: Optional[Config] = None):
+    def __init__(self: "EventImporter", config: Config | None = None) -> None:
         """Initialize the importer."""
         self.config = config or Config.from_env()
         self.progress_tracker = ProgressTracker()
@@ -48,9 +50,9 @@ class EventImporter:
         self._services = self._create_shared_services()
 
         # Initialize agents with shared services
-        self.agents: List[Agent] = self._create_agents()
+        self.agents: list[Agent] = self._create_agents()
 
-    def _create_shared_services(self) -> Dict:
+    def _create_shared_services(self: "EventImporter") -> dict[str, Any]:
         """Create services that will be shared across agents."""
         llm_service = LLMService(self.config)
         genre_service = GenreService(self.config, self.http, llm_service)
@@ -64,7 +66,9 @@ class EventImporter:
         }
 
     @handle_errors_async(reraise=True)
-    async def import_event(self, request: ImportRequest) -> ImportResult:
+    async def import_event(
+        self: "EventImporter", request: ImportRequest
+    ) -> ImportResult:
         """
         Import an event from a URL.
 
@@ -76,6 +80,9 @@ class EventImporter:
         """
         start_time = datetime.now(timezone.utc)
         url = str(request.url)
+
+        # Initialize agent to avoid UnboundLocalError in exception handling
+        agent = None
 
         try:
             await self.progress_tracker.send_progress(
@@ -92,10 +99,42 @@ class EventImporter:
                 cached_data = get_cached_event(str(url))
                 if cached_data:
                     logger.info(f"Found cached event for {url}")
-                    
-                    # Convert cached data to EventData
-                    event_data = EventData(**cached_data)
-                    
+
+                    try:
+                        # Convert cached data to EventData
+                        event_data = EventData(**cached_data)
+                    except ValidationError as e:
+                        # If cached data fails validation (e.g., description too long), fix it
+                        logger.info(
+                            f"Cached data failed validation: {e}. Attempting to fix descriptions."
+                        )
+
+                        # Create a temporary EventData object without validation to fix descriptions
+                        temp_event_data = EventData.model_construct(**cached_data)
+
+                        # Use LLM service to regenerate descriptions if they're too long
+                        if (
+                            temp_event_data.short_description
+                            and len(temp_event_data.short_description) > 100
+                        ) or (
+                            temp_event_data.long_description
+                            and len(temp_event_data.long_description) > 500
+                        ):
+                            logger.info("Regenerating descriptions for cached data")
+                            fixed_event_data = await self._services[
+                                "llm"
+                            ].generate_descriptions(temp_event_data)
+
+                            # Try again with fixed data
+                            event_data = EventData(**fixed_event_data.model_dump())
+
+                            # Update cache with fixed data
+                            cache_event(str(url), event_data.model_dump(mode="json"))
+                            logger.info("Updated cache with fixed descriptions")
+                        else:
+                            # Re-raise if it's not a description length issue
+                            raise e
+
                     return ImportResult(
                         request_id=request.request_id,
                         status=ImportStatus.SUCCESS,
@@ -127,13 +166,18 @@ class EventImporter:
                 and agent.name == "Ticketmaster"
                 and self._get_agent_by_name("WebScraper") is not None
             ):
-                logger.info(f"TicketmasterAgent failed, falling back to WebAgent for {url}")
+                logger.info(
+                    f"TicketmasterAgent failed, falling back to WebAgent for {url}"
+                )
                 web_agent = self._get_agent_by_name("WebScraper")
                 event_data = await asyncio.wait_for(
-                    web_agent.import_event(url, request.request_id), timeout=request.timeout
+                    web_agent.import_event(url, request.request_id),
+                    timeout=request.timeout,
                 )
                 if event_data:
-                    logger.info(f"WebAgent succeeded for {url} after TicketmasterAgent failure")
+                    logger.info(
+                        f"WebAgent succeeded for {url} after TicketmasterAgent failure"
+                    )
 
             if event_data and not event_data.genres:
                 await self.progress_tracker.send_progress(
@@ -241,7 +285,7 @@ class EventImporter:
                 import_time=(datetime.now(timezone.utc) - start_time).total_seconds(),
             )
 
-    def _create_agents(self) -> List[Agent]:
+    def _create_agents(self: "EventImporter") -> list[Agent]:
         """Create all available agents with shared services."""
         agents = []
 
@@ -273,30 +317,31 @@ class EventImporter:
         return agents
 
     async def _determine_agent(
-        self, url: str, force_method: Optional[str] = None
-    ) -> Optional[Agent]:
+        self: "EventImporter", url: str, force_method: str | None = None
+    ) -> Agent | None:
         """Determine which agent should handle the URL using content-type and URL analysis."""
-        
+
         if force_method:
             # Find agent by method name mapping
             method_mapping = {
                 "api": ["ResidentAdvisor", "Ticketmaster", "Dice"],
-                "web": ["WebScraper"], 
+                "web": ["WebScraper"],
                 "image": ["ImageAgent"],
             }
-            
+
             target_agents = method_mapping.get(force_method, [])
             for agent in self.agents:
                 if agent.name in target_agents:
                     return agent
-            
+
             logger.warning(f"Forced method '{force_method}' not available")
 
         # URL pattern based routing for specialized agents first
         from app.shared.url_analyzer import URLAnalyzer
+
         analyzer = URLAnalyzer()
         analysis = analyzer.analyze(url)
-        
+
         # Route to specialized agents based on URL analysis
         if analysis.get("type") == "resident_advisor" and "event_id" in analysis:
             return self._get_agent_by_name("ResidentAdvisor")
@@ -308,9 +353,12 @@ class EventImporter:
             return self._get_agent_by_name("Dice")
 
         # Check for image URLs by extension or keywords before falling back to web scraping
-        image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+        image_extensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"]
         url_lower = url.lower()
-        if any(url_lower.endswith(ext) for ext in image_extensions) or 'imgproxy' in url_lower:
+        if (
+            any(url_lower.endswith(ext) for ext in image_extensions)
+            or "imgproxy" in url_lower
+        ):
             return self._get_agent_by_name("ImageAgent")
 
         # If it's not a special API or image URL, default to WebAgent.
@@ -318,45 +366,58 @@ class EventImporter:
         logger.info(f"Defaulting to WebScraper for URL: {url}")
         return self._get_agent_by_name("WebScraper")
 
-    def _get_agent_by_name(self, name: str) -> Optional[Agent]:
+    def _get_agent_by_name(self: "EventImporter", name: str) -> Agent | None:
         """Get agent by name."""
         for agent in self.agents:
             if agent.name == name:
                 return agent
         return None
 
-    def add_progress_listener(self, request_id: str, callback):
+    def add_progress_listener(
+        self: "EventImporter",
+        request_id: str,
+        callback: Callable[[ImportProgress], None],
+    ) -> None:
         """Add a progress listener for a specific request."""
         self.progress_tracker.add_listener(request_id, callback)
 
-    def remove_progress_listener(self, request_id: str, callback):
+    def remove_progress_listener(
+        self: "EventImporter",
+        request_id: str,
+        callback: Callable[[ImportProgress], None],
+    ) -> None:
         """Remove a progress listener for a specific request."""
         self.progress_tracker.remove_listener(request_id, callback)
 
-    def get_progress_history(self, request_id: str):
+    def get_progress_history(
+        self: "EventImporter", request_id: str
+    ) -> list[ImportProgress]:
         """Get the progress history for a request."""
         return self.progress_tracker.get_history(request_id)
 
-    async def extract_event_data(self, prompt: str, image_b64: Optional[str] = None, mime_type: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    async def extract_event_data(
+        self: "EventImporter",
+        prompt: str,
+        image_b64: str | None = None,
+        mime_type: str | None = None,
+    ) -> dict[str, Any] | None:
         """Extract event data from prompt or image."""
         try:
             if image_b64 and mime_type:
                 return await self._services["llm"].extract_event_data(
                     prompt="",  # Empty prompt for image extraction
                     image_b64=image_b64,
-                    mime_type=mime_type
+                    mime_type=mime_type,
                 )
             else:
                 return await self._services["llm"].extract_event_data(
-                    prompt=prompt,
-                    image_b64=None,
-                    mime_type=None
+                    prompt=prompt, image_b64=None, mime_type=None
                 )
         except Exception as e:
             logger.error(f"Failed to extract event data: {e}")
             return None
 
-    async def enhance_genres(self, event_data: EventData) -> EventData:
+    async def enhance_genres(self: "EventImporter", event_data: EventData) -> EventData:
         try:
             return await self._services["genre"].enhance_genres(event_data)
         except Exception as e:

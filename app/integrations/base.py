@@ -1,39 +1,46 @@
-from abc import ABC, abstractmethod
-from typing import Dict, Any, List
-from sqlalchemy.orm import Session
+""" Base integration classes. """
 
-from ..shared.database.models import EventCache, Submission
-from ..shared.database.connection import get_db_session
-from app.errors import handle_errors_async
+from __future__ import annotations
 
 import logging
+from abc import ABC, abstractmethod
+from typing import Any
+
+from sqlalchemy.orm import Session
+
+from app.errors import handle_errors_async
+
+from ..shared.database.connection import get_db_session
+from ..shared.database.models import EventCache, Submission
 
 logger = logging.getLogger(__name__)
 
 
 class BaseSelector(ABC):
     """Base class for event selection strategies"""
-    
+
     @abstractmethod
-    def select_events(self, db: Session, service_name: str) -> List[EventCache]:
+    def select_events(
+        self: BaseSelector, db: Session, service_name: str
+    ) -> list[EventCache]:
         """Select events based on specific criteria"""
         pass
 
 
 class BaseTransformer(ABC):
     """Base class for data transformation"""
-    
+
     @abstractmethod
-    def transform(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
+    def transform(self: BaseTransformer, event_data: dict[str, Any]) -> dict[str, Any]:
         """Transform scraped event data to service-specific format"""
         pass
 
 
 class BaseClient(ABC):
     """Base class for service API clients"""
-    
+
     @abstractmethod
-    async def submit(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def submit(self: BaseClient, data: dict[str, Any]) -> dict[str, Any]:
         """Submit data to the external service"""
         pass
 
@@ -41,7 +48,7 @@ class BaseClient(ABC):
 class BaseSubmitter(ABC):
     """Base class for event submission integrations."""
 
-    def __init__(self):
+    def __init__(self: BaseSubmitter) -> None:
         """Initialize submitter with client, transformer and selectors."""
         self.client = self._create_client()
         self.transformer = self._create_transformer()
@@ -49,29 +56,29 @@ class BaseSubmitter(ABC):
 
     @property
     @abstractmethod
-    def service_name(self) -> str:
+    def service_name(self: BaseSubmitter) -> str:
         """Name of the service for this integration."""
         pass
 
     @abstractmethod
-    def _create_client(self) -> BaseClient:
+    def _create_client(self: BaseSubmitter) -> BaseClient:
         """Create an instance of the API client."""
         pass
 
     @abstractmethod
-    def _create_transformer(self) -> BaseTransformer:
+    def _create_transformer(self: BaseSubmitter) -> BaseTransformer:
         """Create an instance of the data transformer."""
         pass
 
     @abstractmethod
-    def _create_selectors(self) -> Dict[str, BaseSelector]:
+    def _create_selectors(self: BaseSubmitter) -> dict[str, BaseSelector]:
         """Create a dictionary of available event selectors."""
         pass
 
     @handle_errors_async(reraise=True)
     async def submit_events(
-        self, selector_name: str = "unsubmitted", dry_run: bool = False
-    ) -> Dict[str, Any]:
+        self: BaseSubmitter, selector_name: str = "unsubmitted", dry_run: bool = False
+    ) -> dict[str, Any]:
         """
         Submit events to the integration.
 
@@ -96,10 +103,20 @@ class BaseSubmitter(ABC):
             logger.info(
                 f"No events found with selector: {selector_name} for service {self.service_name}"
             )
-            return {"submitted": [], "errors": [], "total": 0, "selector": selector_name}
+            return {
+                "submitted": [],
+                "errors": [],
+                "total": 0,
+                "selector": selector_name,
+            }
 
         logger.info(f"Found {len(event_ids)} events to submit for {self.service_name}")
-        results = {"submitted": [], "errors": [], "total": len(event_ids), "selector": selector_name}
+        results = {
+            "submitted": [],
+            "errors": [],
+            "total": len(event_ids),
+            "selector": selector_name,
+        }
 
         for event_id in event_ids:
             submission_id = None
@@ -110,9 +127,9 @@ class BaseSubmitter(ABC):
                     if not event:
                         logger.warning(f"Event {event_id} not found, skipping.")
                         continue
-                    
+
                     source_url = event.source_url
-                    
+
                     submission = (
                         db.query(Submission)
                         .filter_by(
@@ -131,7 +148,7 @@ class BaseSubmitter(ABC):
                         db.add(submission)
                         db.commit()
                         db.refresh(submission)
-                    
+
                     submission_id = submission.id
                     scraped_data = event.scraped_data
 
@@ -183,7 +200,7 @@ class BaseSubmitter(ABC):
                             {"status": "failed", "error_message": error_message}
                         )
                         db.commit()
-                
+
                 error_payload = {
                     "event_id": event_id,
                     "url": source_url or "N/A",
@@ -193,5 +210,4 @@ class BaseSubmitter(ABC):
                     error_payload["submission_id"] = submission_id
                 results["errors"].append(error_payload)
 
-
-        return results 
+        return results

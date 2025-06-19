@@ -1,31 +1,34 @@
 """Complex data formatters for event data display."""
 
-from typing import Dict, Any, Optional, List
+from __future__ import annotations
+
+from typing import Any
 
 from rich.console import Console
 from rich.text import Text
 
+from app.interfaces.cli.components import Message, Spacer
 from app.interfaces.cli.theme import Theme
 from app.interfaces.cli.utils import (
-    format_timestamp,
-    truncate,
-    pluralize,
     format_status,
+    format_timestamp,
     format_url_for_display,
+    pluralize,
+    truncate,
 )
-from app.interfaces.cli.components import Message, Spacer
+from app.schemas import EventData, EventTime, ImportResult
 
 
 class EventCardFormatter:
     """Format event data for display with enhanced image and link support."""
 
-    def __init__(self, console: Console, theme: Theme):
+    def __init__(self: EventCardFormatter, console: Console, theme: Theme) -> None:
         self.console = console
         self.theme = theme
         self.message = Message(console, theme)
         self.spacer = Spacer(console, theme)
 
-    def render(self, event_data: Dict[str, Any]) -> None:
+    def render(self: EventCardFormatter, event_data: dict[str, Any]) -> None:
         """Render event data in a clean format."""
         # Title
         title = event_data.get("title", "Untitled Event")
@@ -52,7 +55,7 @@ class EventCardFormatter:
         # Links section (enhanced)
         self._render_links(event_data)
 
-    def _render_details(self, event_data: Dict[str, Any]) -> None:
+    def _render_details(self: EventCardFormatter, event_data: dict[str, Any]) -> None:
         """Render key event details."""
         details = []
 
@@ -90,7 +93,7 @@ class EventCardFormatter:
         if details:
             self.console.print()
 
-    def _render_lineup(self, lineup: List[str]) -> None:
+    def _render_lineup(self: EventCardFormatter, lineup: list[str]) -> None:
         """Render artist lineup."""
         self.console.print(
             f"[{self.theme.typography.label_style}]LINEUP[/] ({len(lineup)} artists)",
@@ -102,7 +105,9 @@ class EventCardFormatter:
             self.console.print(f"{self.theme.icons.artist} {artist}")
         self.console.print()
 
-    def _render_descriptions(self, event_data: Dict[str, Any]) -> None:
+    def _render_descriptions(
+        self: EventCardFormatter, event_data: dict[str, Any]
+    ) -> None:
         """Render event descriptions."""
         if event_data.get("short_description"):
             self.console.print(
@@ -116,8 +121,9 @@ class EventCardFormatter:
             desc = event_data["long_description"]
             # Clean up HTML entities
             import html
+
             desc = html.unescape(desc)
-            
+
             self.console.print(
                 f"[{self.theme.typography.label_style}]DESCRIPTION[/]",
                 style=self.theme.typography.muted_style,
@@ -126,27 +132,31 @@ class EventCardFormatter:
             self.console.print(desc, width=self.theme.width - 4)
             self.console.print()
 
-    def _render_images(self, event_data: Dict[str, Any]) -> None:
+    def _render_images(self: EventCardFormatter, event_data: dict[str, Any]) -> None:
         """Render image information (NEW)."""
         images = event_data.get("images")
         image_search = event_data.get("image_search")
-        
+
         if images or image_search:
             self.console.print(
                 f"[{self.theme.typography.label_style}]IMAGES[/]",
                 style=self.theme.typography.muted_style,
             )
-            
+
             # Current image
             if images:
                 if images.get("full"):
                     full_url = format_url_for_display(images["full"], "full")
                     self.console.print(f"{self.theme.icons.image} Full: {full_url}")
-                
-                if images.get("thumbnail") and images["thumbnail"] != images.get("full"):
+
+                if images.get("thumbnail") and images["thumbnail"] != images.get(
+                    "full"
+                ):
                     thumb_url = format_url_for_display(images["thumbnail"], "full")
-                    self.console.print(f"{self.theme.icons.image} Thumbnail: {thumb_url}")
-            
+                    self.console.print(
+                        f"{self.theme.icons.image} Thumbnail: {thumb_url}"
+                    )
+
             # Image search info (if available)
             if image_search:
                 selected = image_search.get("selected")
@@ -156,10 +166,12 @@ class EventCardFormatter:
                     self.console.print(
                         f"{self.theme.icons.bullet} Quality Score: {score} (from {source})"
                     )
-            
+
             self.console.print()
 
-    def _render_additional_info(self, event_data: Dict[str, Any]) -> None:
+    def _render_additional_info(
+        self: EventCardFormatter, event_data: dict[str, Any]
+    ) -> None:
         """Render additional event information."""
         # Genres
         if event_data.get("genres"):
@@ -185,10 +197,10 @@ class EventCardFormatter:
                     f"[{self.theme.typography.label_style}]Location:[/] {location}"
                 )
 
-    def _render_links(self, event_data: Dict[str, Any]) -> None:
+    def _render_links(self: EventCardFormatter, event_data: dict[str, Any]) -> None:
         """Render links section (enhanced)."""
         links = []
-        
+
         # Ticket URL
         if event_data.get("ticket_url"):
             url = str(event_data["ticket_url"])
@@ -200,7 +212,7 @@ class EventCardFormatter:
             url = str(event_data["source_url"])
             display_url = format_url_for_display(url, self.theme.layout.url_style)
             links.append(("Source", display_url))
-        
+
         # Render links section if we have any
         if links:
             self.console.print()
@@ -208,24 +220,24 @@ class EventCardFormatter:
                 f"[{self.theme.typography.label_style}]LINKS[/]",
                 style=self.theme.typography.muted_style,
             )
-            
+
             for label, url in links:
-                self.console.print(
-                    f"{self.theme.icons.url} {label}: {url}"
-                )
+                self.console.print(f"{self.theme.icons.url} {label}: {url}")
 
 
 class ImportResultFormatter:
     """Format import results."""
 
-    def __init__(self, console: Console, theme: Theme):
+    def __init__(self: ImportResultFormatter, console: Console, theme: Theme) -> None:
         self.console = console
         self.theme = theme
         self.event_formatter = EventCardFormatter(console, theme)
         self.message = Message(console, theme)
         self.spacer = Spacer(console, theme)
 
-    def render(self, result: Any, show_raw: bool = False) -> None:
+    def render(
+        self: ImportResultFormatter, result: ImportResult, show_raw: bool = False
+    ) -> None:
         """Render import result."""
         # Import status
         self.console.print()
@@ -259,7 +271,7 @@ class ImportResultFormatter:
         else:
             self._render_failure(result)
 
-    def _render_success(self, result: Any) -> None:
+    def _render_success(self: ImportResultFormatter, result: ImportResult) -> None:
         """Render successful import summary."""
         self.message.success(f"Import completed in {result.import_time:.2f}s")
         if result.method_used:
@@ -267,7 +279,7 @@ class ImportResultFormatter:
                 f"[{self.theme.typography.label_style}]Method:[/] {result.method_used.value}"
             )
 
-    def _render_failure(self, result: Any) -> None:
+    def _render_failure(self: ImportResultFormatter, result: ImportResult) -> None:
         """Render failed import summary."""
         self.message.error(f"Import failed: {result.error}")
         if result.method_used:
@@ -278,7 +290,9 @@ class ImportResultFormatter:
             f"[{self.theme.typography.label_style}]Duration:[/] {result.import_time:.2f}s"
         )
 
-    def _render_data_quality(self, event_data: Any) -> None:
+    def _render_data_quality(
+        self: ImportResultFormatter, event_data: EventData
+    ) -> None:
         """Render data completeness check."""
         self.console.print()
         self.console.print(
@@ -325,7 +339,7 @@ class ImportResultFormatter:
                 f"{display_value}"
             )
 
-    def _format_time(self, time: Any) -> str:
+    def _format_time(self: ImportResultFormatter, time: EventTime | None) -> str:
         """Format time for display."""
         if not time:
             return ""
@@ -336,7 +350,9 @@ class ImportResultFormatter:
             return result
         return str(time)
 
-    def _render_image_results(self, search_data: Dict[str, Any]) -> None:
+    def _render_image_results(
+        self: ImportResultFormatter, search_data: dict[str, Any]
+    ) -> None:
         """Render image search results."""
         if not search_data:
             return
@@ -370,7 +386,10 @@ class ImportResultFormatter:
             self._render_image_candidate(None, search_data["selected"])
 
     def _render_image_candidate(
-        self, label: Optional[str], candidate: Dict[str, Any], compact: bool = False
+        self: ImportResultFormatter,
+        label: str | None,
+        candidate: dict[str, Any],
+        compact: bool = False,
     ) -> None:
         """Render a single image candidate."""
         score = candidate.get("score", 0)
@@ -408,12 +427,12 @@ class ImportResultFormatter:
 class ProgressUpdateFormatter:
     """Format progress updates."""
 
-    def __init__(self, console: Console, theme: Theme):
+    def __init__(self: ProgressUpdateFormatter, console: Console, theme: Theme) -> None:
         self.console = console
         self.theme = theme
         self._last_progress = 0
 
-    def render(self, update: Dict[str, Any]) -> None:
+    def render(self: ProgressUpdateFormatter, update: dict[str, Any]) -> None:
         """Render a progress update."""
         status = format_status(update.get("status", "unknown"))
         message = update.get("message", "")

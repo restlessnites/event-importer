@@ -1,10 +1,12 @@
-from typing import Dict, Any
+""" Integrations. """
+
 from importlib.metadata import entry_points
 
-def get_available_integrations() -> Dict[str, Any]:
+
+def get_available_integrations() -> dict[str, type]:
     """Auto-discover integrations via entry points"""
     integrations = {}
-    
+
     try:
         # Get integrations from entry points
         eps = entry_points(group="app.integrations")
@@ -16,12 +18,15 @@ def get_available_integrations() -> Dict[str, Any]:
                 print(f"Failed to load integration {ep.name}: {e}")
     except Exception as e:
         print(f"Error discovering integrations: {e}")
-    
+
     return integrations
 
-def get_integration(name: str) -> Any:
+
+def get_integration(name: str) -> type:
     """Get a specific integration by name"""
     integrations = get_available_integrations()
     if name not in integrations:
-        raise ValueError(f"Integration '{name}' not found. Available: {list(integrations.keys())}")
-    return integrations[name] 
+        raise ValueError(
+            f"Integration '{name}' not found. Available: {list(integrations.keys())}"
+        )
+    return integrations[name]

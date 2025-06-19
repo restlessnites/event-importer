@@ -1,18 +1,22 @@
 """Reusable CLI components that properly use the theme."""
 
-from typing import Optional, List, Dict, Any
+
+from __future__ import annotations
+
+from typing import Any
+
 from rich.console import Console
-from rich.text import Text
-from rich.table import Table
 from rich.progress import (
+    BarColumn,
     Progress,
     SpinnerColumn,
-    TextColumn,
-    BarColumn,
     TaskProgressColumn,
+    TextColumn,
     TimeElapsedColumn,
 )
 from rich.syntax import Syntax
+from rich.table import Table
+from rich.text import Text
 
 from app.interfaces.cli.theme import Theme
 
@@ -20,11 +24,11 @@ from app.interfaces.cli.theme import Theme
 class Spacer:
     """Helper to add consistent spacing."""
 
-    def __init__(self, console: Console, theme: Theme):
+    def __init__(self: Spacer, console: Console, theme: Theme) -> None:
         self.console = console
         self.theme = theme
 
-    def add(self, lines: int):
+    def add(self: Spacer, lines: int) -> None:
         """Add specific number of empty lines."""
         for _ in range(lines):
             self.console.print()
@@ -33,12 +37,12 @@ class Spacer:
 class Header:
     """Header component with proper spacing and styling."""
 
-    def __init__(self, console: Console, theme: Theme):
+    def __init__(self: Header, console: Console, theme: Theme) -> None:
         self.console = console
         self.theme = theme
         self.spacer = Spacer(console, theme)
 
-    def render(self, title: str, subtitle: Optional[str] = None):
+    def render(self: Header, title: str, subtitle: str | None = None) -> None:
         """Render a header with theme-based styling."""
         # Add spacing before
         self.spacer.add(self.theme.spacing.before_header)
@@ -64,12 +68,12 @@ class Header:
 class Section:
     """Section divider with consistent spacing."""
 
-    def __init__(self, console: Console, theme: Theme):
+    def __init__(self: Section, console: Console, theme: Theme) -> None:
         self.console = console
         self.theme = theme
         self.spacer = Spacer(console, theme)
 
-    def render(self, title: str):
+    def render(self: Section, title: str) -> None:
         """Render a section divider."""
         # Add spacing before
         self.spacer.add(self.theme.spacing.before_section)
@@ -95,30 +99,30 @@ class Section:
 class Message:
     """Status messages with consistent icon and styling."""
 
-    def __init__(self, console: Console, theme: Theme):
+    def __init__(self: Message, console: Console, theme: Theme) -> None:
         self.console = console
         self.theme = theme
 
-    def info(self, text: str):
+    def info(self: Message, text: str) -> None:
         """Info message."""
         self.console.print(
             f"{self.theme.icons.info} {text}", style=self.theme.typography.info_style
         )
 
-    def success(self, text: str):
+    def success(self: Message, text: str) -> None:
         """Success message."""
         self.console.print(
             f"{self.theme.icons.success} {text}",
             style=self.theme.typography.success_style,
         )
 
-    def error(self, text: str):
+    def error(self: Message, text: str) -> None:
         """Error message."""
         self.console.print(
             f"{self.theme.icons.error} {text}", style=self.theme.typography.error_style
         )
 
-    def warning(self, text: str):
+    def warning(self: Message, text: str) -> None:
         """Warning message."""
         self.console.print(
             f"{self.theme.icons.warning} {text}",
@@ -129,12 +133,14 @@ class Message:
 class DataTable:
     """Table display using theme settings."""
 
-    def __init__(self, console: Console, theme: Theme):
+    def __init__(self: DataTable, console: Console, theme: Theme) -> None:
         self.console = console
         self.theme = theme
         self.spacer = Spacer(console, theme)
 
-    def render(self, data: List[Dict[str, Any]], title: Optional[str] = None):
+    def render(
+        self: DataTable, data: list[dict[str, Any]], title: str | None = None
+    ) -> None:
         """Render a data table."""
         if not data:
             return
@@ -164,11 +170,11 @@ class DataTable:
 class ProgressDisplay:
     """Progress display using theme colors."""
 
-    def __init__(self, console: Console, theme: Theme):
+    def __init__(self: ProgressDisplay, console: Console, theme: Theme) -> None:
         self.console = console
         self.theme = theme
 
-    def create(self, description: str = "Processing") -> Progress:
+    def create(self: ProgressDisplay, description: str = "Processing") -> Progress:
         """Create a progress bar."""
         return Progress(
             SpinnerColumn(spinner_name="dots", style=self.theme.typography.info_style),
@@ -187,12 +193,14 @@ class ProgressDisplay:
 class CodeBlock:
     """Code display with syntax highlighting."""
 
-    def __init__(self, console: Console, theme: Theme):
+    def __init__(self: CodeBlock, console: Console, theme: Theme) -> None:
         self.console = console
         self.theme = theme
         self.spacer = Spacer(console, theme)
 
-    def render(self, code: str, language: str = "python", title: Optional[str] = None):
+    def render(
+        self: CodeBlock, code: str, language: str = "python", title: str | None = None
+    ) -> None:
         """Render code with syntax highlighting."""
         if title:
             self.console.print(Text(title, style=self.theme.typography.label_style))

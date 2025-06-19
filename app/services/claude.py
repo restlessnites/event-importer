@@ -1,16 +1,18 @@
 """Claude API service for event data extraction."""
 
+import base64
 import json
 import logging
-import base64
-from typing import Optional, Dict, Any
-from anthropic import AsyncAnthropic, APIStatusError
+import re
+from typing import Any
+
+from anthropic import APIStatusError, AsyncAnthropic
 from anthropic.types import TextBlock
 
 from app.config import Config
-from app.schemas import EventData
 from app.errors import APIError, AuthenticationError, handle_errors_async
 from app.prompts import EventPrompts
+from app.schemas import EventData, EventTime
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +20,7 @@ logger = logging.getLogger(__name__)
 class ClaudeService:
     """Service for Claude AI API interactions."""
 
-    def __init__(self, config: Config):
+    def __init__(self: "ClaudeService", config: Config) -> None:
         self.config = config
         self.client = None
         self.model = "claude-sonnet-4-20250514"
@@ -54,12 +56,12 @@ class ClaudeService:
                         "type": "object",
                         "properties": {
                             "full": {"type": "string"},
-                            "thumbnail": {"type": "string"}
-                        }
-                    }
+                            "thumbnail": {"type": "string"},
+                        },
+                    },
                 },
-                "required": ["title"]
-            }
+                "required": ["title"],
+            },
         }
 
         self.GENRE_TOOL = {
@@ -70,15 +72,17 @@ class ClaudeService:
                 "properties": {
                     "genres": {"type": "array", "items": {"type": "string"}}
                 },
-                "required": ["genres"]
-            }
+                "required": ["genres"],
+            },
         }
 
     @handle_errors_async(reraise=True)
-    async def extract_from_html(self, html: str, url: str) -> Optional[EventData]:
+    async def extract_from_html(
+        self: "ClaudeService", html: str, url: str
+    ) -> EventData | None:
         """Extract event data from HTML."""
         max_length = 50000
-        
+
         # Truncate if too long
         if len(html) > max_length:
             html = html[:max_length] + "\n<!-- truncated -->"
@@ -89,7 +93,7 @@ class ClaudeService:
             url=url,
             content_type="html",
             needs_long_description=True,
-            needs_short_description=True
+            needs_short_description=True,
         )
 
         result = await self._call_with_tool(prompt)
@@ -102,8 +106,8 @@ class ClaudeService:
 
     @handle_errors_async(reraise=True)
     async def extract_from_image(
-        self, image_data: bytes, mime_type: str, url: str
-    ) -> Optional[EventData]:
+        self: "ClaudeService", image_data: bytes, mime_type: str, url: str
+    ) -> EventData | None:
         """Extract event data from an image."""
         image_b64 = base64.b64encode(image_data).decode("utf-8")
 
@@ -130,20 +134,98 @@ class ClaudeService:
         result = await self._call_with_vision(vision_prompt, image_b64, mime_type)
 
         if result:
-            # Add source_url and image url, then validate with Pydantic
+            # Add source_url and image url
             result["source_url"] = url
             result["images"] = {"full": url, "thumbnail": url}
+
             # Clean the response data before validation
             cleaned_result = self._clean_response_data(result)
+
+            # Handle time parsing more robustly - let EventTime model handle it
+            time_value = cleaned_result.get("time")
+            if time_value:
+                if isinstance(time_value, str):
+                    # Clean up common invalid time formats
+                    time_str = time_value.strip()
+
+                    # Skip obviously invalid times
+                    if time_str.lower() in ["", "null", "none", "n/a", "tbd", "tba"]:
+                        cleaned_result.pop("time", None)
+                    elif (
+                        time_str.endswith(":") and len(time_str) <= 3
+                    ):  # Handle cases like "7:"
+                        logger.warning(f"Invalid time format '{time_str}', skipping")
+                        cleaned_result.pop("time", None)
+                    else:
+                        # Split time range if present
+                        parts = re.split(r"\s*-\s*|\s+to\s+", time_str, maxsplit=1)
+                        start_time = parts[0].strip() if parts else None
+                        end_time = parts[1].strip() if len(parts) > 1 else None
+
+                        # Only create EventTime if we have valid time strings
+                        if (
+                            start_time and len(start_time) > 1
+                        ):  # Must be more than just a digit
+                            try:
+                                # Let EventTime parse the time format (it handles AM/PM)
+                                cleaned_result["time"] = EventTime(
+                                    start=start_time, end=end_time
+                                )
+                                logger.info(
+                                    f"Successfully parsed time: start='{start_time}', end='{end_time}'"
+                                )
+                            except Exception as e:
+                                logger.warning(
+                                    f"Failed to parse time '{time_value}': {e}"
+                                )
+                                # Remove invalid time rather than failing the whole import
+                                cleaned_result.pop("time", None)
+                        else:
+                            # Remove empty/invalid time
+                            logger.warning(f"Time too short or invalid: '{start_time}'")
+                            cleaned_result.pop("time", None)
+                elif isinstance(time_value, dict):
+                    # Already a dict, let EventTime validate it
+                    try:
+                        cleaned_result["time"] = EventTime(**time_value)
+                        logger.info(
+                            f"Successfully created EventTime from dict: {time_value}"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to create EventTime from dict {time_value}: {e}"
+                        )
+                        cleaned_result.pop("time", None)
+                else:
+                    # Handle other types - convert to string and try again
+                    logger.warning(
+                        f"Unexpected time type {type(time_value)}: {time_value}"
+                    )
+                    cleaned_result.pop("time", None)
+
+            # Now, create the EventData object with the processed data
             return EventData(**cleaned_result)
+
         return None
 
     @handle_errors_async(reraise=True)
-    async def generate_descriptions(self, event_data: EventData) -> EventData:
+    async def generate_descriptions(
+        self: "ClaudeService", event_data: EventData
+    ) -> EventData:
         """Generate missing descriptions for an event."""
+        # Determine which descriptions need to be generated/fixed
+        needs_long = (
+            not event_data.long_description or len(event_data.long_description) > 500
+        )
+        needs_short = (
+            not event_data.short_description or len(event_data.short_description) > 100
+        )
+
         # Build prompt using EventPrompts
-        prompt = EventPrompts.build_description_prompt(
-            event_data.model_dump(exclude_unset=True)
+        prompt = EventPrompts.build_description_only_prompt(
+            event_data.model_dump(exclude_unset=True),
+            needs_long=needs_long,
+            needs_short=needs_short,
         )
 
         try:
@@ -159,7 +241,7 @@ class ClaudeService:
             return event_data
 
     @handle_errors_async(reraise=True)
-    async def analyze_text(self, prompt: str) -> Optional[str]:
+    async def analyze_text(self: "ClaudeService", prompt: str) -> str | None:
         """Analyze text using Claude."""
         if not self.client:
             raise AuthenticationError("Claude")
@@ -174,11 +256,11 @@ class ClaudeService:
 
     @handle_errors_async(reraise=True)
     async def extract_event_data(
-        self,
+        self: "ClaudeService",
         prompt: str,
-        image_b64: Optional[str] = None,
-        mime_type: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
+        image_b64: str | None = None,
+        mime_type: str | None = None,
+    ) -> dict[str, Any] | None:
         """Extract structured event data from a text prompt or image."""
         if image_b64 and mime_type:
             # Use vision for image extraction
@@ -188,7 +270,7 @@ class ClaudeService:
             return await self._call_with_tool(prompt)
 
     @handle_errors_async(reraise=True)
-    async def enhance_genres(self, event_data: EventData) -> EventData:
+    async def enhance_genres(self: "ClaudeService", event_data: EventData) -> EventData:
         """Enhance event genres using Claude."""
         if not event_data.genres:
             return event_data
@@ -210,8 +292,11 @@ class ClaudeService:
             return event_data
 
     async def _call_with_tool(
-        self, prompt: str, tool: Optional[dict] = None, tool_name: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
+        self: "ClaudeService",
+        prompt: str,
+        tool: dict | None = None,
+        tool_name: str | None = None,
+    ) -> dict[str, Any] | None:
         """Make API call with tool use."""
         if not self.client:
             raise AuthenticationError("Claude")
@@ -235,27 +320,34 @@ class ClaudeService:
                 None,
             )
 
-            if tool_use and hasattr(tool_use, 'input'):
+            if tool_use and hasattr(tool_use, "input"):
                 content = tool_use.input
                 try:
                     if isinstance(content, dict):
                         return content
                     return json.loads(content)
                 except (json.JSONDecodeError, TypeError):
-                    logger.warning(f"Claude tool response was not a valid JSON object: {content}")
+                    logger.warning(
+                        f"Claude tool response was not a valid JSON object: {content}"
+                    )
                     return {"raw_text": str(content)}
             else:
                 logger.warning("No tool use block found in Claude response")
                 return None
 
+        except APIStatusError as e:
+            logger.error(f"Claude API call failed: {e}")
+            raise APIError(
+                "Claude", f"API call failed: {e.status_code} - {e.response.text}"
+            ) from e
         except Exception as e:
             # Don't log as error, let the LLMService handle it as a fallback
             logger.debug(f"Claude tool call failed: {e}")
-            raise APIError("Claude", str(e))
+            raise APIError("Claude", str(e)) from e
 
     async def _call_with_vision(
-        self, prompt: str, image_b64: str, mime_type: str
-    ) -> Optional[Dict[str, Any]]:
+        self: "ClaudeService", prompt: str, image_b64: str, mime_type: str
+    ) -> dict[str, Any] | None:
         """Call Claude's vision model with a prompt and image."""
         if not self.client:
             raise AuthenticationError("Claude")
@@ -267,7 +359,6 @@ class ClaudeService:
                     {
                         "role": "user",
                         "content": [
-                            {"type": "text", "text": prompt},
                             {
                                 "type": "image",
                                 "source": {
@@ -276,6 +367,7 @@ class ClaudeService:
                                     "data": image_b64,
                                 },
                             },
+                            {"type": "text", "text": prompt},
                         ],
                     }
                 ],
@@ -283,49 +375,48 @@ class ClaudeService:
                 temperature=0.1,
             )
 
-            # Extract text from response
-            text_content = ""
-            for content in message.content:
-                if isinstance(content, TextBlock):
-                    text_content += content.text
+            if message.content and isinstance(message.content[0], TextBlock):
+                content = message.content[0].text.strip()
 
-            if text_content:
+                # The response should be a JSON object, so let's try to parse it
                 try:
-                    # Try to extract JSON from the response
-                    text_content = text_content.strip()
-                    
-                    # Look for JSON object boundaries
-                    start_idx = text_content.find('{')
-                    end_idx = text_content.rfind('}')
-                    
-                    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-                        json_str = text_content[start_idx:end_idx + 1]
-                    else:
-                        # This handles the case where the model returns *only* the JSON.
-                        json_str = text_content
+                    # Remove markdown backticks if present
+                    if content.startswith("```json"):
+                        content = content[7:-3].strip()
+                    elif content.startswith("```"):
+                        content = content[3:-3].strip()
 
-                    return json.loads(json_str)
+                    return json.loads(content)
                 except json.JSONDecodeError as e:
                     logger.error(
-                        f"Failed to parse JSON from Claude vision response: {e}; content: {text_content}"
+                        f"Failed to parse JSON from Claude vision response: {e}; content: {content}"
                     )
                     # Re-raise as an APIError to be handled by the LLM service
-                    raise APIError("Claude", f"Vision call failed: Claude API error: Failed to parse JSON: {e}")
+                    raise APIError(
+                        "Claude",
+                        f"Vision call failed: Claude API error: Failed to parse JSON: {e}",
+                    ) from e
             else:
                 logger.warning("No text content found in Claude vision response")
                 return None
-            
+
         except APIStatusError as e:
             logger.error(f"Claude vision API call failed: {e}")
-            raise APIError("Claude", f"Vision call failed: {e.status_code} - {e.response.text}")
+            raise APIError(
+                "Claude", f"Vision call failed: {e.status_code} - {e.response.text}"
+            ) from e
         except Exception as e:
             logger.error(f"An unexpected error occurred during Claude vision call: {e}")
-            raise APIError("Claude", f"Vision call failed with unexpected error: {e}")
+            raise APIError(
+                "Claude", f"Vision call failed with unexpected error: {e}"
+            ) from e
 
-    def _clean_response_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _clean_response_data(
+        self: "ClaudeService", data: dict[str, Any]
+    ) -> dict[str, Any]:
         """Clean and validate response data before creating EventData."""
         cleaned = {}
-        
+
         for key, value in data.items():
             if value is not None:
                 # Convert empty strings to None for optional fields
@@ -336,22 +427,5 @@ class ClaudeService:
                     continue
                 else:
                     cleaned[key] = value
-                    
-        return cleaned
-    
-    def _clean_response_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Clean and validate response data before creating EventData."""
-        cleaned = {}
-        
-        for key, value in data.items():
-            if value is not None:
-                # Convert empty strings to None for optional fields
-                if isinstance(value, str) and value.strip() == "":
-                    continue
-                # Convert empty lists to None for optional fields
-                elif isinstance(value, list) and len(value) == 0:
-                    continue
-                else:
-                    cleaned[key] = value
-                    
+
         return cleaned

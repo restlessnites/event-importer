@@ -1,1 +1,1 @@
-"""MCP (Model Context Protocol) server interface.""" 
+"""MCP (Model Context Protocol) server interface."""

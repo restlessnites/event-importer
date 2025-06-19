@@ -1,34 +1,38 @@
 """Core CLI class - cleaned up and using the theme system."""
 
-from typing import Optional, List, Dict, Any
-from contextlib import contextmanager
+from __future__ import annotations
+
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
+from typing import Any
 
 from rich.console import Console
-
-from app.interfaces.cli.theme import Theme
-from app.interfaces.cli.formatters import (
-    ProgressUpdateFormatter,
-    ImportResultFormatter,
-    EventCardFormatter,
-)
+from rich.progress import Progress
 
 from app.interfaces.cli.components import (
-    Header,
-    Section,
-    Message,
-    DataTable,
-    ProgressDisplay,
     CodeBlock,
+    DataTable,
+    Header,
+    Message,
+    ProgressDisplay,
+    Section,
     Spacer,
 )
 from app.interfaces.cli.error_capture import CLIErrorDisplay, get_error_capture
+from app.interfaces.cli.formatters import (
+    EventCardFormatter,
+    ImportResultFormatter,
+    ProgressUpdateFormatter,
+)
+from app.interfaces.cli.theme import Theme
+from app.schemas import ImportResult
 
 
 class CLI:
     """Main CLI interface with proper theming."""
 
-    def __init__(self, width: int = 100, theme: Optional[Theme] = None):
+    def __init__(self: CLI, width: int = 100, theme: Theme | None = None) -> None:
         """Initialize CLI with theme and components."""
         self.width = width
         self.theme = theme or Theme()
@@ -44,8 +48,8 @@ class CLI:
         self.spacer = Spacer(self.console, self.theme)
 
         # Progress tracking
-        self._progress = None
-        self._task_id = None
+        self._progress: Progress | None = None
+        self._task_id: Any | None = None
 
         # Error capture
         self.error_capture = get_error_capture()
@@ -53,34 +57,34 @@ class CLI:
 
     # ============= Core Display Methods =============
 
-    def header(self, title: str, subtitle: Optional[str] = None):
+    def header(self: CLI, title: str, subtitle: str | None = None) -> None:
         """Display a prominent header."""
         self.header_component.render(title, subtitle)
 
-    def section(self, title: str):
+    def section(self: CLI, title: str) -> None:
         """Display a section header."""
         self.section_component.render(title)
 
-    def info(self, message: str):
+    def info(self: CLI, message: str) -> None:
         """Display an info message."""
         self.message.info(message)
 
-    def success(self, message: str):
+    def success(self: CLI, message: str) -> None:
         """Display a success message."""
         self.message.success(message)
 
-    def error(self, message: str):
+    def error(self: CLI, message: str) -> None:
         """Display an error message."""
         self.message.error(message)
 
-    def warning(self, message: str):
+    def warning(self: CLI, message: str) -> None:
         """Display a warning message."""
         self.message.warning(message)
 
     # ============= Progress Methods =============
 
     @contextmanager
-    def progress(self, description: str = "Processing"):
+    def progress(self: CLI, description: str = "Processing") -> Iterator[CLI]:
         """Context manager for progress tracking."""
         progress = self.progress_component.create(description)
         self._progress = progress
@@ -92,7 +96,7 @@ class CLI:
         self._progress = None
         self._task_id = None
 
-    def update_progress(self, percent: float, message: Optional[str] = None):
+    def update_progress(self: CLI, percent: float, message: str | None = None) -> None:
         """Update progress bar."""
         if self._progress and self._task_id is not None:
             if message:
@@ -100,7 +104,7 @@ class CLI:
             self._progress.update(self._task_id, completed=percent)
 
     @contextmanager
-    def spinner(self, message: str):
+    def spinner(self: CLI, message: str) -> Iterator[None]:
         """Show a spinner for indeterminate progress."""
         with self.console.status(
             f"{self.theme.icons.spinner} {message}",
@@ -111,56 +115,58 @@ class CLI:
 
     # ============= Data Display Methods =============
 
-    def table(self, data: List[Dict[str, Any]], title: Optional[str] = None):
+    def table(self: CLI, data: list[dict[str, Any]], title: str | None = None) -> None:
         """Display data in a table."""
         self.table_component.render(data, title)
 
-    def json(self, data: dict, title: Optional[str] = None):
+    def json(self: CLI, data: dict, title: str | None = None) -> None:
         """Display JSON data with syntax highlighting."""
         self.code_component.render(
             json.dumps(data, indent=2, default=str), language="json", title=title
         )
 
-    def code(self, code: str, language: str = "python", title: Optional[str] = None):
+    def code(
+        self: CLI, code: str, language: str = "python", title: str | None = None
+    ) -> None:
         """Display code with syntax highlighting."""
         self.code_component.render(code, language, title)
 
-    def rule(self, title: Optional[str] = None, style: Optional[str] = None):
+    def rule(self: CLI, title: str | None = None, style: str | None = None) -> None:
         """Draw a horizontal rule using theme spacing."""
         self.spacer.add(self.theme.spacing.before_rule)
         style = style or self.theme.typography.muted_style
         self.console.rule(title or "", style=style)
         self.spacer.add(self.theme.spacing.after_rule)
 
-    def clear(self):
+    def clear(self: CLI) -> None:
         """Clear the terminal."""
         self.console.clear()
 
     # ============= Error Capture Methods =============
 
-    def clear_errors(self):
+    def clear_errors(self: CLI) -> None:
         """Clear captured errors."""
         self.error_capture.clear()
 
-    def show_captured_errors(self, title: str = "Captured Errors"):
+    def show_captured_errors(self: CLI, title: str = "Captured Errors") -> None:
         """Display any captured errors."""
         self.error_display.show_captured_errors(self.error_capture, title)
 
     # ============= Your existing event methods, now using theme =============
 
-    def progress_update(self, update: dict):
+    def progress_update(self: CLI, update: dict) -> None:
         """Display a progress update from the import system."""
 
         formatter = ProgressUpdateFormatter(self.console, self.theme)
         formatter.render(update)
 
-    def import_result(self, result, show_raw: bool = False):
+    def import_result(self: CLI, result: ImportResult, show_raw: bool = False) -> None:
         """Display import result with all details."""
 
         formatter = ImportResultFormatter(self.console, self.theme)
         formatter.render(result, show_raw)
 
-    def event_card(self, event_data: dict):
+    def event_card(self: CLI, event_data: dict) -> None:
         """Display event data in a nice card format."""
 
         formatter = EventCardFormatter(self.console, self.theme)

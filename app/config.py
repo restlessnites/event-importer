@@ -1,9 +1,11 @@
 """Centralized configuration management for the Event Importer."""
 
+from __future__ import annotations
+
 import os
 from dataclasses import dataclass, field
-from typing import Optional, Dict
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 
@@ -11,15 +13,15 @@ from dotenv import load_dotenv
 class APIConfig:
     """Configuration for external API services."""
 
-    anthropic_key: Optional[str] = None
-    openai_key: Optional[str] = None
-    zyte_key: Optional[str] = None
-    ticketmaster_key: Optional[str] = None
-    google_api_key: Optional[str] = None
-    google_cse_id: Optional[str] = None
-    ticketfairy_api_key: Optional[str] = None
+    anthropic_key: str | None = None
+    openai_key: str | None = None
+    zyte_key: str | None = None
+    ticketmaster_key: str | None = None
+    google_api_key: str | None = None
+    google_cse_id: str | None = None
+    ticketfairy_api_key: str | None = None
 
-    def validate(self) -> Dict[str, bool]:
+    def validate(self: APIConfig) -> dict[str, bool]:
         """Validate which APIs are configured."""
         return {
             "anthropic": bool(self.anthropic_key),
@@ -65,7 +67,7 @@ class ZyteConfig:
 
     api_url: str = "https://api.zyte.com/v1/extract"
     use_residential_proxy: bool = False
-    geolocation: Optional[str] = None
+    geolocation: str | None = None
     javascript_wait: int = 5  # seconds to wait for JS
     screenshot_full_page: bool = True
 
@@ -91,7 +93,7 @@ class Config:
     log_level: str = "INFO"
 
     @classmethod
-    def from_env(cls, env_file: Optional[Path] = None) -> "Config":
+    def from_env(cls: type[Config], env_file: Path | None = None) -> Config:
         """Create configuration from environment variables."""
         if env_file:
             load_dotenv(env_file)
@@ -134,12 +136,14 @@ class Config:
 
         return config
 
-    def validate(self) -> None:
+    def validate(self: Config) -> None:
         """Validate configuration and raise if critical keys are missing."""
         api_status = self.api.validate()
 
         if not api_status["anthropic"] and not api_status.get("openai"):
-            raise ValueError("At least one of ANTHROPIC_API_KEY or OPENAI_API_KEY is required.")
+            raise ValueError(
+                "At least one of ANTHROPIC_API_KEY or OPENAI_API_KEY is required."
+            )
 
         if not api_status["zyte"]:
             raise ValueError("ZYTE_API_KEY is required")
@@ -160,9 +164,11 @@ class Config:
         if not api_status["ticketfairy"]:
             import logging
 
-            logging.warning("TicketFairy API key not configured - TicketFairy integration disabled")
+            logging.warning(
+                "TicketFairy API key not configured - TicketFairy integration disabled"
+            )
 
-    def get_enabled_features(self) -> Dict[str, bool]:
+    def get_enabled_features(self: Config) -> dict[str, bool]:
         """Get which features are enabled based on configuration."""
         api_status = self.api.validate()
         features = {
@@ -178,7 +184,7 @@ class Config:
 
 
 # Global config instance
-_config: Optional[Config] = None
+_config: Config | None = None
 
 
 def get_config() -> Config:

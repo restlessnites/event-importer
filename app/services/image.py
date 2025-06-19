@@ -1,18 +1,17 @@
 """Enhanced image search service with better query building and candidate selection."""
 
 import logging
-from typing import Optional, List, Tuple, Dict, Any
-from io import BytesIO
-from urllib.parse import urlparse
 import re
+from io import BytesIO
+from typing import Any
+from urllib.parse import urlparse
 
 from PIL import Image, UnidentifiedImageError
 
 from app.config import Config
-from app.shared.http import HTTPService
+from app.errors import handle_errors_async, retry_on_error
 from app.schemas import EventData, ImageCandidate
-from app.errors import retry_on_error, handle_errors_async
-
+from app.shared.http import HTTPService
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +46,9 @@ class ImageService:
         "soundcloud",
     ]
 
-    def __init__(self, config: Config, http_service: HTTPService):
+    def __init__(
+        self: "ImageService", config: Config, http_service: HTTPService
+    ) -> None:
         """Initialize image service."""
         self.config = config
         self.http = http_service
@@ -67,8 +68,11 @@ class ImageService:
 
     @handle_errors_async(reraise=True)
     async def validate_and_download(
-        self, url: str, max_size: Optional[int] = None, http_service: Optional[HTTPService] = None
-    ) -> Optional[Tuple[bytes, str]]:
+        self: "ImageService",
+        url: str,
+        max_size: int | None = None,
+        http_service: HTTPService | None = None,
+    ) -> tuple[bytes, str] | None:
         """Download and validate an image."""
         max_size = max_size or self.config.extraction.max_image_size
         http = http_service or self.http
@@ -90,29 +94,29 @@ class ImageService:
                     and img.height < self.config.extraction.min_image_height
                 ):
                     return None
-            
+
             # Get content-type from headers if possible, or guess from data
             mime_type = "image/jpeg"  # Default, will be refined
             return image_data, mime_type
-            
+
         except UnidentifiedImageError:
             logger.warning(f"Could not identify image from URL: {url}")
             return None
 
     @handle_errors_async(reraise=True)
-    async def rate_image(self, url: str) -> ImageCandidate:
+    async def rate_image(self: "ImageService", url: str) -> ImageCandidate:
         """Rate an image based on various factors."""
         from app.shared.http import HTTPService
 
         candidate = ImageCandidate(url=url)
-        
+
         # Immediately reject images from blocked domains
         parsed_url = urlparse(url)
         if any(domain in parsed_url.netloc for domain in self.AVOID_DOMAINS):
             candidate.score = 0
             candidate.reason = "Domain is blacklisted"
             return candidate
-            
+
         score = 0
         reasons = []
 
@@ -159,15 +163,15 @@ class ImageService:
     @handle_errors_async(reraise=True)
     @retry_on_error(max_attempts=2)
     async def search_event_images(
-        self, event_data: EventData, limit: int = 10
-    ) -> List[ImageCandidate]:
+        self: "ImageService", event_data: EventData, limit: int = 10
+    ) -> list[ImageCandidate]:
         """Search for event images using Google Custom Search."""
         if not self.google_enabled:
             return []
 
         # Build search queries
         queries = self._build_search_queries(event_data)
-        candidates: List[ImageCandidate] = []
+        candidates: list[ImageCandidate] = []
 
         # Search each query
         for query in queries:
@@ -190,7 +194,9 @@ class ImageService:
         candidates.sort(key=lambda x: x.score, reverse=True)
         return candidates[:limit]
 
-    def _get_primary_artist_for_search(self, event_data: EventData) -> Optional[str]:
+    def _get_primary_artist_for_search(
+        self: "ImageService", event_data: EventData
+    ) -> str | None:
         """Extract the main artist name from event data for image searching."""
         if event_data.lineup:
             return event_data.lineup[0]
@@ -198,7 +204,6 @@ class ImageService:
         title = event_data.title
 
         # Clean up common venue/event prefixes and suffixes from the title
-        import re
 
         clean_patterns = [
             r"^(live at|at the|concert at|presents?)\s+",
@@ -211,7 +216,7 @@ class ImageService:
 
         return title.strip() if title.strip() else None
 
-    def _build_search_queries(self, event_data: EventData) -> List[str]:
+    def _build_search_queries(self: "ImageService", event_data: EventData) -> list[str]:
         """Build a list of search queries for Google Image Search."""
         artist_name = self._get_primary_artist_for_search(event_data)
         if not artist_name:
@@ -228,8 +233,8 @@ class ImageService:
 
     @handle_errors_async(reraise=True)
     async def _search_google_images(
-        self, query: str, limit: int = 10
-    ) -> List[Dict[str, Any]]:
+        self: "ImageService", query: str, limit: int = 10
+    ) -> list[dict[str, Any]]:
         """Search for images using Google Custom Search API."""
         if not self.google_enabled:
             return []

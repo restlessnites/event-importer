@@ -1,172 +1,224 @@
 """Service for OpenAI API interactions."""
 
-import os
-from openai import AsyncOpenAI
-from typing import Any, Dict, Optional
-from app.schemas import EventData
-from app.config import Config
-from app.errors import APIError, handle_errors_async, ConfigurationError
-from app.prompts import EventPrompts
-import logging
+from __future__ import annotations
+
 import base64
 import json
+import logging
 import re
+from typing import Any
+
+from openai import AsyncOpenAI
+from openai.types.chat import ChatCompletionMessageParam
+
+from app.config import Config
+from app.errors import APIError, ConfigurationError, handle_errors_async
+from app.prompts import EventPrompts
+from app.schemas import EventData
 
 logger = logging.getLogger(__name__)
 
-class OpenAIService:
 
+class OpenAIService:
     # Tool definition for structured extraction
     EXTRACTION_TOOL = {
-        "name": "extract_event_data",
-        "description": "Extract structured event information",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "title": {"type": "string"},
-                "venue": {"type": ["string", "null"]},
-                "date": {"type": ["string", "null"]},
-                "time": {
-                    "type": ["object", "null"],
-                    "properties": {
-                        "start": {"type": ["string", "null"]},
-                        "end": {"type": ["string", "null"]},
+        "type": "function",
+        "function": {
+            "name": "extract_event_data",
+            "description": "Extract structured event information",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "venue": {"type": ["string", "null"]},
+                    "date": {"type": ["string", "null"]},
+                    "time": {
+                        "type": ["object", "null"],
+                        "properties": {
+                            "start": {"type": ["string", "null"]},
+                            "end": {"type": ["string", "null"]},
+                        },
                     },
-                },
-                "promoters": {
-                    "type": ["array", "null"],
-                    "items": {"type": "string"},
-                },
-                "lineup": {
-                    "type": ["array", "null"],
-                    "items": {"type": "string"},
-                },
-                "genres": {
-                    "type": ["array", "null"],
-                    "items": {"type": "string"},
-                },
-                "long_description": {"type": ["string", "null"]},
-                "short_description": {"type": ["string", "null"]},
-                "location": {
-                    "type": ["object", "null"],
-                    "properties": {
-                        "address": {"type": ["string", "null"]},
-                        "city": {"type": ["string", "null"]},
-                        "state": {"type": ["string", "null"]},
-                        "country": {"type": ["string", "null"]},
-                        "coordinates": {
-                            "type": ["object", "null"],
-                            "properties": {
-                                "lat": {"type": ["number", "null"]},
-                                "lng": {"type": ["number", "null"]},
+                    "promoters": {
+                        "type": ["array", "null"],
+                        "items": {"type": "string"},
+                    },
+                    "lineup": {
+                        "type": ["array", "null"],
+                        "items": {"type": "string"},
+                    },
+                    "genres": {
+                        "type": ["array", "null"],
+                        "items": {"type": "string"},
+                    },
+                    "long_description": {"type": ["string", "null"]},
+                    "short_description": {"type": ["string", "null"]},
+                    "location": {
+                        "type": ["object", "null"],
+                        "properties": {
+                            "address": {"type": ["string", "null"]},
+                            "city": {"type": ["string", "null"]},
+                            "state": {"type": ["string", "null"]},
+                            "country": {"type": ["string", "null"]},
+                            "coordinates": {
+                                "type": ["object", "null"],
+                                "properties": {
+                                    "lat": {"type": ["number", "null"]},
+                                    "lng": {"type": ["number", "null"]},
+                                },
                             },
                         },
                     },
-                },
-                "images": {
-                    "type": ["object", "null"],
-                    "properties": {
-                        "full": {"type": ["string", "null"]},
-                        "thumbnail": {"type": ["string", "null"]},
+                    "images": {
+                        "type": ["object", "null"],
+                        "properties": {
+                            "full": {"type": ["string", "null"]},
+                            "thumbnail": {"type": ["string", "null"]},
+                        },
                     },
+                    "minimum_age": {"type": ["string", "null"]},
+                    "cost": {"type": ["string", "null"]},
+                    "ticket_url": {"type": ["string", "null"]},
                 },
-                "minimum_age": {"type": ["string", "null"]},
-                "cost": {"type": ["string", "null"]},
-                "ticket_url": {"type": ["string", "null"]},
+                "required": ["title"],
             },
-            "required": ["title"],
         },
     }
 
     # Tool for description generation
     DESCRIPTION_TOOL = {
-        "name": "generate_descriptions",
-        "description": "Generate event descriptions",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "long_description": {"type": ["string", "null"]},
-                "short_description": {"type": ["string", "null"]},
+        "type": "function",
+        "function": {
+            "name": "generate_descriptions",
+            "description": "Generate event descriptions",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "long_description": {"type": ["string", "null"]},
+                    "short_description": {"type": ["string", "null"]},
+                },
+                "required": [],
             },
-            "required": [],
         },
     }
 
     # Tool for genre enhancement
     GENRE_TOOL = {
-        "name": "enhance_genres",
-        "description": "Enhance event genres",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "genres": {
-                    "type": "array",
-                    "items": {"type": "string"},
+        "type": "function",
+        "function": {
+            "name": "enhance_genres",
+            "description": "Enhance and categorize event genres",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "genres": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of enhanced genre categories",
+                    }
                 },
+                "required": ["genres"],
             },
-            "required": ["genres"],
         },
     }
 
-    def __init__(self, config: Config):
+    def __init__(self: OpenAIService, config: Config) -> None:
         """Initialize OpenAI service."""
-        self.config = config
-        # Fix: Use config.api.openai_key instead of openai_api_key
-        api_key = config.api.openai_key
-        if not api_key:
-            api_key = os.getenv("OPENAI_API_KEY")
-        
-        if api_key:
-            self.client = AsyncOpenAI(api_key=api_key)
-        else:
-            self.client = None
-            
+        if not config.api.openai_key:
+            raise ConfigurationError("OpenAI API key not found in configuration.")
+        self.client = AsyncOpenAI(api_key=config.api.openai_key)
         self.model = "gpt-4-turbo-preview"
         self.max_tokens = 4096
 
-    def _add_json_requirement(self, prompt: str) -> str:
+    def _add_json_requirement(self: OpenAIService, prompt: str) -> str:
         """Add JSON requirement to any prompt used with OpenAI."""
-        return f"Return the information as a valid JSON object.\n\n{prompt}"
+        return f"Return the information as a valid JSON object.\\n{prompt}"
 
-    def _clean_response_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Clean OpenAI response data to ensure Pydantic validation compatibility."""
-        if not data:
-            return data
-        
-        # Check if this is an error response from the model
-        if "error" in data and isinstance(data["error"], str):
-            logger.error(f"OpenAI returned error response: {data}")
-            raise APIError("OpenAI", f"Model returned error: {data['error']}")
-        
-        # Handle nested response structures (unwrap if needed)
-        # Sometimes OpenAI returns {"event": {...}} instead of just {...}
-        if "event" in data and isinstance(data["event"], dict) and len(data) == 1:
-            logger.debug("Unwrapping nested 'event' structure from OpenAI response")
-            data = data["event"]
-        
-        # Handle images field - remove None values from the dict
-        if "images" in data and data["images"]:
-            images = data["images"]
-            if isinstance(images, dict):
-                # Remove any None values from the images dict
-                cleaned_images = {k: v for k, v in images.items() if v is not None}
-                # If no valid images remain, set to None
-                data["images"] = cleaned_images if cleaned_images else None
-        
-        # Convert empty string for ticket_url to None to avoid validation errors
-        if "ticket_url" in data and data["ticket_url"] == "":
-            data["ticket_url"] = None
-            
-        return data
+    def _clean_response_data(
+        self: OpenAIService, data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Clean and validate response data before creating EventData."""
+        cleaned = {}
+
+        for key, value in data.items():
+            if value is not None:
+                # Convert empty strings to None for optional fields
+                if isinstance(value, str) and value.strip() == "":
+                    continue
+                # Convert empty lists to empty list (not None) for list fields
+                elif (
+                    isinstance(value, list)
+                    and len(value) == 0
+                    and key in ["promoters", "lineup", "genres"]
+                ):
+                    cleaned[key] = []
+                # Keep non-empty values
+                else:
+                    cleaned[key] = value
+
+        # Handle images field specifically - ensure it's either None or a dict with valid strings
+        images_value = cleaned.get("images")
+        if images_value:
+            if isinstance(images_value, dict):
+                # Clean the images dict, removing None values
+                cleaned_images = {}
+                for img_key, img_url in images_value.items():
+                    if img_url and isinstance(img_url, str) and img_url.strip():
+                        cleaned_images[img_key] = img_url.strip()
+
+                # Only keep images dict if it has valid entries
+                if cleaned_images:
+                    cleaned["images"] = cleaned_images
+                else:
+                    cleaned.pop("images", None)
+            else:
+                # If images is not a dict, remove it
+                cleaned.pop("images", None)
+
+        # Handle time parsing specifically
+        time_value = cleaned.get("time")
+        if time_value:
+            if isinstance(time_value, str):
+                # Split time range if present
+                parts = re.split(r"\s*-\s*|\s+to\s+", time_value, maxsplit=1)
+                start_time = parts[0].strip() if parts else None
+                end_time = parts[1].strip() if len(parts) > 1 else None
+
+                # Only create EventTime if we have valid time strings
+                if start_time and start_time.lower() not in ["", "null", "none", "n/a"]:
+                    try:
+                        from app.schemas import EventTime
+
+                        cleaned["time"] = EventTime(start=start_time, end=end_time)
+                    except Exception as e:
+                        logger.warning(f"Failed to parse time '{time_value}': {e}")
+                        # Remove invalid time rather than failing the whole import
+                        cleaned.pop("time", None)
+                else:
+                    # Remove empty/invalid time
+                    cleaned.pop("time", None)
+            elif isinstance(time_value, dict):
+                # Already a dict, let EventTime validate it
+                try:
+                    from app.schemas import EventTime
+
+                    cleaned["time"] = EventTime(**time_value)
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to create EventTime from dict {time_value}: {e}"
+                    )
+                    cleaned.pop("time", None)
+
+        return cleaned
 
     @handle_errors_async(reraise=True)
     async def extract_from_html(
-        self, html: str, url: str, max_length: int = 50000
-    ) -> Optional[EventData]:
+        self: OpenAIService, html: str, url: str, max_length: int = 50000
+    ) -> EventData | None:
         """Extract event data from HTML content."""
         if not self.client:
             raise ConfigurationError("OpenAI client not initialized - check API key")
-            
+
         # Truncate if too long
         if len(html) > max_length:
             html = html[:max_length] + "\n<!-- truncated -->"
@@ -192,12 +244,12 @@ class OpenAIService:
 
     @handle_errors_async(reraise=True)
     async def extract_from_image(
-        self, image_data: bytes, mime_type: str, url: str
-    ) -> Optional[EventData]:
+        self: OpenAIService, image_data: bytes, mime_type: str, url: str
+    ) -> EventData | None:
         """Extract event data from an image."""
         if not self.client:
             raise ConfigurationError("OpenAI client not initialized - check API key")
-            
+
         image_b64 = base64.b64encode(image_data).decode("utf-8")
 
         # Build prompt using EventPrompts
@@ -222,14 +274,20 @@ class OpenAIService:
         return None
 
     @handle_errors_async(reraise=True)
-    async def generate_descriptions(self, event_data: EventData) -> EventData:
+    async def generate_descriptions(
+        self: OpenAIService, event_data: EventData
+    ) -> EventData:
         """Generate missing descriptions for an event."""
         if not self.client:
             raise ConfigurationError("OpenAI client not initialized - check API key")
-            
-        # Check if we need to generate descriptions
-        needs_long = not bool(event_data.long_description)
-        needs_short = not bool(event_data.short_description)
+
+        # Check if we need to generate descriptions (missing or too long)
+        needs_long = (
+            not event_data.long_description or len(event_data.long_description) > 500
+        )
+        needs_short = (
+            not event_data.short_description or len(event_data.short_description) > 100
+        )
 
         if not needs_long and not needs_short:
             return event_data
@@ -261,11 +319,11 @@ class OpenAIService:
         return event_data
 
     @handle_errors_async(reraise=True)
-    async def analyze_text(self, prompt: str) -> Optional[str]:
+    async def analyze_text(self: OpenAIService, prompt: str) -> str | None:
         """Analyze text with OpenAI and return raw response."""
         if not self.client:
             raise ConfigurationError("OpenAI client not initialized - check API key")
-            
+
         response = await self.client.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
@@ -276,15 +334,15 @@ class OpenAIService:
 
     @handle_errors_async(reraise=True)
     async def extract_event_data(
-        self,
+        self: OpenAIService,
         prompt: str,
-        image_b64: Optional[str] = None,
-        mime_type: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
+        image_b64: str | None = None,
+        mime_type: str | None = None,
+    ) -> dict[str, Any] | None:
         """Extract structured event data from a text prompt or image."""
         if not self.client:
             raise ConfigurationError("OpenAI client not initialized - check API key")
-            
+
         if image_b64 and mime_type:
             # Use vision for image extraction
             return await self._call_with_vision(prompt, image_b64, mime_type)
@@ -292,11 +350,11 @@ class OpenAIService:
             # Use regular tool for text extraction
             return await self._call_with_tool(prompt)
 
-    async def enhance_genres(self, event_data: EventData) -> EventData:
+    async def enhance_genres(self: OpenAIService, event_data: EventData) -> EventData:
         """Enhance event genres using OpenAI."""
         if not self.client:
             raise ConfigurationError("OpenAI client not initialized - check API key")
-            
+
         if not event_data.genres:
             return event_data
 
@@ -319,8 +377,11 @@ class OpenAIService:
             return event_data
 
     async def _call_with_tool(
-        self, prompt: str, tool: Optional[dict] = None, tool_name: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
+        self: OpenAIService,
+        prompt: str,
+        tool: dict[str, Any] | None = None,
+        tool_name: str | None = None,
+    ) -> dict[str, Any] | None:
         """Make API call with tool use."""
         if not tool:
             tool = self.EXTRACTION_TOOL
@@ -329,96 +390,125 @@ class OpenAIService:
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"},
+                tools=[tool],
+                tool_choice={"type": "function", "function": {"name": tool_name}},
                 max_tokens=self.max_tokens,
-                temperature=0.1,
             )
-            content = response.choices[0].message.content
+            content = response.choices[0].message.tool_calls[0].function.arguments
             try:
-                # Try to parse the first valid JSON object from the response
-                json_start = content.find('{')
-                json_end = content.rfind('}') + 1
-                if json_start != -1 and json_end != -1:
-                    json_str = content[json_start:json_end]
-                    parsed = json.loads(json_str)
-                    
-                    # Validate that this looks like event data and not an error
-                    if isinstance(parsed, dict):
-                        # Check for common error patterns
-                        if "error" in parsed and len(parsed) == 1:
-                            raise APIError("OpenAI", f"Model returned error: {parsed['error']}")
-                        # Check if it has minimal required structure
-                        if not any(key in parsed for key in ["title", "event"]):
-                            logger.warning(f"OpenAI response missing expected fields: {parsed}")
-                    
-                    return parsed
-                else:
-                    raise ValueError("No JSON object found in response")
+                return json.loads(content)
             except Exception as e:
-                logger.error(f"Failed to parse JSON from OpenAI response: {e}; content: {content}")
-                raise APIError("OpenAI", f"Failed to parse JSON: {e}")
+                logger.error(
+                    f"Failed to parse JSON from OpenAI response: {e}; content: {content}"
+                )
+                raise APIError("OpenAI", f"Failed to parse JSON: {e}") from e
         except Exception as e:
             logger.error(f"OpenAI tool call failed: {e}")
-            raise APIError("OpenAI", str(e))
+            raise APIError("OpenAI", str(e)) from e
 
     async def _call_with_vision(
-        self, prompt: str, image_b64: str, mime_type: str
-    ) -> Optional[Dict[str, Any]]:
-        """Call OpenAI's vision model with a prompt and image."""
+        self: OpenAIService, prompt: str, image_b64: str, mime_type: str
+    ) -> dict[str, Any] | None:
+        """Call OpenAI vision API with a given prompt and image."""
         if not self.client:
-            raise ConfigurationError("OpenAI client not initialized")
+            raise ConfigurationError("OpenAI client not initialized - check API key")
 
-        # Call OpenAI vision model
-        response = await self.client.chat.completions.create(
-            model="gpt-4-turbo",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:{mime_type};base64,{image_b64}"
-                            }
-                        }
-                    ]
-                }
-            ],
-            response_format={"type": "json_object"},
-            max_tokens=self.max_tokens,
-            temperature=0.1,
-        )
-        content = response.choices[0].message.content
+        logger.debug(f"Calling OpenAI vision with model {self.model}")
         try:
-            # Find the JSON object in the response text, robustly.
-            # It might be wrapped in ```json ... ```
-            match = re.search(r"```json\s*(\{.*?\})\s*```", content, re.DOTALL)
+            response = await self.client.chat.completions.create(
+                model="gpt-4-turbo",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{mime_type};base64,{image_b64}"
+                                },
+                            },
+                        ],
+                    }
+                ],
+                max_tokens=self.max_tokens,
+            )
+
+            # The response should be a JSON object, so we look for that.
+            response_text = response.choices[0].message.content
+            if not response_text:
+                return None
+
+            # Extract JSON from the response text
+            match = re.search(r"```json\n(.*?)\n```", response_text, re.DOTALL)
             if match:
                 json_str = match.group(1)
             else:
-                # Fallback to finding first { and last }
-                json_start = content.find("{")
-                json_end = content.rfind("}") + 1
-                if json_start != -1 and json_end > json_start:
-                    json_str = content[json_start:json_end]
-                else:
-                    # If no JSON object is found, try to parse the whole content.
-                    # This handles the case where the model returns *only* the JSON.
-                    json_str = content
-            
-            parsed = json.loads(json_str)
-            
-            # Validate response structure
-            if isinstance(parsed, dict):
-                # Check for error responses
-                if "error" in parsed and len(parsed) == 1:
-                    raise APIError("OpenAI", f"Vision model returned error: {parsed['error']}")
-            
-            return parsed
+                # If no markdown block, assume the whole response is JSON
+                json_str = response_text
+
+            return json.loads(json_str)
+
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON from OpenAI vision response: {e}; content: {content}")
-            raise APIError("OpenAI", f"Failed to parse JSON from vision response: {e}")
+            logger.error(f"Failed to decode JSON from vision response: {e}")
+            raise APIError("OpenAI", f"JSON decode error: {e}") from e
         except Exception as e:
             logger.error(f"OpenAI vision call failed: {e}")
-            raise APIError("OpenAI", f"Vision call failed: {e}")
+            raise APIError("OpenAI", f"Vision call failed: {e}") from e
+
+    async def _call(
+        self: OpenAIService,
+        model: str,
+        messages: list[ChatCompletionMessageParam],
+        temperature: float,
+    ) -> str | None:
+        """Make a call to the OpenAI API."""
+        if not self.client:
+            raise ConfigurationError("OpenAI client not initialized - check API key")
+
+        logger.debug(f"Calling OpenAI with model {model}")
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=self.max_tokens,
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            logger.error(f"OpenAI call failed: {e}")
+            return None
+
+    async def _call_json(
+        self: OpenAIService,
+        messages: list[ChatCompletionMessageParam],
+        temperature: float = 0.0,
+    ) -> dict | None:
+        try:
+            response = await self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=messages,
+                temperature=temperature,
+                response_format={"type": "json_object"},
+            )
+            content = response.choices[0].message.content
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError as e:
+                logger.error(
+                    f"Failed to parse JSON from OpenAI response: {e}; content: {content}"
+                )
+                return None
+        except Exception as e:
+            logger.error(f"OpenAI call failed: {e}")
+            return None
+
+    async def get_embedding(
+        self: OpenAIService, text: str, model: str = "text-embedding-3-small"
+    ) -> list[float]:
+        text = text.replace("\n", " ")
+        return (
+            (await self.client.embeddings.create(input=[text], model=model))
+            .data[0]
+            .embedding
+        )

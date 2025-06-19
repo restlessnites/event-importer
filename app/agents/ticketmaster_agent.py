@@ -1,12 +1,14 @@
 """Ticketmaster Discovery API agent."""
 
+from __future__ import annotations
+
 import logging
-from typing import Optional
+from typing import Any
 
+from app.schemas import EventData, EventLocation, EventTime, ImportMethod, ImportStatus
 from app.shared.agent import Agent
-from app.schemas import EventData, ImportMethod, ImportStatus, EventTime, EventLocation
+from app.shared.http import HTTPService
 from app.shared.url_analyzer import URLAnalyzer
-
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +17,10 @@ class TicketmasterAgent(Agent):
     """Agent for importing events from Ticketmaster."""
 
     API_BASE = "https://app.ticketmaster.com/discovery/v2"
+    http: HTTPService
+    api_key: str | None
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: tuple[Any, ...], **kwargs: dict[str, Any]) -> None:
         super().__init__(*args, **kwargs)
         self.url_analyzer = URLAnalyzer()
         # Use shared services
@@ -24,21 +28,23 @@ class TicketmasterAgent(Agent):
         self.api_key = self.config.api.ticketmaster_key
 
     @property
-    def name(self) -> str:
+    def name(self: TicketmasterAgent) -> str:
         return "Ticketmaster"
 
     @property
-    def import_method(self) -> ImportMethod:
+    def import_method(self: TicketmasterAgent) -> ImportMethod:
         return ImportMethod.API
 
-    async def import_event(self, url: str, request_id: str) -> Optional[EventData]:
+    async def import_event(
+        self: TicketmasterAgent, url: str, request_id: str
+    ) -> EventData | None:
         """Import event from Ticketmaster API using search as the default method."""
         self.start_timer()
 
         await self.send_progress(
             request_id,
             ImportStatus.RUNNING,
-            f"Extracting search info from URL for Ticketmaster Discovery API",
+            "Extracting search info from URL for Ticketmaster Discovery API",
             0.2,
         )
 
@@ -52,7 +58,7 @@ class TicketmasterAgent(Agent):
                 await self.send_progress(
                     request_id,
                     ImportStatus.RUNNING,
-                    f"Searching Ticketmaster Discovery API for event...",
+                    "Searching Ticketmaster Discovery API for event...",
                     0.3,
                 )
                 event_json = await self._search_for_event(search_info)
@@ -73,7 +79,9 @@ class TicketmasterAgent(Agent):
                     event_json = await self._fetch_event(event_id)
 
             if not event_json:
-                raise Exception("Event not found in Ticketmaster Discovery API (search and direct fetch failed)")
+                raise Exception(
+                    "Event not found in Ticketmaster Discovery API (search and direct fetch failed)"
+                )
 
             await self.send_progress(
                 request_id, ImportStatus.RUNNING, "Parsing event data", 0.7
@@ -97,7 +105,9 @@ class TicketmasterAgent(Agent):
                 await self.send_progress(
                     request_id, ImportStatus.RUNNING, "Generating descriptions", 0.85
                 )
-                event_data = await self.services["llm"].generate_descriptions(event_data)
+                event_data = await self.services["llm"].generate_descriptions(
+                    event_data
+                )
 
             await self.send_progress(
                 request_id,
@@ -120,7 +130,7 @@ class TicketmasterAgent(Agent):
             )
             return None
 
-    async def _fetch_event(self, event_id: str) -> Optional[dict]:
+    async def _fetch_event(self: TicketmasterAgent, event_id: str) -> dict | None:
         """Fetch event from Discovery API."""
         try:
             data = await self.http.get_json(
@@ -129,12 +139,12 @@ class TicketmasterAgent(Agent):
                 params={"apikey": self.api_key},
             )
             return data
-        except Exception as e:
+        except Exception:
             # Try searching if direct fetch fails
-            logger.info(f"Direct fetch failed, trying search")
+            logger.info("Direct fetch failed, trying search")
             return None
 
-    def _parse_event(self, event: dict, url: str) -> EventData:
+    def _parse_event(self: TicketmasterAgent, event: dict, url: str) -> EventData:
         """Parse Ticketmaster event data to our schema, with robust description extraction."""
         # Extract date and time
         date = None
@@ -239,7 +249,7 @@ class TicketmasterAgent(Agent):
             source_url=url,
         )
 
-    def _extract_search_info_from_url(self, url: str) -> dict:
+    def _extract_search_info_from_url(self: TicketmasterAgent, url: str) -> dict:
         """Extract searchable information from a Ticketmaster URL using domain/source and path keywords."""
         import re
         from urllib.parse import urlparse
@@ -268,29 +278,29 @@ class TicketmasterAgent(Agent):
                 if d in domain:
                     search_info["domain"] = d
                     break
-        
+
         # Extract a keyword from the URL path, as it's often descriptive
         keyword_str = path
-        
+
         # Remove '/event/' prefix if present
         if "/event/" in keyword_str:
             keyword_str = keyword_str.split("/event/")[1]
-            
+
         # Clean up string for use as a keyword:
         # 1. Replace separators with spaces
         keyword_str = keyword_str.replace("-", " ").replace("/", " ")
-        
+
         # 2. Remove long alphanumeric IDs (like TM event IDs)
-        keyword_str = re.sub(r'\b[a-zA-Z0-9]{16,}\b', '', keyword_str)
-        
+        keyword_str = re.sub(r"\b[a-zA-Z0-9]{16,}\b", "", keyword_str)
+
         # 3. Remove any standalone numbers (likely affiliate event IDs)
-        keyword_str = re.sub(r'\b\d+\b', '', keyword_str)
-        
+        keyword_str = re.sub(r"\b\d+\b", "", keyword_str)
+
         # 4. Remove common unhelpful terms
         common_terms = ["tickets", "event", "detail", "purchase"]
         for term in common_terms:
-            keyword_str = re.sub(rf'\b{term}\b', '', keyword_str, flags=re.IGNORECASE)
-            
+            keyword_str = re.sub(rf"\b{term}\b", "", keyword_str, flags=re.IGNORECASE)
+
         # 5. Clean up whitespace and take the first 6 words for a concise keyword
         cleaned_words = keyword_str.split()
         if cleaned_words:
@@ -299,7 +309,9 @@ class TicketmasterAgent(Agent):
         logger.info(f"Extracted search info from URL: {search_info}")
         return search_info
 
-    async def _search_for_event(self, search_info: dict) -> Optional[dict]:
+    async def _search_for_event(
+        self: TicketmasterAgent, search_info: dict
+    ) -> dict | None:
         """Search for an event using the Discovery API search endpoint with domain/source filtering."""
         try:
             params = {

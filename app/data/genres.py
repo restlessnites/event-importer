@@ -1,6 +1,7 @@
 """Genre definitions and validation utilities."""
 
-from typing import List
+from __future__ import annotations
+
 import re
 
 
@@ -230,7 +231,7 @@ class MusicGenres:
     }
 
     @classmethod
-    def normalize_genre(cls, genre: str) -> str:
+    def normalize_genre(cls: type[MusicGenres], genre: str) -> str:
         """Normalize a genre string."""
         if not genre:
             return ""
@@ -258,7 +259,7 @@ class MusicGenres:
         return cleaned
 
     @classmethod
-    def validate_genres(cls, genres: List[str]) -> List[str]:
+    def validate_genres(cls: type[MusicGenres], genres: list[str]) -> list[str]:
         """Validate and normalize a list of genres."""
         validated = []
         seen = set()
@@ -272,7 +273,7 @@ class MusicGenres:
         return validated
 
     @classmethod
-    def get_category(cls, genre: str) -> str:
+    def get_category(cls: type[MusicGenres], genre: str) -> str:
         """Get the category for a genre."""
         normalized = cls.normalize_genre(genre)
 

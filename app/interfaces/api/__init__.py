@@ -1,1 +1,1 @@
-"""HTTP REST API interface.""" 
+"""HTTP REST API interface."""

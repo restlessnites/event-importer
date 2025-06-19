@@ -1,11 +1,14 @@
 """Agent for importing events from direct image URLs."""
 
+from __future__ import annotations
+
 import logging
-from typing import Optional
+from typing import Any
 
-from app.shared.agent import Agent
 from app.schemas import EventData, ImportMethod, ImportStatus
-
+from app.services.image import ImageService
+from app.shared.agent import Agent
+from app.shared.http import HTTPService
 
 logger = logging.getLogger(__name__)
 
@@ -13,21 +16,26 @@ logger = logging.getLogger(__name__)
 class ImageAgent(Agent):
     """Agent for importing events from image URLs (flyers/posters)."""
 
-    def __init__(self, *args, **kwargs):
+    http: HTTPService
+    image_service: ImageService
+
+    def __init__(self, *args: tuple[Any, ...], **kwargs: dict[str, Any]) -> None:
         super().__init__(*args, **kwargs)
         # Use shared services
         self.http = self.services["http"]
         self.image_service = self.services["image"]
 
     @property
-    def name(self) -> str:
+    def name(self: ImageAgent) -> str:
         return "ImageAgent"
 
     @property
-    def import_method(self) -> ImportMethod:
+    def import_method(self: ImageAgent) -> ImportMethod:
         return ImportMethod.IMAGE
 
-    async def import_event(self, url: str, request_id: str) -> Optional[EventData]:
+    async def import_event(
+        self: ImageAgent, url: str, request_id: str
+    ) -> EventData | None:
         """Import event from image URL."""
         self.start_timer()
 
@@ -50,7 +58,7 @@ class ImageAgent(Agent):
                 0.5,
             )
 
-            # Extract with Claude - it will generate descriptions if needed
+            # Extract with Claude. The service now handles parsing and returns a complete EventData object.
             event_data = await self.services["llm"].extract_from_image(
                 image_data, mime_type, url
             )
