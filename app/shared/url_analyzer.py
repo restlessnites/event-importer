@@ -11,6 +11,7 @@ class URLType(str, Enum):
 
     RESIDENT_ADVISOR = "resident_advisor"
     TICKETMASTER = "ticketmaster"
+    DICE = "dice"
     UNKNOWN = "unknown"  # Everything else
 
 
@@ -62,6 +63,25 @@ class URLAnalyzer:
                 # Validate it looks like a TM event ID
                 if re.match(r"^[0-9A-Fa-f]{16}$", event_id):
                     return {"type": URLType.TICKETMASTER, "event_id": event_id}
+
+        # Check for Dice.fm
+        if domain in ["dice.fm"]:
+            # Dice URLs typically look like:
+            # https://dice.fm/event/{id}-{slug}
+            # or https://dice.fm/event/{slug}
+            match = re.search(r"/event/([^/?]+)", path)
+            if match:
+                event_slug = match.group(1)
+                
+                # Try to extract ID if it's at the beginning of the slug
+                # Format: {ID}-{slug} where ID is typically alphanumeric
+                id_match = re.match(r"^([a-zA-Z0-9]{6,})-", event_slug)
+                if id_match:
+                    return {"type": URLType.DICE, "event_id": id_match.group(1), "slug": event_slug}
+                else:
+                    # Return as dice type but without extracted ID
+                    # The agent will need to parse the HTML to get the ID
+                    return {"type": URLType.DICE, "slug": event_slug}
 
         # Everything else is unknown (will be determined by content-type)
         return {"type": URLType.UNKNOWN}

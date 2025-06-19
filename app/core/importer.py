@@ -16,6 +16,7 @@ from app.shared.agent import Agent
 from app.agents import (
     ResidentAdvisorAgent,
     TicketmasterAgent,
+    DiceAgent,
     WebAgent,
     ImageAgent,
 )
@@ -253,6 +254,9 @@ class EventImporter:
                 ResidentAdvisorAgent(
                     self.config, progress_callback, services=self._services
                 ),
+                DiceAgent(  # Add this block
+                    self.config, progress_callback, services=self._services
+                ),
                 WebAgent(self.config, progress_callback, services=self._services),
                 ImageAgent(self.config, progress_callback, services=self._services),
             ]
@@ -276,7 +280,7 @@ class EventImporter:
         if force_method:
             # Find agent by method name mapping
             method_mapping = {
-                "api": ["ResidentAdvisor", "Ticketmaster"],
+                "api": ["ResidentAdvisor", "Ticketmaster", "Dice"],
                 "web": ["WebScraper"], 
                 "image": ["ImageAgent"],
             }
@@ -300,6 +304,8 @@ class EventImporter:
             agent = self._get_agent_by_name("Ticketmaster") 
             # Only return if API key is configured
             return agent if self.config.api.ticketmaster_key else None
+        elif analysis.get("type") == "dice": 
+            return self._get_agent_by_name("Dice")
 
         # Check for image URLs by extension or keywords before falling back to web scraping
         image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']

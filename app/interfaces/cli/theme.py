@@ -26,6 +26,8 @@ class Icons:
     
     # Objects
     event = "◆"
+    artist = "♪"
+    image = "▢"
     url = "⎘"
     time = "◷"
     location = "◉"
@@ -34,6 +36,9 @@ class Icons:
     cached = "⚡"
     fresh = "⟳" 
     failed = "✗"
+
+    # General
+    bullet = "‣"
 
 
 @dataclass

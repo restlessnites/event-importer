@@ -99,7 +99,7 @@ class EventCardFormatter:
 
         # Show all artists in a clean list
         for artist in lineup:
-            self.console.print(f"{self.theme.icons.bullet} {artist}")
+            self.console.print(f"{self.theme.icons.artist} {artist}")
         self.console.print()
 
     def _render_descriptions(self, event_data: Dict[str, Any]) -> None:
@@ -141,11 +141,11 @@ class EventCardFormatter:
             if images:
                 if images.get("full"):
                     full_url = format_url_for_display(images["full"], "full")
-                    self.console.print(f"{self.theme.icons.bullet} Full: {full_url}")
+                    self.console.print(f"{self.theme.icons.image} Full: {full_url}")
                 
                 if images.get("thumbnail") and images["thumbnail"] != images.get("full"):
                     thumb_url = format_url_for_display(images["thumbnail"], "full")
-                    self.console.print(f"{self.theme.icons.bullet} Thumbnail: {thumb_url}")
+                    self.console.print(f"{self.theme.icons.image} Thumbnail: {thumb_url}")
             
             # Image search info (if available)
             if image_search:
@@ -211,7 +211,7 @@ class EventCardFormatter:
             
             for label, url in links:
                 self.console.print(
-                    f"{self.theme.icons.bullet} {label}: {url}"
+                    f"{self.theme.icons.url} {label}: {url}"
                 )
 
 
