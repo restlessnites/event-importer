@@ -23,8 +23,8 @@ class TicketmasterAgent(Agent):
     def __init__(self, *args: tuple[Any, ...], **kwargs: dict[str, Any]) -> None:
         super().__init__(*args, **kwargs)
         self.url_analyzer = URLAnalyzer()
-        # Use shared services
-        self.http = self.services["http"]
+        # Use shared services with proper error handling
+        self.http = self.get_service("http")
         self.api_key = self.config.api.ticketmaster_key
 
     @property
@@ -38,76 +38,64 @@ class TicketmasterAgent(Agent):
     async def import_event(
         self: TicketmasterAgent, url: str, request_id: str
     ) -> EventData | None:
-        """Import event from Ticketmaster API using search as the default method."""
+        """Import event from Ticketmaster Discovery API."""
         self.start_timer()
+
+        if not self.api_key:
+            logger.error("Ticketmaster API key not configured")
+            return None
 
         await self.send_progress(
             request_id,
             ImportStatus.RUNNING,
-            "Extracting search info from URL for Ticketmaster Discovery API",
-            0.2,
+            "Extracting event ID from URL",
+            0.1,
         )
 
         try:
-            # Always extract search info from URL
-            search_info = self._extract_search_info_from_url(url)
-            event_json = None
-            event_id = None
+            # Extract event information from URL
+            search_info = self.url_analyzer.analyze(url)
+            if not search_info:
+                raise Exception("Could not extract event information from URL")
 
-            if search_info:
-                await self.send_progress(
-                    request_id,
-                    ImportStatus.RUNNING,
-                    "Searching Ticketmaster Discovery API for event...",
-                    0.3,
-                )
-                event_json = await self._search_for_event(search_info)
-                if event_json and event_json.get("id"):
-                    event_id = event_json["id"]
-
-            # If search failed, try extracting event ID from URL and fetch directly
-            if not event_json:
-                analysis = self.url_analyzer.analyze(url)
-                event_id = analysis.get("event_id")
-                if event_id:
-                    await self.send_progress(
-                        request_id,
-                        ImportStatus.RUNNING,
-                        f"Searching failed, trying direct fetch by event ID {event_id}",
-                        0.5,
-                    )
-                    event_json = await self._fetch_event(event_id)
-
-            if not event_json:
-                raise Exception(
-                    "Event not found in Ticketmaster Discovery API (search and direct fetch failed)"
-                )
+            # Try to find the event using search
+            event = await self._search_for_event(search_info)
+            if not event:
+                raise Exception("Could not find event using Ticketmaster search")
 
             await self.send_progress(
-                request_id, ImportStatus.RUNNING, "Parsing event data", 0.7
+                request_id, ImportStatus.RUNNING, "Parsing event data", 0.6
             )
 
-            # Parse to our format
-            event_data = self._parse_event(event_json, url)
+            # Parse the event data
+            event_data = self._parse_event(event, url)
+
+            await self.send_progress(
+                request_id, ImportStatus.RUNNING, "Enhancing event data", 0.75
+            )
 
             if not event_data.genres and self.services.get("genre"):
                 await self.send_progress(
                     request_id, ImportStatus.RUNNING, "Searching for genres", 0.8
                 )
                 try:
-                    event_data = await self.services["genre"].enhance_genres(event_data)
+                    genre_service = self.get_service("genre")
+                    event_data = await genre_service.enhance_genres(event_data)
                 except Exception as e:
                     logger.debug(f"Genre search failed: {e}")
                     # Continue without genres
 
-            # Generate descriptions if missing using LLMService fallback
+            # Generate descriptions if missing - use safe service access
             if not event_data.long_description or not event_data.short_description:
                 await self.send_progress(
                     request_id, ImportStatus.RUNNING, "Generating descriptions", 0.85
                 )
-                event_data = await self.services["llm"].generate_descriptions(
-                    event_data
-                )
+                try:
+                    llm_service = self.get_service("llm")
+                    event_data = await llm_service.generate_descriptions(event_data)
+                except Exception as e:
+                    logger.error(f"Failed to generate descriptions: {e}")
+                    # Continue without descriptions rather than failing completely
 
             await self.send_progress(
                 request_id,

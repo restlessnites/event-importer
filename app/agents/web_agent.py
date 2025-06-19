@@ -38,11 +38,11 @@ class WebAgent(Agent):
 
     def __init__(self, *args: tuple[Any, ...], **kwargs: dict[str, Any]) -> None:
         super().__init__(*args, **kwargs)
-        # Use shared services from parent
-        self.llm = self.services["llm"]
-        self.http = self.services["http"]
-        self.image_service = self.services["image"]
-        self.zyte = self.services["zyte"]
+        # Use shared services with proper error handling
+        self.llm = self.get_service("llm")
+        self.http = self.get_service("http")
+        self.image_service = self.get_service("image")
+        self.zyte = self.get_service("zyte")
 
     @property
     def name(self: WebAgent) -> str:
@@ -154,8 +154,13 @@ class WebAgent(Agent):
             request_id, ImportStatus.RUNNING, "Extracting event data from HTML", 0.3
         )
 
-        # Extract with Claude - it will generate descriptions if needed
-        return await self.services["llm"].extract_from_html(cleaned_html, url)
+        # Extract with LLM service - it will generate descriptions if needed
+        try:
+            llm_service = self.get_service("llm")
+            return await llm_service.extract_from_html(cleaned_html, url)
+        except Exception as e:
+            logger.error(f"Failed to extract from HTML using LLM: {e}")
+            return None
 
     async def _try_screenshot_extraction(
         self: WebAgent, url: str, request_id: str
@@ -171,10 +176,15 @@ class WebAgent(Agent):
             request_id, ImportStatus.RUNNING, "Extracting data from screenshot", 0.75
         )
 
-        # Extract with Claude - it will generate descriptions if needed
-        return await self.services["llm"].extract_from_image(
-            screenshot_data, mime_type, url
-        )
+        # Extract with LLM service - it will generate descriptions if needed
+        try:
+            llm_service = self.get_service("llm")
+            return await llm_service.extract_from_image(
+                screenshot_data, mime_type, url
+            )
+        except Exception as e:
+            logger.error(f"Failed to extract from screenshot using LLM: {e}")
+            return None
 
     def _clean_html(self, html: str) -> str:
         """

@@ -22,8 +22,8 @@ class ResidentAdvisorAgent(Agent):
     def __init__(self, *args: tuple[Any, ...], **kwargs: dict[str, Any]) -> None:
         super().__init__(*args, **kwargs)
         self.url_analyzer = URLAnalyzer()
-        # Use shared services
-        self.http = self.services["http"]
+        # Use shared services with proper error handling
+        self.http = self.get_service("http")
 
     @property
     def name(self: ResidentAdvisorAgent) -> str:
@@ -70,19 +70,23 @@ class ResidentAdvisorAgent(Agent):
                     request_id, ImportStatus.RUNNING, "Searching for genres", 0.8
                 )
                 try:
-                    event_data = await self.services["genre"].enhance_genres(event_data)
+                    genre_service = self.get_service("genre")
+                    event_data = await genre_service.enhance_genres(event_data)
                 except Exception as e:
                     logger.debug(f"Genre search failed: {e}")
                     # Continue without genres
 
-            # Generate descriptions if missing using Claude
+            # Generate descriptions if missing - use safe service access
             if not event_data.long_description or not event_data.short_description:
                 await self.send_progress(
                     request_id, ImportStatus.RUNNING, "Generating descriptions", 0.85
                 )
-                event_data = await self.services["llm"].generate_descriptions(
-                    event_data
-                )
+                try:
+                    llm_service = self.get_service("llm")
+                    event_data = await llm_service.generate_descriptions(event_data)
+                except Exception as e:
+                    logger.error(f"Failed to generate descriptions: {e}")
+                    # Continue without descriptions rather than failing completely
 
             await self.send_progress(
                 request_id,

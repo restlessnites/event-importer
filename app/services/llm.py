@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any, Generic, TypeVar
 
 from app.config import Config
-from app.errors import retry_on_error
+from app.errors import ConfigurationError, retry_on_error
 from app.schemas import EventData
 from app.services.claude import ClaudeService
 from app.services.openai import OpenAIService
@@ -24,7 +24,7 @@ class LLMOperation(Generic[T]):
         self: LLMOperation,
         name: str,
         primary_provider: Callable[..., Awaitable[T]],
-        fallback_provider: Callable[..., Awaitable[T]],
+        fallback_provider: Callable[..., Awaitable[T]] | None,
         *args: Any,  # noqa: ANN401
         **kwargs: Any,  # noqa: ANN401
     ) -> None:
@@ -43,6 +43,29 @@ class LLMService:
         self.config = config
         self.primary_service = ClaudeService(config)
         self.fallback_service = OpenAIService(config) if config.api.openai_key else None
+        
+        # Validate that at least one service is properly configured
+        self._validate_configuration()
+
+    def _validate_configuration(self: LLMService) -> None:
+        """Validate that at least one LLM provider is properly configured."""
+        claude_configured = bool(self.config.api.anthropic_key)
+        openai_configured = bool(self.config.api.openai_key)
+        
+        if not claude_configured and not openai_configured:
+            raise ConfigurationError(
+                "No LLM providers configured. Please set either ANTHROPIC_API_KEY or OPENAI_API_KEY in your environment."
+            )
+        
+        if claude_configured:
+            logger.info("Claude API configured as primary LLM provider")
+        else:
+            logger.warning("Claude API not configured - missing ANTHROPIC_API_KEY")
+            
+        if openai_configured:
+            logger.info("OpenAI API configured as fallback LLM provider")
+        else:
+            logger.warning("OpenAI API not configured - missing OPENAI_API_KEY")
 
     async def _execute_with_fallback(self: LLMService, operation: LLMOperation[T]) -> T:
         """Execute an LLM operation with automatic fallback."""
@@ -53,7 +76,7 @@ class LLMService:
             logger.warning(
                 f"Primary provider (Claude) failed for {operation.name}, falling back to OpenAI: {e}"
             )
-            if self.fallback_service:
+            if self.fallback_service and operation.fallback_provider:
                 try:
                     logger.info(
                         f"Attempting {operation.name} with fallback provider (OpenAI)"
@@ -80,7 +103,7 @@ class LLMService:
         operation = LLMOperation(
             name="generate_descriptions",
             primary_provider=self.primary_service.generate_descriptions,
-            fallback_provider=self.fallback_service.generate_descriptions,
+            fallback_provider=self.fallback_service.generate_descriptions if self.fallback_service else None,
             event_data=event_data,
         )
         return await self._execute_with_fallback(operation)
@@ -91,7 +114,7 @@ class LLMService:
         operation = LLMOperation(
             name="analyze_text",
             primary_provider=self.primary_service.analyze_text,
-            fallback_provider=self.fallback_service.analyze_text,
+            fallback_provider=self.fallback_service.analyze_text if self.fallback_service else None,
             prompt=prompt,
         )
         return await self._execute_with_fallback(operation)
@@ -107,7 +130,7 @@ class LLMService:
         operation = LLMOperation(
             "extract_event_data",
             self.primary_service.extract_event_data,
-            self.fallback_service.extract_event_data,
+            self.fallback_service.extract_event_data if self.fallback_service else None,
             prompt=prompt,
             image_b64=image_b64,
             mime_type=mime_type,
@@ -120,7 +143,7 @@ class LLMService:
         operation = LLMOperation(
             name="enhance_genres",
             primary_provider=self.primary_service.enhance_genres,
-            fallback_provider=self.fallback_service.enhance_genres,
+            fallback_provider=self.fallback_service.enhance_genres if self.fallback_service else None,
             event_data=event_data,
         )
         return await self._execute_with_fallback(operation)
@@ -133,7 +156,7 @@ class LLMService:
         operation = LLMOperation(
             "extract_from_html",
             self.primary_service.extract_from_html,
-            self.fallback_service.extract_from_html,
+            self.fallback_service.extract_from_html if self.fallback_service else None,
             html,
             url,
         )
@@ -147,7 +170,7 @@ class LLMService:
         operation = LLMOperation(
             "extract_from_image",
             self.primary_service.extract_from_image,
-            self.fallback_service.extract_from_image,
+            self.fallback_service.extract_from_image if self.fallback_service else None,
             image_data,
             mime_type,
             url,

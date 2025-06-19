@@ -34,8 +34,8 @@ class DiceAgent(Agent):
         services: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(config, progress_callback, services)
-        # Use shared services
-        self.http = self.services["http"]
+        # Use shared services with proper error handling
+        self.http = self.get_service("http")
 
     @property
     def name(self) -> str:
@@ -89,14 +89,17 @@ class DiceAgent(Agent):
             if not event_data:
                 raise Exception("Could not transform Dice API data to event format")
 
-            # Generate descriptions if missing
+            # Generate descriptions if missing - use safe service access
             if not event_data.long_description or not event_data.short_description:
                 await self.send_progress(
                     request_id, ImportStatus.RUNNING, "Generating descriptions", 0.85
                 )
-                event_data = await self.services["llm"].generate_descriptions(
-                    event_data
-                )
+                try:
+                    llm_service = self.get_service("llm")
+                    event_data = await llm_service.generate_descriptions(event_data)
+                except Exception as e:
+                    logger.error(f"Failed to generate descriptions: {e}")
+                    # Continue without descriptions rather than failing completely
 
             await self.send_progress(
                 request_id,

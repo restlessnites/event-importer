@@ -21,9 +21,9 @@ class ImageAgent(Agent):
 
     def __init__(self, *args: tuple[Any, ...], **kwargs: dict[str, Any]) -> None:
         super().__init__(*args, **kwargs)
-        # Use shared services
-        self.http = self.services["http"]
-        self.image_service = self.services["image"]
+        # Use shared services with proper error handling
+        self.http = self.get_service("http")
+        self.image_service = self.get_service("image")
 
     @property
     def name(self: ImageAgent) -> str:
@@ -58,10 +58,15 @@ class ImageAgent(Agent):
                 0.5,
             )
 
-            # Extract with Claude. The service now handles parsing and returns a complete EventData object.
-            event_data = await self.services["llm"].extract_from_image(
-                image_data, mime_type, url
-            )
+            # Extract with LLM service - use safe service access
+            try:
+                llm_service = self.get_service("llm")
+                event_data = await llm_service.extract_from_image(
+                    image_data, mime_type, url
+                )
+            except Exception as e:
+                logger.error(f"Failed to extract from image using LLM: {e}")
+                raise Exception("Could not extract event information from image")
 
             if not event_data:
                 raise Exception("Could not extract event information from image")
