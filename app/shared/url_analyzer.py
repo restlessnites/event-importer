@@ -12,7 +12,7 @@ class URLType(str, Enum):
     RESIDENT_ADVISOR = "resident_advisor"
     TICKETMASTER = "ticketmaster"
     DICE = "dice"
-    UNKNOWN = "unknown"  # Everything else
+    UNKNOWN = "unknown" 
 
 
 class URLAnalyzer:
@@ -73,7 +73,7 @@ class URLAnalyzer:
                     return {"type": URLType.DICE, "event_id": id_match.group(1), "slug": event_slug}
                 else:
                     # Return as dice type but without extracted ID
-                    # The agent will need to parse the HTML to get the ID
+                    # The agent will use the slug to search for the event ID via API
                     return {"type": URLType.DICE, "slug": event_slug}
 
         # Everything else is unknown (will be determined by content-type)

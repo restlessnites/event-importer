@@ -4,7 +4,7 @@ A tool that extracts structured event data from websites, images, and APIs. Use 
 
 ## What It Does
 
-- **Import from anywhere**: Resident Advisor, Ticketmaster, any event website, or even images of flyers
+- **Import from anywhere**: Resident Advisor, Ticketmaster, Dice.fm, any event website, or even images of flyers
 - **Flexible AI backend**: Supports both Claude and OpenAI for extraction and enhancement, with automatic fallback.
 - **AI-powered enhancement**: Automatically finds genres, improves images, and generates descriptions
 - **Extensible Integration Framework**: Easily add new integrations (e.g., to submit events to external calendars or databases) using a simple, modular system.
@@ -347,6 +347,7 @@ The importer returns structured JSON with enhanced data:
 ## Supported Sources
 
 - **Resident Advisor** (`ra.co`) - Full API access, no key needed
+- **Dice.fm** (`dice.fm`) - API access, no key needed
 - **Ticketmaster** family (`ticketmaster.com`, `livenation.com`) - Requires free API key
 - **Any event website** - Smart web scraping
 - **Image URLs** - AI extracts text from flyers/posters
@@ -361,6 +362,7 @@ uv run python scripts/test_importer.py
 
 # Test with a specific URL
 uv run python scripts/test_importer.py "https://ra.co/events/1234567"
+uv run python scripts/test_importer.py "https://dice.fm/event/carl-cox-presents-excel-o2zx"
 
 # Test AI enhancements (requires Google API keys)
 uv run python scripts/test_genre_enhancer.py

@@ -141,3 +141,13 @@ Integrations Framework (reads from DB, uses HTTP)
 2. Implement the `import_event` method to fetch and process data from the new source.
 3. Update the `URLAnalyzer` in `app/shared/url_analyzer.py` to recognize URLs for the new source.
 4. Add the new agent to the list in `app/core/importer.py`.
+
+## Agent Descriptions
+
+- **`ResidentAdvisorAgent`**: Uses the RA GraphQL API.
+- **`TicketmasterAgent`**: Uses the Ticketmaster Discovery API.
+- **`DiceAgent`**: Uses the Dice.fm search API to find event details.
+- **`WebAgent`**: The fallback agent. Uses Zyte for web scraping and screenshotting, then uses an LLM to extract data from the HTML or image.
+- **`ImageAgent`**: For direct image URLs. Downloads the image and uses an LLM to extract data.
+
+The `EventImporter`'s `_determine_agent` method uses the `URLAnalyzer` to decide which agent to use for a given URL.
