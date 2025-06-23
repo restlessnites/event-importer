@@ -10,7 +10,7 @@ from typing import Any
 
 import nh3
 from dateutil import parser as date_parser
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 
 class ImportStatus(str, Enum):
@@ -156,7 +156,8 @@ class EventData(BaseModel):
 
     # Event details
     venue: str | None = None
-    date: str | None = None  # ISO format YYYY-MM-DD
+    date: str | None = None  # ISO format YYYY-MM-DD (start date)
+    end_date: str | None = None  # ISO format YYYY-MM-DD (end date, if different from start)
     time: EventTime | None = None
 
     # People/organizations
@@ -338,18 +339,6 @@ class EventData(BaseModel):
             "no charge",
             "gratuito",
             "gratuit",
-            # Zero values
-            "0",
-            "0.00",
-            "$0",
-            "$0.00",
-            "£0",
-            "€0",
-            "¥0",
-            "usd 0",
-            "gbp 0",
-            "eur 0",
-            "cad 0",
             # None/null indicators
             "none",
             "null",
@@ -370,7 +359,7 @@ class EventData(BaseModel):
             "by donation",
         ]
 
-        # Check if it's a free event
+        # Check if it's a free event (using exact match or word boundaries for safety)
         for indicator in free_indicators:
             if indicator in v_clean:
                 return "Free"
@@ -426,6 +415,35 @@ class EventData(BaseModel):
             return f"{age}+"
 
         return nh3.clean(v, tags=set()).strip() or None
+
+    @model_validator(mode="after")
+    def calculate_end_date(self: EventData) -> EventData:
+        """Calculate end_date for events that cross midnight."""
+        if not self.date or not self.time or not self.time.start or not self.time.end:
+            return self
+        
+        try:
+            from datetime import datetime, timedelta
+            
+            # Parse start and end times
+            start_time = datetime.strptime(self.time.start, "%H:%M").time()
+            end_time = datetime.strptime(self.time.end, "%H:%M").time()
+            
+            # If end time is earlier than start time, it's a midnight crossover
+            if end_time < start_time:
+                # Parse the start date and add one day for end date
+                start_date = datetime.fromisoformat(self.date)
+                end_date = start_date + timedelta(days=1)
+                self.end_date = end_date.strftime("%Y-%m-%d")
+            else:
+                # Same day event - end_date stays None (same as start date)
+                self.end_date = None
+                
+        except (ValueError, TypeError):
+            # If any parsing fails, leave end_date as None
+            pass
+            
+        return self
 
     def is_complete(self: EventData) -> bool:
         """Check if the event has all important fields."""

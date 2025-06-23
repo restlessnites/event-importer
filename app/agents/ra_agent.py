@@ -117,6 +117,7 @@ class ResidentAdvisorAgent(Agent):
             id
             title
             content
+            contentUrl
             date
             startTime
             endTime
@@ -217,6 +218,11 @@ class ResidentAdvisorAgent(Agent):
                     }
                     break  # Use the first image with a filename
 
+        # Generate ticket URL from contentUrl
+        ticket_url = None
+        if event.get("contentUrl"):
+            ticket_url = f"https://ra.co{event['contentUrl']}"
+
         return EventData(
             title=event["title"],
             venue=event.get("venue", {}).get("name"),
@@ -230,5 +236,6 @@ class ResidentAdvisorAgent(Agent):
             location=location,
             images=images,
             cost=event.get("cost"),
+            ticket_url=ticket_url,
             source_url=url,
         )

@@ -71,7 +71,14 @@ class EventCardFormatter:
             if isinstance(time, dict) and time.get("start"):
                 time_str = time["start"]
                 if time.get("end"):
-                    time_str += f" – {time['end']}"
+                    end_time = time["end"]
+                    # Check if event crosses midnight (has different end date)
+                    if event_data.get("end_date") and event_data.get("date") != event_data.get("end_date"):
+                        # Show date for end time when it's different
+                        end_date = event_data["end_date"]
+                        time_str += f" – {end_time} (+1)"
+                    else:
+                        time_str += f" – {end_time}"
                 details.append(("Time", time_str))
 
         # Cost & Age

@@ -173,7 +173,8 @@ class TicketFairyTransformer(BaseTransformer):
         start_date = ""
         end_date = ""
 
-        date_str = event_data.get("date", "")  # ISO format YYYY-MM-DD
+        date_str = event_data.get("date", "")  # ISO format YYYY-MM-DD (start date)
+        end_date_str = event_data.get("end_date", date_str)  # Use end_date if available, fallback to start date
         time_obj = event_data.get("time", {})
 
         if date_str:
@@ -187,7 +188,7 @@ class TicketFairyTransformer(BaseTransformer):
                     end_time = f"{time_obj['end']}:00"  # Convert HH:MM to HH:MM:SS
 
             start_date = f"{date_str} {start_time}"
-            end_date = f"{date_str} {end_time}"
+            end_date = f"{end_date_str} {end_time}"  # Use correct end date for midnight crossover
 
         # Handle lists - using actual canonical field names
         lineup = _format_list_or_string(event_data.get("lineup", []))
