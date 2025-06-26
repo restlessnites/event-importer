@@ -245,7 +245,7 @@ def run_events_cli(args: argparse.Namespace) -> None:
         cli = CLI()
         cli.warning("\nInterrupted by user")
         sys.exit(1)
-    except Exception as e:
+    except (ValueError, TypeError, KeyError) as e:
         cli = CLI()
         cli.error(f"Error: {e}")
         sys.exit(1)

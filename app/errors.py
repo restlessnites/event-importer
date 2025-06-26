@@ -173,8 +173,8 @@ def handle_errors(
                 if reraise:
                     raise
                 return default
-            except Exception as e:
-                logger.exception(f"Unexpected error in {func.__name__}: {e}")
+            except Exception:
+                logger.exception(f"Unexpected error in {func.__name__}")
                 if reraise:
                     raise
                 return default
@@ -209,8 +209,8 @@ def handle_errors_async(
                 if reraise:
                     raise
                 return default
-            except Exception as e:
-                logger.exception(f"Unexpected error in {func.__name__}: {e}")
+            except Exception:
+                logger.exception(f"Unexpected error in {func.__name__}")
                 if reraise:
                     raise
                 return default

@@ -14,6 +14,9 @@ from app.services.openai import OpenAIService
 
 logger = logging.getLogger(__name__)
 
+# Error message constants
+LLM_NO_PROVIDERS_CONFIGURED = "No LLM providers configured. Please set either ANTHROPIC_API_KEY or OPENAI_API_KEY in your environment."
+
 T = TypeVar("T")
 
 
@@ -43,7 +46,7 @@ class LLMService:
         self.config = config
         self.primary_service = ClaudeService(config)
         self.fallback_service = OpenAIService(config) if config.api.openai_key else None
-        
+
         # Validate that at least one service is properly configured
         self._validate_configuration()
 
@@ -51,17 +54,15 @@ class LLMService:
         """Validate that at least one LLM provider is properly configured."""
         claude_configured = bool(self.config.api.anthropic_key)
         openai_configured = bool(self.config.api.openai_key)
-        
+
         if not claude_configured and not openai_configured:
-            raise ConfigurationError(
-                "No LLM providers configured. Please set either ANTHROPIC_API_KEY or OPENAI_API_KEY in your environment."
-            )
-        
+            raise ConfigurationError(LLM_NO_PROVIDERS_CONFIGURED)
+
         if claude_configured:
             logger.info("Claude API configured as primary LLM provider")
         else:
             logger.warning("Claude API not configured - missing ANTHROPIC_API_KEY")
-            
+
         if openai_configured:
             logger.info("OpenAI API configured as fallback LLM provider")
         else:
@@ -85,12 +86,12 @@ class LLMService:
                         *operation.args, **operation.kwargs
                     )
                 except Exception as fallback_error:
-                    logger.error(
-                        f"Fallback provider (OpenAI) also failed for {operation.name}: {fallback_error}"
+                    logger.exception(
+                        f"Fallback provider (OpenAI) also failed for {operation.name}"
                     )
                     raise fallback_error from e
             else:
-                logger.error(
+                logger.exception(
                     "Fallback provider (OpenAI) not available or configured, cannot retry."
                 )
                 raise e

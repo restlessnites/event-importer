@@ -6,6 +6,7 @@ import re
 from typing import Any
 
 from app.config import Config
+from app.error_messages import ServiceMessages
 from app.errors import retry_on_error
 from app.genres import MusicGenres
 from app.prompts import GenrePrompts
@@ -14,6 +15,8 @@ from app.services.llm import LLMService
 from app.shared.http import HTTPService
 
 logger = logging.getLogger(__name__)
+
+
 
 
 class GenreService:
@@ -68,8 +71,8 @@ class GenreService:
                     event_data.genres = validated[:4]  # Limit to 4 genres
                     logger.info(f"Enhanced event with genres: {event_data.genres}")
 
-        except Exception as e:
-            logger.warning(f"Genre enhancement failed for {primary_artist}: {e}")
+        except (ValueError, TypeError, KeyError) as e:
+            logger.warning(f"{ServiceMessages.GENRE_ENHANCEMENT_FAILED} for {primary_artist}: {e}")
 
         return event_data
 
@@ -115,8 +118,8 @@ class GenreService:
 
             return genres
 
-        except Exception as e:
-            logger.error(f"Failed to search genres for {artist_name}: {e}")
+        except (ValueError, TypeError, KeyError):
+            logger.exception(f"{ServiceMessages.GENRE_SEARCH_FAILED} for {artist_name}")
             return []
 
     async def _google_search(self: "GenreService", query: str) -> list[dict[str, Any]]:
@@ -175,8 +178,8 @@ class GenreService:
             if not response:
                 return []
             return self._parse_genre_response(response)
-        except Exception as e:
-            logger.warning(f"LLM genre analysis failed: {e}")
+        except (ValueError, TypeError, KeyError) as e:
+            logger.warning(f"{ServiceMessages.LLM_GENRE_ANALYSIS_FAILED}: {e}")
             return []
 
     def _parse_genre_response(self: "GenreService", response: str) -> list[str]:

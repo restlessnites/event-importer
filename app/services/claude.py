@@ -16,6 +16,9 @@ from app.schemas import EventData, EventTime
 
 logger = logging.getLogger(__name__)
 
+# Service name constant
+CLAUDE_SERVICE_NAME = "Claude"
+
 
 class ClaudeService:
     """Service for Claude AI API interactions."""
@@ -163,9 +166,8 @@ class ClaudeService:
                         end_time = parts[1].strip() if len(parts) > 1 else None
 
                         # Only create EventTime if we have valid time strings
-                        if (
-                            start_time and len(start_time) > 1
-                        ):  # Must be more than just a digit
+                        if (start_time and len(start_time) > 1):
+                            # Must be more than just a digit
                             try:
                                 # Let EventTime parse the time format (it handles AM/PM)
                                 cleaned_result["time"] = EventTime(
@@ -174,7 +176,7 @@ class ClaudeService:
                                 logger.info(
                                     f"Successfully parsed time: start='{start_time}', end='{end_time}'"
                                 )
-                            except Exception as e:
+                            except (ValueError, TypeError) as e:
                                 logger.warning(
                                     f"Failed to parse time '{time_value}': {e}"
                                 )
@@ -191,7 +193,7 @@ class ClaudeService:
                         logger.info(
                             f"Successfully created EventTime from dict: {time_value}"
                         )
-                    except Exception as e:
+                    except (ValueError, TypeError) as e:
                         logger.warning(
                             f"Failed to create EventTime from dict {time_value}: {e}"
                         )
@@ -236,15 +238,15 @@ class ClaudeService:
                 if result.get("short_description"):
                     event_data.short_description = result["short_description"]
             return event_data
-        except Exception as e:
-            logger.error(f"Failed to generate descriptions: {e}")
+        except Exception:
+            logger.exception("Failed to generate descriptions")
             return event_data
 
     @handle_errors_async(reraise=True)
     async def analyze_text(self: "ClaudeService", prompt: str) -> str | None:
         """Analyze text using Claude."""
         if not self.client:
-            raise AuthenticationError("Claude")
+            raise AuthenticationError(CLAUDE_SERVICE_NAME)
 
         response = await self.client.messages.create(
             model=self.model,
@@ -287,8 +289,8 @@ class ClaudeService:
             if result and result.get("genres"):
                 event_data.genres = result["genres"]
             return event_data
-        except Exception as e:
-            logger.error(f"Failed to enhance genres: {e}")
+        except Exception:
+            logger.exception("Failed to enhance genres")
             return event_data
 
     async def _call_with_tool(
@@ -299,7 +301,7 @@ class ClaudeService:
     ) -> dict[str, Any] | None:
         """Make API call with tool use."""
         if not self.client:
-            raise AuthenticationError("Claude")
+            raise AuthenticationError(CLAUDE_SERVICE_NAME)
 
         if not tool:
             tool = self.EXTRACTION_TOOL
@@ -336,21 +338,20 @@ class ClaudeService:
                 return None
 
         except APIStatusError as e:
-            logger.error(f"Claude API call failed: {e}")
-            raise APIError(
-                "Claude", f"API call failed: {e.status_code} - {e.response.text}"
-            ) from e
+            logger.exception("Claude API call failed")
+            error_msg = f"API call failed: {e.status_code} - {e.response.text}"
+            raise APIError(CLAUDE_SERVICE_NAME, error_msg) from e
         except Exception as e:
             # Don't log as error, let the LLMService handle it as a fallback
             logger.debug(f"Claude tool call failed: {e}")
-            raise APIError("Claude", str(e)) from e
+            raise APIError(CLAUDE_SERVICE_NAME, str(e)) from e
 
     async def _call_with_vision(
         self: "ClaudeService", prompt: str, image_b64: str, mime_type: str
     ) -> dict[str, Any] | None:
         """Call Claude's vision model with a prompt and image."""
         if not self.client:
-            raise AuthenticationError("Claude")
+            raise AuthenticationError(CLAUDE_SERVICE_NAME)
 
         try:
             message = await self.client.messages.create(
@@ -388,28 +389,22 @@ class ClaudeService:
 
                     return json.loads(content)
                 except json.JSONDecodeError as e:
-                    logger.error(
-                        f"Failed to parse JSON from Claude vision response: {e}; content: {content}"
-                    )
+                    logger.exception("Failed to parse JSON from Claude vision response")
                     # Re-raise as an APIError to be handled by the LLM service
-                    raise APIError(
-                        "Claude",
-                        f"Vision call failed: Claude API error: Failed to parse JSON: {e}",
-                    ) from e
+                    error_msg = f"Vision call failed: Claude API error: Failed to parse JSON: {e}"
+                    raise APIError(CLAUDE_SERVICE_NAME, error_msg) from e
             else:
                 logger.warning("No text content found in Claude vision response")
                 return None
 
         except APIStatusError as e:
-            logger.error(f"Claude vision API call failed: {e}")
-            raise APIError(
-                "Claude", f"Vision call failed: {e.status_code} - {e.response.text}"
-            ) from e
+            logger.exception("Claude vision API call failed")
+            error_msg = f"Vision call failed: {e.status_code} - {e.response.text}"
+            raise APIError(CLAUDE_SERVICE_NAME, error_msg) from e
         except Exception as e:
-            logger.error(f"An unexpected error occurred during Claude vision call: {e}")
-            raise APIError(
-                "Claude", f"Vision call failed with unexpected error: {e}"
-            ) from e
+            logger.exception("An unexpected error occurred during Claude vision call")
+            error_msg = f"Vision call failed with unexpected error: {e}"
+            raise APIError(CLAUDE_SERVICE_NAME, error_msg) from e
 
     def _clean_response_data(
         self: "ClaudeService", data: dict[str, Any]

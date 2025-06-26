@@ -63,8 +63,8 @@ class Router:
                     else None,
                 }
 
-        except Exception as e:
-            logger.error(f"Router error: {e}")
+        except (ValueError, TypeError, KeyError) as e:
+            logger.exception("Router error")
             return {
                 "success": False,
                 "error": str(e),

@@ -18,6 +18,9 @@ from app.schemas import EventData
 
 logger = logging.getLogger(__name__)
 
+# Error message constants
+OPENAI_CLIENT_NOT_INITIALIZED = "OpenAI client not initialized - check API key"
+OPENAI_API_KEY_NOT_FOUND = "OpenAI API key not found in configuration"
 
 class OpenAIService:
     # Tool definition for structured extraction
@@ -125,7 +128,7 @@ class OpenAIService:
     def __init__(self: OpenAIService, config: Config) -> None:
         """Initialize OpenAI service."""
         if not config.api.openai_key:
-            raise ConfigurationError("OpenAI API key not found in configuration.")
+            raise ConfigurationError(OPENAI_API_KEY_NOT_FOUND)
         self.client = AsyncOpenAI(api_key=config.api.openai_key)
         self.model = "gpt-4-turbo-preview"
         self.max_tokens = 4096
@@ -190,7 +193,7 @@ class OpenAIService:
                         from app.schemas import EventTime
 
                         cleaned["time"] = EventTime(start=start_time, end=end_time)
-                    except Exception as e:
+                    except (ValueError, TypeError) as e:
                         logger.warning(f"Failed to parse time '{time_value}': {e}")
                         # Remove invalid time rather than failing the whole import
                         cleaned.pop("time", None)
@@ -203,7 +206,7 @@ class OpenAIService:
                     from app.schemas import EventTime
 
                     cleaned["time"] = EventTime(**time_value)
-                except Exception as e:
+                except (ValueError, TypeError) as e:
                     logger.warning(
                         f"Failed to create EventTime from dict {time_value}: {e}"
                     )
@@ -217,7 +220,7 @@ class OpenAIService:
     ) -> EventData | None:
         """Extract event data from HTML content."""
         if not self.client:
-            raise ConfigurationError("OpenAI client not initialized - check API key")
+            raise ConfigurationError(OPENAI_CLIENT_NOT_INITIALIZED)
 
         # Truncate if too long
         if len(html) > max_length:
@@ -248,7 +251,7 @@ class OpenAIService:
     ) -> EventData | None:
         """Extract event data from an image."""
         if not self.client:
-            raise ConfigurationError("OpenAI client not initialized - check API key")
+            raise ConfigurationError(OPENAI_CLIENT_NOT_INITIALIZED)
 
         image_b64 = base64.b64encode(image_data).decode("utf-8")
 
@@ -279,7 +282,7 @@ class OpenAIService:
     ) -> EventData:
         """Generate missing descriptions for an event."""
         if not self.client:
-            raise ConfigurationError("OpenAI client not initialized - check API key")
+            raise ConfigurationError(OPENAI_CLIENT_NOT_INITIALIZED)
 
         # Check if we need to generate descriptions (missing or too long)
         needs_long = (
@@ -322,7 +325,7 @@ class OpenAIService:
     async def analyze_text(self: OpenAIService, prompt: str) -> str | None:
         """Analyze text with OpenAI and return raw response."""
         if not self.client:
-            raise ConfigurationError("OpenAI client not initialized - check API key")
+            raise ConfigurationError(OPENAI_CLIENT_NOT_INITIALIZED)
 
         response = await self.client.chat.completions.create(
             model=self.model,
@@ -341,7 +344,7 @@ class OpenAIService:
     ) -> dict[str, Any] | None:
         """Extract structured event data from a text prompt or image."""
         if not self.client:
-            raise ConfigurationError("OpenAI client not initialized - check API key")
+            raise ConfigurationError(OPENAI_CLIENT_NOT_INITIALIZED)
 
         if image_b64 and mime_type:
             # Use vision for image extraction
@@ -353,7 +356,7 @@ class OpenAIService:
     async def enhance_genres(self: OpenAIService, event_data: EventData) -> EventData:
         """Enhance event genres using OpenAI."""
         if not self.client:
-            raise ConfigurationError("OpenAI client not initialized - check API key")
+            raise ConfigurationError(OPENAI_CLIENT_NOT_INITIALIZED)
 
         if not event_data.genres:
             return event_data
@@ -371,10 +374,10 @@ class OpenAIService:
             )
             if result and result.get("genres"):
                 event_data.genres = result["genres"]
-            return event_data
-        except Exception as e:
-            logger.error(f"Failed to enhance genres: {e}")
-            return event_data
+        except Exception:
+            logger.exception("Failed to enhance genres")
+
+        return event_data
 
     async def _call_with_tool(
         self: OpenAIService,
@@ -398,20 +401,21 @@ class OpenAIService:
             try:
                 return json.loads(content)
             except Exception as e:
-                logger.error(
-                    f"Failed to parse JSON from OpenAI response: {e}; content: {content}"
-                )
-                raise APIError("OpenAI", f"Failed to parse JSON: {e}") from e
+                logger.exception("Failed to parse JSON from OpenAI response")
+                error_msg = f"Failed to parse JSON: {e}"
+                service_name = "OpenAI"
+                raise APIError(service_name, error_msg) from e
         except Exception as e:
-            logger.error(f"OpenAI tool call failed: {e}")
-            raise APIError("OpenAI", str(e)) from e
+            logger.exception("OpenAI tool call failed")
+            service_name = "OpenAI"
+            raise APIError(service_name, str(e)) from e
 
     async def _call_with_vision(
         self: OpenAIService, prompt: str, image_b64: str, mime_type: str
     ) -> dict[str, Any] | None:
         """Call OpenAI vision API with a given prompt and image."""
         if not self.client:
-            raise ConfigurationError("OpenAI client not initialized - check API key")
+            raise ConfigurationError(OPENAI_CLIENT_NOT_INITIALIZED)
 
         logger.debug(f"Calling OpenAI vision with model {self.model}")
         try:
@@ -450,11 +454,15 @@ class OpenAIService:
             return json.loads(json_str)
 
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to decode JSON from vision response: {e}")
-            raise APIError("OpenAI", f"JSON decode error: {e}") from e
+            logger.exception("Failed to decode JSON from vision response")
+            error_msg = f"JSON decode error: {e}"
+            service_name = "OpenAI"
+            raise APIError(service_name, error_msg) from e
         except Exception as e:
-            logger.error(f"OpenAI vision call failed: {e}")
-            raise APIError("OpenAI", f"Vision call failed: {e}") from e
+            logger.exception("OpenAI vision call failed")
+            error_msg = f"Vision call failed: {e}"
+            service_name = "OpenAI"
+            raise APIError(service_name, error_msg) from e
 
     async def _call(
         self: OpenAIService,
@@ -464,7 +472,7 @@ class OpenAIService:
     ) -> str | None:
         """Make a call to the OpenAI API."""
         if not self.client:
-            raise ConfigurationError("OpenAI client not initialized - check API key")
+            raise ConfigurationError(OPENAI_CLIENT_NOT_INITIALIZED)
 
         logger.debug(f"Calling OpenAI with model {model}")
         try:
@@ -475,8 +483,8 @@ class OpenAIService:
                 max_tokens=self.max_tokens,
             )
             return response.choices[0].message.content
-        except Exception as e:
-            logger.error(f"OpenAI call failed: {e}")
+        except Exception:
+            logger.exception("OpenAI call failed")
             return None
 
     async def _call_json(
@@ -494,13 +502,11 @@ class OpenAIService:
             content = response.choices[0].message.content
             try:
                 return json.loads(content)
-            except json.JSONDecodeError as e:
-                logger.error(
-                    f"Failed to parse JSON from OpenAI response: {e}; content: {content}"
-                )
+            except json.JSONDecodeError:
+                logger.exception("Failed to parse JSON from OpenAI response")
                 return None
-        except Exception as e:
-            logger.error(f"OpenAI call failed: {e}")
+        except Exception:
+            logger.exception("OpenAI call failed")
             return None
 
     async def get_embedding(

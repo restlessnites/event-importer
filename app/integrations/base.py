@@ -91,9 +91,8 @@ class BaseSubmitter(ABC):
         """
         selector = self.selectors.get(selector_name)
         if not selector:
-            raise ValueError(
-                f"Selector '{selector_name}' not found for {self.service_name}"
-            )
+            error_msg = f"Selector '{selector_name}' not found for {self.service_name}"
+            raise ValueError(error_msg)
 
         with get_db_session() as db:
             events = selector.select_events(db, self.service_name)
@@ -189,10 +188,10 @@ class BaseSubmitter(ABC):
                     }
                 )
 
-            except Exception as e:
+            except (ValueError, TypeError, KeyError) as e:
                 error_message = str(e)
-                logger.error(
-                    f"Failed to process event {event_id} for {self.service_name}: {error_message}"
+                logger.exception(
+                    f"Failed to process event {event_id} for {self.service_name}"
                 )
                 if submission_id:
                     with get_db_session() as db:

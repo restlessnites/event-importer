@@ -56,7 +56,7 @@ class ZyteService:
             return html
         except Exception as e:
             if not isinstance(e, SecurityPageError | APIError):
-                logger.error(f"Zyte HTML fetch failed for {url}: {e}")
+                logger.exception(f"Zyte HTML fetch failed for {url}")
             raise
 
     async def fetch_screenshot(self: ZyteService, url: str) -> tuple[bytes, str]:
@@ -83,18 +83,21 @@ class ZyteService:
 
         try:
             image_bytes, _ = await self._make_request(payload, is_screenshot=True)
-            return image_bytes, "image/png"  # Zyte screenshots are PNGs
         except Exception as e:
             if not isinstance(e, SecurityPageError | APIError):
-                logger.error(f"Zyte screenshot fetch failed for {url}: {e}")
+                logger.exception(f"Zyte screenshot fetch failed for {url}")
             raise
+        else:
+            return image_bytes, "image/png"  # Zyte screenshots are PNGs
 
     async def _make_request(
         self: ZyteService, payload: dict[str, Any], is_screenshot: bool = False
     ) -> tuple[Any, str]:
         """Make the actual request to Zyte API."""
         if not self.config.api.zyte_key:
-            raise APIError("Zyte", "No API key provided")
+            service_name = "Zyte"
+            error_msg = "No API key provided"
+            raise APIError(service_name, error_msg)
 
         try:
             response = await self.http.post_json(
@@ -108,15 +111,21 @@ class ZyteService:
 
             if is_screenshot:
                 if "screenshot" not in response:
-                    raise APIError("Zyte", "No screenshot in response")
+                    service_name = "Zyte"
+                    error_msg = "No screenshot in response"
+                    raise APIError(service_name, error_msg)
                 screenshot_b64 = response["screenshot"]
                 screenshot_data = base64.b64decode(screenshot_b64)
                 return screenshot_data, response_url
             else:
                 if "browserHtml" not in response:
-                    raise APIError("Zyte", "No HTML in response")
+                    service_name = "Zyte"
+                    error_msg = "No HTML in response"
+                    raise APIError(service_name, error_msg)
                 return response["browserHtml"], response_url
 
         except Exception as e:
             logger.debug(f"Zyte request failed: {e}")
-            raise APIError("Zyte", f"Request failed: {e}") from e
+            service_name = "Zyte"
+            error_msg = f"Request failed: {e}"
+            raise APIError(service_name, error_msg) from e

@@ -4,6 +4,7 @@ import argparse
 import logging
 
 from app import __version__
+from app.error_messages import CommonMessages
 from app.startup import startup_checks
 
 
@@ -90,6 +91,8 @@ def main() -> int:
     configure_logging(verbose=verbose)
     logger = logging.getLogger(__name__)
 
+
+
     if not args.command:
         # Default behavior - show help
         parser.print_help()
@@ -98,8 +101,8 @@ def main() -> int:
     # Run startup checks and database initialization for all commands
     try:
         startup_checks()
-    except Exception as e:
-        logger.error(f"Startup failed: {e}")
+    except (ValueError, TypeError, KeyError):
+        logger.exception(CommonMessages.STARTUP_FAILED)
         return 1
 
     # Route to appropriate interface
@@ -123,8 +126,8 @@ def main() -> int:
     except KeyboardInterrupt:
         logger.info("Operation cancelled by user")
         return 0
-    except Exception as e:
-        logger.error(f"Command failed: {e}")
+    except (ValueError, TypeError, KeyError):
+        logger.exception(CommonMessages.OPERATION_FAILED)
         return 1
 
     return 0

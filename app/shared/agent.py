@@ -13,6 +13,10 @@ from app.schemas import EventData, ImportMethod, ImportProgress, ImportStatus
 
 logger = logging.getLogger(__name__)
 
+# Error message constants
+SERVICES_DICT_REQUIRED = "services dictionary is required but was None"
+SERVICES_DICT_NOT_INITIALIZED = "Services dictionary is not initialized"
+
 
 class Agent(ABC):
     """Base class for all import agents."""
@@ -33,45 +37,48 @@ class Agent(ABC):
         """
         self.config = config
         self.progress_callback = progress_callback
-        
+
         # Validate services
         if services is None:
-            raise ValueError("services dictionary is required but was None")
-        
+            raise ValueError(SERVICES_DICT_REQUIRED)
+
         # Validate required services exist
         required_services = ["http", "llm"]
         missing_services = [svc for svc in required_services if svc not in services]
         if missing_services:
-            raise ValueError(f"Missing required services: {missing_services}")
-        
+            error_msg = f"Missing required services: {missing_services}"
+            raise ValueError(error_msg)
+
         # Validate services are not None
         none_services = [svc for svc in required_services if services[svc] is None]
         if none_services:
-            raise ValueError(f"Required services are None: {none_services}")
-        
+            error_msg = f"Required services are None: {none_services}"
+            raise ValueError(error_msg)
+
         self.services = services
         self._start_time = None
 
-    def get_service(self: Agent, service_name: str) -> Any:
+    def get_service(self: Agent, service_name: str) -> object:
         """
         Safely get a service with proper error handling.
-        
+
         Args:
             service_name: Name of the service to retrieve
-            
+
         Returns:
             The service instance
-            
+
         Raises:
             ValueError: If service is not available or is None
         """
         if not self.services:
-            raise ValueError("Services dictionary is not initialized")
-        
+            raise ValueError(SERVICES_DICT_NOT_INITIALIZED)
+
         service = self.services.get(service_name)
         if service is None:
-            raise ValueError(f"Service '{service_name}' is not available or is None")
-        
+            error_msg = f"Service '{service_name}' is not available or is None"
+            raise ValueError(error_msg)
+
         return service
 
     @property
@@ -121,8 +128,8 @@ class Agent(ABC):
             )
             try:
                 await self.progress_callback(update)
-            except Exception as e:
-                logger.error(f"Failed to send progress update: {e}")
+            except Exception:
+                logger.exception("Failed to send progress update")
 
     def start_timer(self: Agent) -> None:
         """Start timing the import."""

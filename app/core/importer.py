@@ -17,6 +17,7 @@ from app.agents import (
 )
 from app.config import Config
 from app.core.progress import ProgressTracker
+from app.error_messages import AgentMessages, CommonMessages, ServiceMessages
 from app.errors import UnsupportedURLError, handle_errors_async
 from app.schemas import (
     EventData,
@@ -35,6 +36,9 @@ from app.shared.database import cache_event, get_cached_event
 from app.shared.http import get_http_service
 
 logger = logging.getLogger(__name__)
+
+
+
 
 
 class EventImporter:
@@ -193,8 +197,8 @@ class EventImporter:
                     event_data = await self._services["genre"].enhance_genres(
                         event_data
                     )
-                except Exception as e:
-                    logger.warning(f"Genre enhancement failed: {e}")
+                except (ValueError, TypeError, KeyError) as e:
+                    logger.warning(f"{ServiceMessages.GENRE_ENHANCEMENT_FAILED}: {e}")
                     # Continue without genres rather than failing
 
             # Create result
@@ -264,9 +268,9 @@ class EventImporter:
                 import_time=(datetime.now(timezone.utc) - start_time).total_seconds(),
             )
 
-        except Exception as e:
+        except (ValueError, TypeError, KeyError) as e:
             error = str(e)
-            logger.error(f"Import failed: {error}")
+            logger.exception(CommonMessages.IMPORT_FAILED)
             await self.progress_tracker.send_progress(
                 ImportProgress(
                     request_id=request.request_id,
@@ -413,13 +417,13 @@ class EventImporter:
                 return await self._services["llm"].extract_event_data(
                     prompt=prompt, image_b64=None, mime_type=None
                 )
-        except Exception as e:
-            logger.error(f"Failed to extract event data: {e}")
+        except (ValueError, TypeError, KeyError):
+            logger.exception(AgentMessages.EVENT_DATA_EXTRACTION_FAILED)
             return None
 
     async def enhance_genres(self: "EventImporter", event_data: EventData) -> EventData:
         try:
             return await self._services["genre"].enhance_genres(event_data)
-        except Exception as e:
-            logger.warning(f"Genre enhancement failed: {e}")
+        except (ValueError, TypeError, KeyError) as e:
+            logger.warning(f"{ServiceMessages.GENRE_ENHANCEMENT_FAILED}: {e}")
             return event_data

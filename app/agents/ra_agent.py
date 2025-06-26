@@ -5,12 +5,15 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.error_messages import AgentMessages, ServiceMessages
 from app.schemas import EventData, EventLocation, EventTime, ImportMethod, ImportStatus
 from app.shared.agent import Agent
 from app.shared.http import HTTPService
 from app.shared.url_analyzer import URLAnalyzer
 
 logger = logging.getLogger(__name__)
+
+
 
 
 class ResidentAdvisorAgent(Agent):
@@ -56,7 +59,8 @@ class ResidentAdvisorAgent(Agent):
             # Fetch event data
             event_json = await self._fetch_event(event_id)
             if not event_json:
-                raise Exception("No event data returned")
+                error_msg = "No event data returned"
+                raise Exception(error_msg)
 
             await self.send_progress(
                 request_id, ImportStatus.RUNNING, "Parsing event data", 0.7
@@ -72,8 +76,8 @@ class ResidentAdvisorAgent(Agent):
                 try:
                     genre_service = self.get_service("genre")
                     event_data = await genre_service.enhance_genres(event_data)
-                except Exception as e:
-                    logger.debug(f"Genre search failed: {e}")
+                except (ValueError, TypeError, KeyError) as e:
+                    logger.debug(f"{ServiceMessages.GENRE_SEARCH_FAILED}: {e}")
                     # Continue without genres
 
             # Generate descriptions if missing - use safe service access
@@ -84,8 +88,8 @@ class ResidentAdvisorAgent(Agent):
                 try:
                     llm_service = self.get_service("llm")
                     event_data = await llm_service.generate_descriptions(event_data)
-                except Exception as e:
-                    logger.error(f"Failed to generate descriptions: {e}")
+                except (ValueError, TypeError, KeyError):
+                    logger.exception(AgentMessages.DESCRIPTION_GENERATION_FAILED)
                     # Continue without descriptions rather than failing completely
 
             await self.send_progress(
@@ -98,8 +102,8 @@ class ResidentAdvisorAgent(Agent):
 
             return event_data
 
-        except Exception as e:
-            logger.error(f"RA import failed: {e}")
+        except (ValueError, TypeError, KeyError) as e:
+            logger.exception(AgentMessages.RA_IMPORT_FAILED)
             await self.send_progress(
                 request_id,
                 ImportStatus.FAILED,

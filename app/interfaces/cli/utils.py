@@ -13,7 +13,7 @@ def format_timestamp(dt: datetime | str) -> str:
             return datetime.fromisoformat(dt.replace("Z", "+00:00")).strftime(
                 "%H:%M:%S"
             )
-        except Exception:
+        except (ValueError, TypeError):
             return "??:??:??"
     return "??:??:??"
 

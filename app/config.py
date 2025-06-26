@@ -141,12 +141,12 @@ class Config:
         api_status = self.api.validate()
 
         if not api_status["anthropic"] and not api_status.get("openai"):
-            raise ValueError(
-                "At least one of ANTHROPIC_API_KEY or OPENAI_API_KEY is required."
-            )
+            error_msg = "At least one of ANTHROPIC_API_KEY or OPENAI_API_KEY is required."
+            raise ValueError(error_msg)
 
         if not api_status["zyte"]:
-            raise ValueError("ZYTE_API_KEY is required")
+            error_msg = "ZYTE_API_KEY is required"
+            raise ValueError(error_msg)
 
         # Log warnings for optional APIs
         if not api_status["ticketmaster"]:

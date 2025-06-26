@@ -153,7 +153,7 @@ class ImageService:
                 candidate.score = max(0, 100 + score)
                 candidate.reason = ", ".join(reasons) if reasons else "OK"
 
-            except Exception as e:
+            except (ValueError, TypeError, KeyError) as e:
                 logger.warning(f"Rating failed for {url}: {e}")
                 candidate.score = 0
                 candidate.reason = f"Rating error: {e}"

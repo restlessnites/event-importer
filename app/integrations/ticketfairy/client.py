@@ -6,6 +6,7 @@ import json
 import logging
 from typing import Any
 
+from app.error_messages import CommonMessages
 from app.errors import APIError, handle_errors_async
 from app.integrations.base import BaseClient
 from app.shared.http import get_http_service
@@ -38,7 +39,8 @@ class TicketFairyClient(BaseClient):
             ValueError: If API key not configured
         """
         if not self.config.api_key:
-            raise ValueError("TicketFairy API key not configured")
+            error_msg = "TicketFairy API key not configured"
+            raise ValueError(error_msg)
 
         # Prepare headers
         headers = {
@@ -61,35 +63,28 @@ class TicketFairyClient(BaseClient):
         # Handle empty response
         response_text = await response.text()
         if not response_text or response_text.strip() == "":
-            raise APIError("TicketFairy", "Empty response from API")
+            service_name = "TicketFairy"
+            error_msg = "Empty response from API"
+            raise APIError(service_name, error_msg)
 
         # Parse response
         try:
             response_data = json.loads(response_text)
         except json.JSONDecodeError as e:
-            raise APIError(
-                "TicketFairy",
-                f"Invalid JSON response: {e}. Response: {response_text}",
-            ) from e
+            service_name = "TicketFairy"
+            error_msg = f"Invalid JSON response: {e}. Response: {response_text}"
+            raise APIError(service_name, error_msg) from e
 
         # Check for API errors
         if response.status >= 400:
-            error_msg = "Unknown error"
+            error_msg = CommonMessages.UNEXPECTED_ERROR
             if isinstance(response_data, dict):
                 if "message" in response_data:
-                    if isinstance(response_data["message"], dict):
-                        error_msg = response_data["message"].get(
-                            "message", str(response_data["message"])
-                        )
-                    else:
-                        error_msg = str(response_data["message"])
+                    error_msg = response_data["message"]
                 elif "error" in response_data:
-                    error_msg = str(response_data["error"])
+                    error_msg = response_data["error"]
 
-            raise APIError(
-                "TicketFairy",
-                f"API error ({response.status}): {error_msg}",
-                response.status,
-            )
+            # Store error for use in exception
+            await self._store_error(error_msg, response.status, response_data)
 
         return response_data

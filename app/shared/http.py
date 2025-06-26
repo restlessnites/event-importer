@@ -105,7 +105,8 @@ class HTTPService:
             yield
         except asyncio.TimeoutError as e:
             logger.debug(f"{service} timeout for URL: {url}")
-            raise TimeoutError(f"{service} request timed out") from e
+            error_msg = f"{service} request timed out"
+            raise TimeoutError(error_msg) from e
         except aiohttp.ClientError as e:
             logger.debug(f"{service} client error for URL {url}: {e}")
             raise APIError(service, str(e)) from e
@@ -408,18 +409,16 @@ class HTTPService:
                 if content_length and max_size:
                     size = int(content_length)
                     if size > max_size:
-                        raise ValueError(
-                            f"Response too large: {size} bytes (max: {max_size} bytes)"
-                        )
+                        error_msg = f"Response too large: {size} bytes (max: {max_size} bytes)"
+                        raise ValueError(error_msg)
 
                 # Download with size limit
                 data = bytearray()
                 async for chunk in response.content.iter_chunked(8192):
                     data.extend(chunk)
                     if max_size and len(data) > max_size:
-                        raise ValueError(
-                            f"Response too large: {len(data)} bytes (max: {max_size} bytes)"
-                        )
+                        error_msg = f"Response too large: {len(data)} bytes (max: {max_size} bytes)"
+                        raise ValueError(error_msg)
 
         return bytes(data)
 

@@ -8,6 +8,7 @@ from typing import Any
 
 from bs4 import BeautifulSoup, Comment
 
+from app.error_messages import AgentMessages
 from app.errors import SecurityPageError
 from app.schemas import (
     EventData,
@@ -77,7 +78,8 @@ class WebAgent(Agent):
                 event_data = await self._try_screenshot_extraction(url, request_id)
 
             if not event_data:
-                raise Exception("Could not extract event data from any method")
+                error_msg = AgentMessages.WEB_EXTRACTION_FAILED
+                raise Exception(error_msg)
 
             # Enhance image if web extraction and Google is enabled
             if self.image_service.google_enabled:
@@ -123,7 +125,7 @@ class WebAgent(Agent):
             # to other methods that will also fail.
             raise
         except Exception as e:
-            logger.error(f"Web import failed: {e}")
+            logger.exception("Web import failed")
             await self.send_progress(
                 request_id,
                 ImportStatus.FAILED,
@@ -158,8 +160,8 @@ class WebAgent(Agent):
         try:
             llm_service = self.get_service("llm")
             return await llm_service.extract_from_html(cleaned_html, url)
-        except Exception as e:
-            logger.error(f"Failed to extract from HTML using LLM: {e}")
+        except Exception:
+            logger.exception("Failed to extract from HTML using LLM")
             return None
 
     async def _try_screenshot_extraction(
@@ -182,8 +184,8 @@ class WebAgent(Agent):
             return await llm_service.extract_from_image(
                 screenshot_data, mime_type, url
             )
-        except Exception as e:
-            logger.error(f"Failed to extract from screenshot using LLM: {e}")
+        except Exception:
+            logger.exception("Failed to extract from screenshot using LLM")
             return None
 
     def _clean_html(self, html: str) -> str:
@@ -253,8 +255,8 @@ class WebAgent(Agent):
 
             return cleaned
 
-        except Exception as e:
-            logger.error(f"Error cleaning HTML: {e}")
+        except Exception:
+            logger.exception("Error cleaning HTML")
             # If cleaning fails, return original
             return html
 
@@ -308,7 +310,7 @@ class WebAgent(Agent):
                             search_candidates.append(
                                 ImageCandidate(url=url, source=f"query_{i + 1}")
                             )
-                except Exception as e:
+                except (ValueError, TypeError, KeyError) as e:
                     logger.warning(f"Search query '{query}' failed: {e}")
 
             logger.info(f"Found {len(search_candidates)} unique image candidates")
@@ -329,7 +331,7 @@ class WebAgent(Agent):
                         )
                     else:
                         logger.info(f"Image {i + 1} rejected: {rated.reason}")
-                except Exception as e:
+                except (ValueError, TypeError, KeyError) as e:
                     logger.warning(f"Failed to rate image {candidate.url}: {e}")
 
             search_result.candidates = rated_candidates
@@ -357,8 +359,8 @@ class WebAgent(Agent):
             # Store the search result in event data for debugging/analysis
             event_data.image_search = search_result
 
-        except Exception as e:
-            logger.error(f"Image enhancement failed: {e}")
+        except (ValueError, TypeError, KeyError):
+            logger.exception("Image enhancement failed")
             # Don't fail the entire import if image enhancement fails
 
         return event_data
@@ -431,7 +433,7 @@ class WebAgent(Agent):
                             search_candidates.append(
                                 ImageCandidate(url=url, source=f"query_{i + 1}")
                             )
-                except Exception as e:
+                except (ValueError, TypeError, KeyError) as e:
                     logger.warning(f"Search query '{query}' failed: {e}")
 
             logger.info(f"Found {len(search_candidates)} unique image candidates")
@@ -465,7 +467,7 @@ class WebAgent(Agent):
                         )
                     else:
                         logger.info(f"Image {i + 1} rejected: {rated.reason}")
-                except Exception as e:
+                except (ValueError, TypeError, KeyError) as e:
                     logger.warning(f"Failed to rate image {candidate.url}: {e}")
 
             search_result.candidates = rated_candidates
@@ -508,8 +510,8 @@ class WebAgent(Agent):
             # Store the search result in event data for debugging/analysis
             event_data.image_search = search_result
 
-        except Exception as e:
-            logger.error(f"Image enhancement failed: {e}")
+        except (ValueError, TypeError, KeyError) as e:
+            logger.exception("Image enhancement failed")
             await self.send_progress(
                 request_id,
                 ImportStatus.RUNNING,

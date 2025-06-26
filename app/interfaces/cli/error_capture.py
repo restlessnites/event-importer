@@ -140,7 +140,7 @@ class CaptureHandler(logging.Handler):
         # Format the message
         try:
             message = self.format(record)
-        except Exception:
+        except (ValueError, TypeError, KeyError):
             message = record.getMessage()
 
         # Extract exception info if present

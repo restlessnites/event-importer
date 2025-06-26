@@ -15,6 +15,7 @@ from sqlalchemy import asc, desc, or_
 from app import __version__
 from app.config import get_config
 from app.core.router import Router
+from app.error_messages import CommonMessages, InterfaceMessages
 from app.integrations import get_available_integrations
 from app.shared.database.connection import get_db_session, init_db
 from app.shared.database.models import EventCache
@@ -26,6 +27,8 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+
 
 
 # Core MCP Tools and Handlers
@@ -317,8 +320,9 @@ class CoreMCPTools:
 
             return {"success": True, "statistics": stats}
 
-        except Exception as e:
-            return {"success": False, "error": f"Failed to get statistics: {str(e)}"}
+        except (ValueError, TypeError, KeyError) as e:
+            error_msg = f"{InterfaceMessages.STATISTICS_ERROR}: {str(e)}"
+            return {"success": False, "error": error_msg}
 
     # Tool handlers mapping
     TOOL_HANDLERS = {
@@ -373,8 +377,8 @@ async def main() -> None:
         config = get_config()
         features = config.get_enabled_features()
         logger.info(f"Enabled features: {features}")
-    except Exception as e:
-        logger.error(f"Configuration error: {e}")
+    except (ValueError, TypeError, KeyError):
+        logger.exception(CommonMessages.CONFIGURATION_ERROR)
         sys.exit(1)
 
     # Create server and router
@@ -404,12 +408,13 @@ async def main() -> None:
             elif name in all_handlers:
                 result = await all_handlers[name](arguments)
             else:
-                raise ValueError(f"Unknown tool: {name}")
+                error_msg = f"Unknown tool: {name}"
+                raise ValueError(error_msg)
 
             return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
-        except Exception as e:
-            logger.error(f"Tool call error: {e}")
+        except (ValueError, TypeError, KeyError) as e:
+            logger.exception(InterfaceMessages.TOOL_CALL_ERROR)
             return [
                 types.TextContent(
                     type="text",

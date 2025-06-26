@@ -51,7 +51,7 @@ async def import_event(request: ImportEventRequest) -> ImportEventResponse:
         return ImportEventResponse(**result)
 
     except Exception as e:
-        logger.error(f"Import error: {e}")
+        logger.exception("Import error")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -65,5 +65,5 @@ async def get_import_progress(request_id: str) -> ProgressResponse:
         return ProgressResponse(**result)
 
     except Exception as e:
-        logger.error(f"Progress error: {e}")
+        logger.exception("Progress error")
         raise HTTPException(status_code=500, detail=str(e)) from e

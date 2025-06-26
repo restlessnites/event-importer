@@ -117,7 +117,7 @@ async def submit_command(
         if not result["submitted"] and not result["errors"]:
             cli.warning("No events found to submit.")
 
-    except Exception as e:
+    except (ValueError, TypeError, KeyError) as e:
         cli.error(f"An unexpected error occurred: {e}")
         return
 

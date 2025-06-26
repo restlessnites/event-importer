@@ -10,6 +10,7 @@ from fastapi import FastAPI
 
 from app import __version__
 from app.config import get_config
+from app.error_messages import CommonMessages
 from app.integrations import get_available_integrations
 from app.interfaces.api.middleware.cors import add_cors_middleware
 from app.interfaces.api.middleware.logging import add_logging_middleware
@@ -22,6 +23,8 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+
 
 
 @asynccontextmanager
@@ -37,8 +40,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         config = get_config()
         features = config.get_enabled_features()
         logger.info(f"Enabled features: {features}")
-    except Exception as e:
-        logger.error(f"Startup failed: {e}")
+    except (ValueError, TypeError, KeyError):
+        logger.exception(CommonMessages.STARTUP_FAILED)
         sys.exit(1)
 
     yield
@@ -82,8 +85,8 @@ def run(host: str = "127.0.0.1", port: int = 8000, reload: bool = False) -> None
     if not reload:  # Skip during development reload to avoid duplicate checks
         try:
             startup_checks()
-        except Exception as e:
-            logger.error(f"Startup failed: {e}")
+        except (ValueError, TypeError, KeyError):
+            logger.exception(CommonMessages.STARTUP_FAILED)
             sys.exit(1)
 
     app = create_app()

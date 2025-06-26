@@ -29,10 +29,10 @@ def ensure_database_ready() -> None:
             init_db()
             logger.info("Database initialized successfully")
         else:
-            logger.error(f"Database error: {e}")
+            logger.exception("Database error")
             raise
-    except Exception as e:
-        logger.error(f"Unexpected database error: {e}")
+    except Exception:
+        logger.exception("Unexpected database error")
         raise
 
 

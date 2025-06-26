@@ -9,6 +9,7 @@ from rich.logging import RichHandler
 
 from app.config import get_config
 from app.core.router import Router
+from app.error_messages import CommonMessages, InterfaceMessages
 from app.interfaces.cli.core import CLI
 from app.interfaces.cli.theme import Theme
 from app.shared.http import close_http_service
@@ -160,8 +161,8 @@ async def main(args: Namespace) -> bool:
 
         return True
 
-    except Exception as e:
-        cli.error(f"CLI error: {e}")
+    except (ValueError, TypeError, KeyError) as e:
+        cli.error(f"{InterfaceMessages.CLI_ERROR}: {e}")
 
         # Show captured errors (only in non-verbose mode)
         if not verbose and (
@@ -174,8 +175,8 @@ async def main(args: Namespace) -> bool:
         # ALWAYS clean up HTTP connections
         try:
             await close_http_service()
-        except Exception as e:
-            cli.warning(f"Cleanup warning: {e}")
+        except (ValueError, TypeError, KeyError) as e:
+            cli.warning(f"{InterfaceMessages.CLEANUP_WARNING}: {e}")
 
 
 def run_cli(args: Namespace) -> None:
@@ -188,9 +189,9 @@ def run_cli(args: Namespace) -> None:
         cli = get_cli()
         cli.warning("Interrupted by user")
         sys.exit(1)
-    except Exception as e:
+    except (ValueError, TypeError, KeyError) as e:
         cli = get_cli()
-        cli.error(f"Fatal error: {e}")
+        cli.error(f"{CommonMessages.FATAL_ERROR}: {e}")
         sys.exit(1)
 
 

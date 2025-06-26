@@ -56,7 +56,7 @@ class EventTime(BaseModel):
             # dateutil can parse many time formats
             parsed = date_parser.parse(v, fuzzy=True)
             return parsed.strftime("%H:%M")
-        except Exception:
+        except (ValueError, TypeError):
             return None
 
     def __bool__(self: EventTime) -> bool:
@@ -267,7 +267,7 @@ class EventData(BaseModel):
 
             return parsed.date().isoformat()
 
-        except Exception as e:
+        except (ValueError, TypeError) as e:
             # Import logging here to avoid circular imports
             import logging
 
@@ -421,14 +421,14 @@ class EventData(BaseModel):
         """Calculate end_date for events that cross midnight."""
         if not self.date or not self.time or not self.time.start or not self.time.end:
             return self
-        
+
         try:
             from datetime import datetime, timedelta
-            
+
             # Parse start and end times
             start_time = datetime.strptime(self.time.start, "%H:%M").time()
             end_time = datetime.strptime(self.time.end, "%H:%M").time()
-            
+
             # If end time is earlier than start time, it's a midnight crossover
             if end_time < start_time:
                 # Parse the start date and add one day for end date
@@ -438,11 +438,11 @@ class EventData(BaseModel):
             else:
                 # Same day event - end_date stays None (same as start date)
                 self.end_date = None
-                
+
         except (ValueError, TypeError):
             # If any parsing fails, leave end_date as None
             pass
-            
+
         return self
 
     def is_complete(self: EventData) -> bool:

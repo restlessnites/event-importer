@@ -74,8 +74,8 @@ class ProgressTracker:
         """Safely send progress to a callback."""
         try:
             await callback(progress)
-        except Exception as e:
-            logger.error(f"Error sending progress: {e}")
+        except (ValueError, TypeError, KeyError):
+            logger.exception("Error sending progress")
 
     def get_history(self: "ProgressTracker", request_id: str) -> list[ImportProgress]:
         """Get progress history for a request."""

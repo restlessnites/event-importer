@@ -8,6 +8,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.config import Config
+from app.error_messages import AgentMessages
 from app.schemas import (
     EventData,
     EventLocation,
@@ -20,6 +21,8 @@ from app.shared.agent import Agent
 from app.shared.http import HTTPService
 
 logger = logging.getLogger(__name__)
+
+
 
 
 class DiceAgent(Agent):
@@ -64,7 +67,8 @@ class DiceAgent(Agent):
             # Use unified search API to find the event
             event_id = await self._search_for_event_id(search_query, url, request_id)
             if not event_id:
-                raise Exception("Could not find event using Dice search API")
+                error_msg = AgentMessages.DICE_EVENT_NOT_FOUND
+                raise Exception(error_msg)
 
             logger.info(f"Found Dice event ID: {event_id}")
 
@@ -78,7 +82,8 @@ class DiceAgent(Agent):
             # Step 2: Fetch event data from API using the extracted ID
             api_data = await self._fetch_api_data(event_id, request_id)
             if not api_data:
-                raise Exception("Could not fetch event data from Dice API")
+                error_msg = AgentMessages.DICE_DATA_FETCH_FAILED
+                raise Exception(error_msg)
 
             await self.send_progress(
                 request_id, ImportStatus.RUNNING, "Processing event data", 0.8
@@ -87,7 +92,8 @@ class DiceAgent(Agent):
             # Step 3: Transform API data to EventData
             event_data = self._transform_api_data(api_data, url)
             if not event_data:
-                raise Exception("Could not transform Dice API data to event format")
+                error_msg = AgentMessages.DICE_DATA_TRANSFORM_FAILED
+                raise Exception(error_msg)
 
             # Generate descriptions if missing - use safe service access
             if not event_data.long_description or not event_data.short_description:
@@ -97,8 +103,8 @@ class DiceAgent(Agent):
                 try:
                     llm_service = self.get_service("llm")
                     event_data = await llm_service.generate_descriptions(event_data)
-                except Exception as e:
-                    logger.error(f"Failed to generate descriptions: {e}")
+                except Exception:
+                    logger.exception("Failed to generate descriptions")
                     # Continue without descriptions rather than failing completely
 
             await self.send_progress(
@@ -112,7 +118,7 @@ class DiceAgent(Agent):
             return event_data
 
         except Exception as e:
-            logger.error(f"Dice import failed: {e}")
+            logger.exception("Dice import failed")
             await self.send_progress(
                 request_id,
                 ImportStatus.FAILED,
@@ -213,8 +219,8 @@ class DiceAgent(Agent):
 
             return None
 
-        except Exception as e:
-            logger.error(f"Dice search failed: {e}")
+        except (ValueError, TypeError, KeyError):
+            logger.exception(AgentMessages.DICE_SEARCH_FAILED)
             return None
 
     async def _fetch_api_data(
@@ -250,8 +256,8 @@ class DiceAgent(Agent):
 
             return response
 
-        except Exception as e:
-            logger.error(f"Error fetching Dice API data: {e}")
+        except (ValueError, TypeError, KeyError):
+            logger.exception(AgentMessages.DICE_API_ERROR)
             return None
 
     def _transform_api_data(
@@ -360,6 +366,6 @@ class DiceAgent(Agent):
                 genres=None,
             )
             return event_data
-        except Exception as e:
-            logger.error(f"Error transforming Dice API data: {e}")
+        except (ValueError, TypeError, KeyError):
+            logger.exception(AgentMessages.DICE_TRANSFORM_ERROR)
             return None

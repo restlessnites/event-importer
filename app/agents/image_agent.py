@@ -5,12 +5,15 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.error_messages import AgentMessages, ServiceMessages
 from app.schemas import EventData, ImportMethod, ImportStatus
 from app.services.image import ImageService
 from app.shared.agent import Agent
 from app.shared.http import HTTPService
 
 logger = logging.getLogger(__name__)
+
+
 
 
 class ImageAgent(Agent):
@@ -47,7 +50,8 @@ class ImageAgent(Agent):
             # Download and validate image
             result = await self.image_service.validate_and_download(url)
             if not result:
-                raise Exception("Invalid or inaccessible image")
+                error_msg = "Invalid or inaccessible image"
+                raise Exception(error_msg)
 
             image_data, mime_type = result
 
@@ -65,11 +69,13 @@ class ImageAgent(Agent):
                     image_data, mime_type, url
                 )
             except Exception as e:
-                logger.error(f"Failed to extract from image using LLM: {e}")
-                raise Exception("Could not extract event information from image")
+                logger.exception(ServiceMessages.LLM_EXTRACTION_FAILED)
+                error_msg = AgentMessages.IMAGE_EXTRACT_FAILED
+                raise Exception(error_msg) from e
 
             if not event_data:
-                raise Exception("Could not extract event information from image")
+                error_msg = AgentMessages.IMAGE_EXTRACT_FAILED
+                raise Exception(error_msg)
 
             await self.send_progress(
                 request_id,
@@ -81,8 +87,8 @@ class ImageAgent(Agent):
 
             return event_data
 
-        except Exception as e:
-            logger.error(f"Image import failed: {e}")
+        except (ValueError, TypeError, KeyError) as e:
+            logger.exception(AgentMessages.IMAGE_IMPORT_FAILED)
             await self.send_progress(
                 request_id,
                 ImportStatus.FAILED,

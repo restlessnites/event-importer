@@ -5,12 +5,15 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from app.error_messages import AgentMessages, ServiceMessages
 from app.schemas import EventData, EventLocation, EventTime, ImportMethod, ImportStatus
 from app.shared.agent import Agent
 from app.shared.http import HTTPService
 from app.shared.url_analyzer import URLAnalyzer
 
 logger = logging.getLogger(__name__)
+
+
 
 
 class TicketmasterAgent(Agent):
@@ -56,12 +59,14 @@ class TicketmasterAgent(Agent):
             # Extract event information from URL
             search_info = self.url_analyzer.analyze(url)
             if not search_info:
-                raise Exception("Could not extract event information from URL")
+                error_msg = AgentMessages.TICKETMASTER_URL_EXTRACT_FAILED
+                raise Exception(error_msg)
 
             # Try to find the event using search
             event = await self._search_for_event(search_info)
             if not event:
-                raise Exception("Could not find event using Ticketmaster search")
+                error_msg = AgentMessages.TICKETMASTER_EVENT_NOT_FOUND
+                raise Exception(error_msg)
 
             await self.send_progress(
                 request_id, ImportStatus.RUNNING, "Parsing event data", 0.6
@@ -81,8 +86,8 @@ class TicketmasterAgent(Agent):
                 try:
                     genre_service = self.get_service("genre")
                     event_data = await genre_service.enhance_genres(event_data)
-                except Exception as e:
-                    logger.debug(f"Genre search failed: {e}")
+                except (ValueError, TypeError, KeyError) as e:
+                    logger.debug(f"{ServiceMessages.GENRE_SEARCH_FAILED}: {e}")
                     # Continue without genres
 
             # Generate descriptions if missing - use safe service access
@@ -93,8 +98,8 @@ class TicketmasterAgent(Agent):
                 try:
                     llm_service = self.get_service("llm")
                     event_data = await llm_service.generate_descriptions(event_data)
-                except Exception as e:
-                    logger.error(f"Failed to generate descriptions: {e}")
+                except (ValueError, TypeError, KeyError):
+                    logger.exception(AgentMessages.DESCRIPTION_GENERATION_FAILED)
                     # Continue without descriptions rather than failing completely
 
             await self.send_progress(
@@ -107,8 +112,8 @@ class TicketmasterAgent(Agent):
 
             return event_data
 
-        except Exception as e:
-            logger.error(f"Ticketmaster import failed: {e}")
+        except (ValueError, TypeError, KeyError) as e:
+            logger.exception(AgentMessages.TICKETMASTER_IMPORT_FAILED)
             await self.send_progress(
                 request_id,
                 ImportStatus.FAILED,
@@ -127,7 +132,7 @@ class TicketmasterAgent(Agent):
                 params={"apikey": self.api_key},
             )
             return data
-        except Exception:
+        except (ValueError, TypeError, KeyError):
             # Try searching if direct fetch fails
             logger.info("Direct fetch failed, trying search")
             return None
@@ -331,6 +336,6 @@ class TicketmasterAgent(Agent):
                 f"Using first search result: {event.get('name')} (ID: {event.get('id')})"
             )
             return event
-        except Exception as e:
-            logger.error(f"Error searching Discovery API: {e}")
+        except (ValueError, TypeError, KeyError):
+            logger.exception(AgentMessages.DISCOVERY_API_ERROR)
             return None
