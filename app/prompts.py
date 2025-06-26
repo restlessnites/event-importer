@@ -94,8 +94,7 @@ Genre Guidelines:
         needs_long_description: bool = True,
         needs_short_description: bool = True,
     ) -> str:
-        """
-        Build prompt for event extraction from any content type.
+        """Build prompt for event extraction from any content type.
 
         Args:
             content: The content to extract from
@@ -104,6 +103,7 @@ Genre Guidelines:
             context: Additional context if needed
             needs_long_description: Whether to include long description generation rules
             needs_short_description: Whether to include short description generation rules
+
         """
         # Content wrappers for different types
         content_wrapper = {
@@ -129,7 +129,7 @@ Genre Guidelines:
                 content if content_type not in ["screenshot", "image"] else "",
                 content_wrapper[2],
                 f"\\n{cls.BASE_EXTRACTION_RULES}",
-            ]
+            ],
         )
 
         # Add description generation rules only if needed
@@ -148,8 +148,7 @@ Genre Guidelines:
         needs_long: bool = False,
         needs_short: bool = False,
     ) -> str:
-        """
-        Build prompt for ONLY generating missing descriptions.
+        """Build prompt for ONLY generating missing descriptions.
         Used when we already have event data but need to fill in descriptions.
         Also handles cases where descriptions exist but are too long.
         """
@@ -187,7 +186,7 @@ Genre Guidelines:
                         loc.get("state"),
                         loc.get("country"),
                     ],
-                )
+                ),
             )
             if loc_str:
                 context_parts.append(f"Location: {loc_str}")
@@ -209,11 +208,11 @@ Genre Guidelines:
         long_desc = event_data.get("long_description")
         if long_desc and len(long_desc) <= 500:
             prompt_parts.append(
-                "- long_description: Already exists and valid (keep as-is)"
+                "- long_description: Already exists and valid (keep as-is)",
             )
         elif long_desc and len(long_desc) > 500:
             prompt_parts.append(
-                f"- long_description: TOO LONG ({len(long_desc)} chars, max 500) - please shorten"
+                f"- long_description: TOO LONG ({len(long_desc)} chars, max 500) - please shorten",
             )
         else:
             prompt_parts.append("- long_description: MISSING - please generate")
@@ -222,11 +221,11 @@ Genre Guidelines:
         short_desc = event_data.get("short_description")
         if short_desc and len(short_desc) <= 100:
             prompt_parts.append(
-                "- short_description: Already exists and valid (keep as-is)"
+                "- short_description: Already exists and valid (keep as-is)",
             )
         elif short_desc and len(short_desc) > 100:
             prompt_parts.append(
-                f"- short_description: TOO LONG ({len(short_desc)} chars, max 100) - please shorten"
+                f"- short_description: TOO LONG ({len(short_desc)} chars, max 100) - please shorten",
             )
         else:
             prompt_parts.append("- short_description: MISSING - please generate")
@@ -243,7 +242,7 @@ Genre Guidelines:
 - Create a natural, engaging description incorporating all available information
 - Should be 2-4 sentences, informative and complete, but UNDER 500 characters
 - Include lineup/artists, venue, date, genres, promoters, location
-- If a description DOES exist in the source, use it as-is (just clean it up)"""
+- If a description DOES exist in the source, use it as-is (just clean it up)""",
             )
 
         if needs_short and (
@@ -256,7 +255,7 @@ Genre Guidelines:
 - Must be under 100 characters
 - Factual only - NO adjectives or marketing language
 - Format: "[Genre] with [Artist]" or similar
-- Examples: "Electronic music with DJ Shadow", "Jazz quartet at Blue Note" """
+- Examples: "Electronic music with DJ Shadow", "Jazz quartet at Blue Note" """,
             )
 
         return "\\n".join(prompt_parts)
@@ -290,7 +289,6 @@ class GenrePrompts:
         event_context: dict,
     ) -> str:
         """Build prompt to verify artist identity and extract genres."""
-
         context_info = []
         if event_context.get("venue"):
             context_info.append(f"Venue: {event_context['venue']}")
@@ -337,7 +335,7 @@ GENRE GUIDELINES:
 
     @classmethod
     def build_quick_genre_prompt(
-        cls: type[GenrePrompts], artist_name: str, snippet: str
+        cls: type[GenrePrompts], artist_name: str, snippet: str,
     ) -> str:
         """Build a quick prompt for simple genre extraction from a snippet."""
         return f"""Extract music genres for "{artist_name}" from this text:

@@ -19,11 +19,11 @@ class URLAnalyzer:
     """Simple URL analyzer for routing."""
 
     def analyze(self, url: str) -> dict[str, Any]:
-        """
-        Analyze a URL and return routing information.
+        """Analyze a URL and return routing information.
 
         Returns:
             Dict with 'type' and any extracted metadata
+
         """
         # Ensure URL has a scheme
         if not url.startswith(("http://", "https://")):
@@ -75,10 +75,9 @@ class URLAnalyzer:
                         "event_id": id_match.group(1),
                         "slug": event_slug,
                     }
-                else:
-                    # Return as dice type but without extracted ID
-                    # The agent will use the slug to search for the event ID via API
-                    return {"type": URLType.DICE, "slug": event_slug}
+                # Return as dice type but without extracted ID
+                # The agent will use the slug to search for the event ID via API
+                return {"type": URLType.DICE, "slug": event_slug}
 
         # Everything else is unknown (will be determined by content-type)
         return {"type": URLType.UNKNOWN}

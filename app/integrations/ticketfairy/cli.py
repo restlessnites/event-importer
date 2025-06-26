@@ -1,4 +1,4 @@
-""" TicketFairy CLI. """
+"""TicketFairy CLI."""
 
 import argparse
 import asyncio
@@ -10,7 +10,7 @@ from .submitter import TicketFairySubmitter
 
 
 async def submit_command(
-    filter_type: str = "unsubmitted", url: str | None = None, dry_run: bool = False
+    filter_type: str = "unsubmitted", url: str | None = None, dry_run: bool = False,
 ) -> None:
     """Submit events to TicketFairy"""
     submitter = TicketFairySubmitter()
@@ -68,7 +68,7 @@ async def submit_command(
                             }
 
                             cli.table(
-                                [key_fields], title=f"Event {i} - TicketFairy Fields"
+                                [key_fields], title=f"Event {i} - TicketFairy Fields",
                             )
 
                             # Show details (description) separately since it can be long
@@ -82,7 +82,7 @@ async def submit_command(
                                 cli.console.print(
                                     f"  {details_clean[:200]}..."
                                     if len(details_clean) > 200
-                                    else f"  {details_clean}"
+                                    else f"  {details_clean}",
                                 )
 
                         # Option to show full JSON payload
@@ -147,7 +147,7 @@ def status_command() -> None:
 
         # Get unsubmitted count - fix SQLAlchemy warning by using select() explicitly
         submitted_event_ids_query = select(Submission.event_cache_id).where(
-            Submission.service_name == "ticketfairy"
+            Submission.service_name == "ticketfairy",
         )
         unsubmitted_count = (
             db.query(func.count(EventCache.id))
@@ -202,7 +202,7 @@ def main() -> None:
 
     # Retry command (alias for submit --filter failed)
     retry_parser = subparsers.add_parser(
-        "retry-failed", help="Retry failed submissions"
+        "retry-failed", help="Retry failed submissions",
     )
     retry_parser.add_argument(
         "--dry-run",
@@ -222,7 +222,7 @@ def main() -> None:
 
     if args.command == "submit":
         asyncio.run(
-            submit_command(filter_type=args.filter, url=args.url, dry_run=args.dry_run)
+            submit_command(filter_type=args.filter, url=args.url, dry_run=args.dry_run),
         )
         # Close HTTP service to prevent unclosed session warnings
         asyncio.run(close_http_service())

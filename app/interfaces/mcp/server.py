@@ -7,7 +7,7 @@ import sys
 from typing import Any
 
 import mcp.server.stdio
-import mcp.types as types
+from mcp import types
 from mcp.server import NotificationOptions, Server
 from mcp.server.models import InitializationOptions
 from sqlalchemy import asc, desc, or_
@@ -24,7 +24,7 @@ from app.shared.statistics import StatisticsService
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ class CoreMCPTools:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "event_id": {"type": "integer", "description": "Event ID to show"}
+                    "event_id": {"type": "integer", "description": "Event ID to show"},
                 },
                 "required": ["event_id"],
             },
@@ -127,7 +127,7 @@ class CoreMCPTools:
                         "type": "boolean",
                         "default": False,
                         "description": "Include detailed breakdown",
-                    }
+                    },
                 },
             },
         ),
@@ -172,7 +172,7 @@ class CoreMCPTools:
                     or_(
                         EventCache.source_url.like(search_term),
                         EventCache.scraped_data.like(search_term),
-                    )
+                    ),
                 )
 
             # Apply sorting
@@ -220,7 +220,7 @@ class CoreMCPTools:
                 if summary_only:
                     # Show only formatted summary
                     event_info.update(
-                        CoreMCPTools.format_event_data(event.scraped_data)
+                        CoreMCPTools.format_event_data(event.scraped_data),
                     )
                 else:
                     # Include full event data by default
@@ -321,7 +321,7 @@ class CoreMCPTools:
             return {"success": True, "statistics": stats}
 
         except (ValueError, TypeError, KeyError) as e:
-            error_msg = f"{InterfaceMessages.STATISTICS_ERROR}: {str(e)}"
+            error_msg = f"{InterfaceMessages.STATISTICS_ERROR}: {e!s}"
             return {"success": False, "error": error_msg}
 
     # Tool handlers mapping
@@ -341,7 +341,7 @@ def get_all_tools() -> list[types.Tool]:
     integrations = get_available_integrations()
     for name, integration in integrations.items():
         if hasattr(integration, "mcp_tools") and hasattr(
-            integration.mcp_tools, "TOOLS"
+            integration.mcp_tools, "TOOLS",
         ):
             logger.info(f"Adding MCP tools for integration: {name}")
             tools.extend(integration.mcp_tools.TOOLS)
@@ -358,7 +358,7 @@ def get_all_tool_handlers() -> dict:
     integrations = get_available_integrations()
     for _name, integration in integrations.items():
         if hasattr(integration, "mcp_tools") and hasattr(
-            integration.mcp_tools, "TOOL_HANDLERS"
+            integration.mcp_tools, "TOOL_HANDLERS",
         ):
             handlers.update(integration.mcp_tools.TOOL_HANDLERS)
 
@@ -396,10 +396,9 @@ async def main() -> None:
 
     @server.call_tool()
     async def handle_call_tool(
-        name: str, arguments: dict[str, Any]
+        name: str, arguments: dict[str, Any],
     ) -> list[types.TextContent]:
         """Handle tool calls."""
-
         try:
             # Special case for import_event (needs router)
             if name == "import_event":
@@ -419,7 +418,7 @@ async def main() -> None:
                 types.TextContent(
                     type="text",
                     text=json.dumps({"success": False, "error": str(e)}, indent=2),
-                )
+                ),
             ]
 
     # Run the server

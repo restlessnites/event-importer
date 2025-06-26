@@ -121,7 +121,7 @@ class ErrorCapture:
             self.stop()
 
     def async_capture(
-        self: ErrorCapture, min_level: int = logging.WARNING
+        self: ErrorCapture, min_level: int = logging.WARNING,
     ) -> Iterator[None]:
         """Async context manager wrapper (just uses sync version)."""
         # Since logging is sync, we can just use the sync context manager
@@ -171,7 +171,7 @@ class CLIErrorDisplay:
         self.cli = cli
 
     def show_captured_errors(
-        self: CLIErrorDisplay, capture: ErrorCapture, title: str = "Captured Errors"
+        self: CLIErrorDisplay, capture: ErrorCapture, title: str = "Captured Errors",
     ) -> None:
         """Display captured errors in a nice format."""
         errors = capture.get_errors()
@@ -195,11 +195,11 @@ class CLIErrorDisplay:
             self._show_messages(errors, "Errors", "error")
 
     def _show_messages(
-        self: CLIErrorDisplay, messages: list[CapturedError], label: str, style: str
+        self: CLIErrorDisplay, messages: list[CapturedError], label: str, style: str,
     ) -> None:
         """Show a group of messages."""
         self.cli.console.print(
-            f"[{self.cli.theme.typography.label_style}]{label}:[/] {len(messages)} found"
+            f"[{self.cli.theme.typography.label_style}]{label}:[/] {len(messages)} found",
         )
         self.cli.console.print()
 

@@ -37,13 +37,13 @@ class ImageAgent(Agent):
         return ImportMethod.IMAGE
 
     async def import_event(
-        self: ImageAgent, url: str, request_id: str
+        self: ImageAgent, url: str, request_id: str,
     ) -> EventData | None:
         """Import event from image URL."""
         self.start_timer()
 
         await self.send_progress(
-            request_id, ImportStatus.RUNNING, "Downloading image", 0.2
+            request_id, ImportStatus.RUNNING, "Downloading image", 0.2,
         )
 
         try:
@@ -66,7 +66,7 @@ class ImageAgent(Agent):
             try:
                 llm_service = self.get_service("llm")
                 event_data = await llm_service.extract_from_image(
-                    image_data, mime_type, url
+                    image_data, mime_type, url,
                 )
             except Exception as e:
                 logger.exception(ServiceMessages.LLM_EXTRACTION_FAILED)
@@ -92,7 +92,7 @@ class ImageAgent(Agent):
             await self.send_progress(
                 request_id,
                 ImportStatus.FAILED,
-                f"Import failed: {str(e)}",
+                f"Import failed: {e!s}",
                 1.0,
                 error=str(e),
             )

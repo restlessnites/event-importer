@@ -48,7 +48,7 @@ def list_events(args: argparse.Namespace) -> None:
                 or_(
                     EventCache.source_url.like(search_term),
                     EventCache.scraped_data.like(search_term),
-                )
+                ),
             )
 
         # Apply sorting
@@ -101,7 +101,7 @@ def list_events(args: argparse.Namespace) -> None:
                                 if sub.submitted_at
                                 else "N/A",
                                 "Retries": sub.retry_count,
-                            }
+                            },
                         )
                     cli.info("Submissions:")
                     cli.table(submission_data)
@@ -165,7 +165,7 @@ def show_event_details(args: argparse.Namespace) -> None:
                         "Error": sub.error_message[:100] + "..."
                         if sub.error_message and len(sub.error_message) > 100
                         else sub.error_message or "N/A",
-                    }
+                    },
                 )
             cli.table(submission_data)
         else:
@@ -212,7 +212,7 @@ def show_stats(args: argparse.Namespace) -> None:
         # Add status breakdown
         for status, count in submission_stats["by_status"].items():
             submission_data.append(
-                {"Metric": f"{status.title()} Submissions", "Count": count}
+                {"Metric": f"{status.title()} Submissions", "Count": count},
             )
 
         cli.table(submission_data)

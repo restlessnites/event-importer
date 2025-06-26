@@ -37,7 +37,7 @@ class ResidentAdvisorAgent(Agent):
         return ImportMethod.API
 
     async def import_event(
-        self: ResidentAdvisorAgent, url: str, request_id: str
+        self: ResidentAdvisorAgent, url: str, request_id: str,
     ) -> EventData | None:
         """Import event from RA GraphQL API."""
         self.start_timer()
@@ -63,7 +63,7 @@ class ResidentAdvisorAgent(Agent):
                 raise Exception(error_msg)
 
             await self.send_progress(
-                request_id, ImportStatus.RUNNING, "Parsing event data", 0.7
+                request_id, ImportStatus.RUNNING, "Parsing event data", 0.7,
             )
 
             # Parse to our format
@@ -71,7 +71,7 @@ class ResidentAdvisorAgent(Agent):
 
             if not event_data.genres and self.services.get("genre"):
                 await self.send_progress(
-                    request_id, ImportStatus.RUNNING, "Searching for genres", 0.8
+                    request_id, ImportStatus.RUNNING, "Searching for genres", 0.8,
                 )
                 try:
                     genre_service = self.get_service("genre")
@@ -83,7 +83,7 @@ class ResidentAdvisorAgent(Agent):
             # Generate descriptions if missing - use safe service access
             if not event_data.long_description or not event_data.short_description:
                 await self.send_progress(
-                    request_id, ImportStatus.RUNNING, "Generating descriptions", 0.85
+                    request_id, ImportStatus.RUNNING, "Generating descriptions", 0.85,
                 )
                 try:
                     llm_service = self.get_service("llm")
@@ -107,7 +107,7 @@ class ResidentAdvisorAgent(Agent):
             await self.send_progress(
                 request_id,
                 ImportStatus.FAILED,
-                f"Import failed: {str(e)}",
+                f"Import failed: {e!s}",
                 1.0,
                 error=str(e),
             )

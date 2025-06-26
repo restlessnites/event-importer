@@ -39,7 +39,7 @@ class TicketmasterAgent(Agent):
         return ImportMethod.API
 
     async def import_event(
-        self: TicketmasterAgent, url: str, request_id: str
+        self: TicketmasterAgent, url: str, request_id: str,
     ) -> EventData | None:
         """Import event from Ticketmaster Discovery API."""
         self.start_timer()
@@ -69,19 +69,19 @@ class TicketmasterAgent(Agent):
                 raise Exception(error_msg)
 
             await self.send_progress(
-                request_id, ImportStatus.RUNNING, "Parsing event data", 0.6
+                request_id, ImportStatus.RUNNING, "Parsing event data", 0.6,
             )
 
             # Parse the event data
             event_data = self._parse_event(event, url)
 
             await self.send_progress(
-                request_id, ImportStatus.RUNNING, "Enhancing event data", 0.75
+                request_id, ImportStatus.RUNNING, "Enhancing event data", 0.75,
             )
 
             if not event_data.genres and self.services.get("genre"):
                 await self.send_progress(
-                    request_id, ImportStatus.RUNNING, "Searching for genres", 0.8
+                    request_id, ImportStatus.RUNNING, "Searching for genres", 0.8,
                 )
                 try:
                     genre_service = self.get_service("genre")
@@ -93,7 +93,7 @@ class TicketmasterAgent(Agent):
             # Generate descriptions if missing - use safe service access
             if not event_data.long_description or not event_data.short_description:
                 await self.send_progress(
-                    request_id, ImportStatus.RUNNING, "Generating descriptions", 0.85
+                    request_id, ImportStatus.RUNNING, "Generating descriptions", 0.85,
                 )
                 try:
                     llm_service = self.get_service("llm")
@@ -117,7 +117,7 @@ class TicketmasterAgent(Agent):
             await self.send_progress(
                 request_id,
                 ImportStatus.FAILED,
-                f"Import failed: {str(e)}",
+                f"Import failed: {e!s}",
                 1.0,
                 error=str(e),
             )
@@ -196,7 +196,7 @@ class TicketmasterAgent(Agent):
         if event.get("images"):
             # Sort by width to get highest res
             sorted_images = sorted(
-                event["images"], key=lambda x: int(x.get("width", 0)), reverse=True
+                event["images"], key=lambda x: int(x.get("width", 0)), reverse=True,
             )
             if sorted_images:
                 images = {
@@ -303,7 +303,7 @@ class TicketmasterAgent(Agent):
         return search_info
 
     async def _search_for_event(
-        self: TicketmasterAgent, search_info: dict
+        self: TicketmasterAgent, search_info: dict,
     ) -> dict | None:
         """Search for an event using the Discovery API search endpoint with domain/source filtering."""
         try:
@@ -333,7 +333,7 @@ class TicketmasterAgent(Agent):
             # Return the first result, which is the most likely match
             event = events[0]
             logger.info(
-                f"Using first search result: {event.get('name')} (ID: {event.get('id')})"
+                f"Using first search result: {event.get('name')} (ID: {event.get('id')})",
             )
             return event
         except (ValueError, TypeError, KeyError):

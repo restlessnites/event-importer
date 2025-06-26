@@ -13,8 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def ensure_database_ready() -> None:
-    """
-    Ensure the database is properly initialized and ready for use.
+    """Ensure the database is properly initialized and ready for use.
     This should be called once at application startup.
     """
     try:
@@ -37,8 +36,7 @@ def ensure_database_ready() -> None:
 
 
 def startup_checks() -> None:
-    """
-    Run all startup checks and initialization.
+    """Run all startup checks and initialization.
     Call this from main entry points.
     """
     logger.info("Running startup checks...")

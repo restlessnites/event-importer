@@ -86,7 +86,7 @@ class DiceAgent(Agent):
                 raise Exception(error_msg)
 
             await self.send_progress(
-                request_id, ImportStatus.RUNNING, "Processing event data", 0.8
+                request_id, ImportStatus.RUNNING, "Processing event data", 0.8,
             )
 
             # Step 3: Transform API data to EventData
@@ -98,7 +98,7 @@ class DiceAgent(Agent):
             # Generate descriptions if missing - use safe service access
             if not event_data.long_description or not event_data.short_description:
                 await self.send_progress(
-                    request_id, ImportStatus.RUNNING, "Generating descriptions", 0.85
+                    request_id, ImportStatus.RUNNING, "Generating descriptions", 0.85,
                 )
                 try:
                     llm_service = self.get_service("llm")
@@ -122,7 +122,7 @@ class DiceAgent(Agent):
             await self.send_progress(
                 request_id,
                 ImportStatus.FAILED,
-                f"Import failed: {str(e)}",
+                f"Import failed: {e!s}",
                 1.0,
                 error=str(e),
             )
@@ -169,7 +169,7 @@ class DiceAgent(Agent):
             return url  # Fallback
 
     async def _search_for_event_id(
-        self, search_query: str, original_url: str, request_id: str
+        self, search_query: str, original_url: str, request_id: str,
     ) -> str | None:
         """Search for event using Dice unified search API and match against the perm_name."""
         try:
@@ -224,7 +224,7 @@ class DiceAgent(Agent):
             return None
 
     async def _fetch_api_data(
-        self, event_id: str, request_id: str
+        self, event_id: str, request_id: str,
     ) -> dict[str, Any] | None:
         """Fetch event data from Dice API."""
         try:
@@ -243,7 +243,7 @@ class DiceAgent(Agent):
             }
 
             response = await self.http.get_json(
-                api_url, service="Dice API", headers=headers, timeout=30.0
+                api_url, service="Dice API", headers=headers, timeout=30.0,
             )
 
             # Log the event data response for debugging
@@ -261,7 +261,7 @@ class DiceAgent(Agent):
             return None
 
     def _transform_api_data(
-        self, api_data: dict[str, Any], source_url: str
+        self, api_data: dict[str, Any], source_url: str,
     ) -> EventData | None:
         """Transform Dice API response to EventData format."""
         try:

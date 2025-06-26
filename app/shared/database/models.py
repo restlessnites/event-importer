@@ -22,12 +22,12 @@ class EventCache(Base):
     scraped_at: Mapped[datetime] = Column(DateTime, default=func.now(), nullable=False)
     data_hash: Mapped[str] = Column(String(64), nullable=False)  # For change detection
     updated_at: Mapped[datetime] = Column(
-        DateTime, default=func.now(), onupdate=func.now(), nullable=False
+        DateTime, default=func.now(), onupdate=func.now(), nullable=False,
     )
 
     # Relationship to submissions
     submissions: Mapped[list[Submission]] = relationship(
-        "Submission", back_populates="event", cascade="all, delete-orphan"
+        "Submission", back_populates="event", cascade="all, delete-orphan",
     )
 
     # Indexes for common queries
@@ -48,21 +48,21 @@ class Submission(Base):
 
     id: Mapped[int] = Column(Integer, primary_key=True)
     event_cache_id: Mapped[int] = Column(
-        Integer, ForeignKey("events.id"), nullable=False
+        Integer, ForeignKey("events.id"), nullable=False,
     )
     service_name: Mapped[str] = Column(String(100), nullable=False)
     status: Mapped[str] = Column(
-        String(20), nullable=False, default="pending"
+        String(20), nullable=False, default="pending",
     )  # pending, success, failed, retry
     submitted_at: Mapped[datetime] = Column(
-        DateTime, default=func.now(), nullable=False
+        DateTime, default=func.now(), nullable=False,
     )
     response_data: Mapped[dict[str, Any] | None] = Column(JSON, nullable=True)
     error_message: Mapped[str | None] = Column(Text, nullable=True)
     retry_count: Mapped[int] = Column(Integer, default=0, nullable=False)
     selection_criteria: Mapped[dict[str, Any] | None] = Column(JSON, nullable=True)
     batch_id: Mapped[str | None] = Column(
-        String(36), nullable=True
+        String(36), nullable=True,
     )  # UUID for batching
 
     # Relationship to event

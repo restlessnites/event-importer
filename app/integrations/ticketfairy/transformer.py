@@ -1,4 +1,4 @@
-""" TicketFairy transformer. """
+"""TicketFairy transformer."""
 
 from __future__ import annotations
 
@@ -30,14 +30,14 @@ def _format_list_or_string(data: list[str] | str | None) -> str:
 
 
 def _get_timezone_from_location(location: dict[str, Any]) -> str:
-    """
-    Determine timezone from location data for major cities in US, Canada, and UK.
+    """Determine timezone from location data for major cities in US, Canada, and UK.
 
     Args:
         location: Location dictionary with city, state, country
 
     Returns:
         Timezone string for TicketFairy
+
     """
     if not isinstance(location, dict):
         return "UTC"
@@ -68,46 +68,42 @@ def _get_timezone_from_location(location: dict[str, Any]) -> str:
 
         if city in pacific_cities:
             return "America/Los_Angeles"
-        elif city in central_cities:
+        if city in central_cities:
             return "America/Chicago"
-        elif city in eastern_cities:
+        if city in eastern_cities:
             return "America/New_York"
-        elif city in mountain_cities:
+        if city in mountain_cities:
             return "America/Denver"
-        elif city == "phoenix":
+        if city == "phoenix":
             return "America/Phoenix"  # Special case - no DST
-        else:
-            return "America/New_York"  # Default to Eastern
+        return "America/New_York"  # Default to Eastern
 
     # Canada
-    elif "canada" in country:
+    if "canada" in country:
         if city == "vancouver":
             return "America/Vancouver"
-        elif city == "calgary":
+        if city == "calgary":
             return "America/Edmonton"
-        elif city == "montreal":
+        if city == "montreal":
             return "America/Montreal"
-        else:
-            return "America/Toronto"  # Default
+        return "America/Toronto"  # Default
 
     # UK
-    elif "united kingdom" in country:
+    if "united kingdom" in country:
         return "Europe/London"
 
     return "UTC"
 
 
 class TicketFairyTransformer(BaseTransformer):
-    """
-    Transforms a normalized event data dictionary into the format required
+    """Transforms a normalized event data dictionary into the format required
     by the TicketFairy API.
     """
 
     def transform(
-        self: TicketFairyTransformer, event_data: dict[str, Any]
+        self: TicketFairyTransformer, event_data: dict[str, Any],
     ) -> dict[str, Any]:
-        """
-        Transforms the scraped event data into the format expected by the
+        """Transforms the scraped event data into the format expected by the
         TicketFairy /api/draft-events endpoint.
 
         Actual canonical event data fields used in this system:
@@ -124,7 +120,6 @@ class TicketFairyTransformer(BaseTransformer):
         - promoters (list)
         - genres (list)
         """
-
         # --- Extract data using correct canonical keys ---
         title = event_data.get("title", "N/A")
 
@@ -248,6 +243,6 @@ class TicketFairyTransformer(BaseTransformer):
                     "address": address,
                     "venue": venue,
                     "details": details,
-                }
-            }
+                },
+            },
         }

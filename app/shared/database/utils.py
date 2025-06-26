@@ -28,14 +28,13 @@ def cache_event(url: str, event_data: dict[str, Any]) -> EventCache:
                 existing.data_hash = data_hash
                 # updated_at will be set automatically
             return existing
-        else:
-            # Create new cache entry
-            cached_event = EventCache(
-                source_url=url, scraped_data=event_data, data_hash=data_hash
-            )
-            db.add(cached_event)
-            db.flush()  # Get the ID
-            return cached_event
+        # Create new cache entry
+        cached_event = EventCache(
+            source_url=url, scraped_data=event_data, data_hash=data_hash,
+        )
+        db.add(cached_event)
+        db.flush()  # Get the ID
+        return cached_event
 
 
 def get_cached_event(url: str) -> dict[str, Any] | None:

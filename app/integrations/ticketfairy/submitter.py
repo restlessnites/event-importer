@@ -1,4 +1,4 @@
-""" TicketFairy submitter. """
+"""TicketFairy submitter."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ class TicketFairySubmitter(BaseSubmitter):
         return URLSelector(url)
 
     async def submit_by_url(
-        self: TicketFairySubmitter, url: str, dry_run: bool = False
+        self: TicketFairySubmitter, url: str, dry_run: bool = False,
     ) -> dict[str, Any]:
         """Submit a specific event by URL"""
         # Create temporary selector

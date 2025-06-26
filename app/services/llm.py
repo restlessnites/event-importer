@@ -1,4 +1,4 @@
-""" LLM service. """
+"""LLM service."""
 
 from __future__ import annotations
 
@@ -75,30 +75,30 @@ class LLMService:
             return await operation.primary_provider(*operation.args, **operation.kwargs)
         except Exception as e:
             logger.warning(
-                f"Primary provider (Claude) failed for {operation.name}, falling back to OpenAI: {e}"
+                f"Primary provider (Claude) failed for {operation.name}, falling back to OpenAI: {e}",
             )
             if self.fallback_service and operation.fallback_provider:
                 try:
                     logger.info(
-                        f"Attempting {operation.name} with fallback provider (OpenAI)"
+                        f"Attempting {operation.name} with fallback provider (OpenAI)",
                     )
                     return await operation.fallback_provider(
-                        *operation.args, **operation.kwargs
+                        *operation.args, **operation.kwargs,
                     )
                 except Exception as fallback_error:
                     logger.exception(
-                        f"Fallback provider (OpenAI) also failed for {operation.name}"
+                        f"Fallback provider (OpenAI) also failed for {operation.name}",
                     )
                     raise fallback_error from e
             else:
                 logger.exception(
-                    "Fallback provider (OpenAI) not available or configured, cannot retry."
+                    "Fallback provider (OpenAI) not available or configured, cannot retry.",
                 )
                 raise e
 
     @retry_on_error(max_attempts=2)
     async def generate_descriptions(
-        self: LLMService, event_data: EventData
+        self: LLMService, event_data: EventData,
     ) -> EventData:
         """Generate event descriptions with fallback."""
         operation = LLMOperation(
@@ -151,7 +151,7 @@ class LLMService:
 
     @retry_on_error(max_attempts=2)
     async def extract_from_html(
-        self: LLMService, html: str, url: str
+        self: LLMService, html: str, url: str,
     ) -> EventData | None:
         """Extract event data from HTML with fallback."""
         operation = LLMOperation(
@@ -165,7 +165,7 @@ class LLMService:
 
     @retry_on_error(max_attempts=2)
     async def extract_from_image(
-        self: LLMService, image_data: bytes, mime_type: str, url: str
+        self: LLMService, image_data: bytes, mime_type: str, url: str,
     ) -> EventData | None:
         """Extract event data from an image with fallback."""
         operation = LLMOperation(

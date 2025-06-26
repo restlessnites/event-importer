@@ -24,16 +24,16 @@ class Router:
 
     @handle_errors_async(reraise=False)
     async def route_request(
-        self: Router, request_data: dict[str, Any]
+        self: Router, request_data: dict[str, Any],
     ) -> dict[str, Any]:
-        """
-        Route an import request.
+        """Route an import request.
 
         Args:
             request_data: Raw request data
 
         Returns:
             Response data as dict
+
         """
         try:
             # Parse request
@@ -54,14 +54,13 @@ class Router:
                     else None,
                     "import_time": result.import_time,
                 }
-            else:
-                return {
-                    "success": False,
-                    "error": result.error or "Import failed",
-                    "method_used": result.method_used.value
-                    if result.method_used
-                    else None,
-                }
+            return {
+                "success": False,
+                "error": result.error or "Import failed",
+                "method_used": result.method_used.value
+                if result.method_used
+                else None,
+            }
 
         except (ValueError, TypeError, KeyError) as e:
             logger.exception("Router error")

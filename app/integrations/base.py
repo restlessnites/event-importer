@@ -1,4 +1,4 @@
-""" Base integration classes. """
+"""Base integration classes."""
 
 from __future__ import annotations
 
@@ -21,10 +21,9 @@ class BaseSelector(ABC):
 
     @abstractmethod
     def select_events(
-        self: BaseSelector, db: Session, service_name: str
+        self: BaseSelector, db: Session, service_name: str,
     ) -> list[EventCache]:
         """Select events based on specific criteria"""
-        pass
 
 
 class BaseTransformer(ABC):
@@ -33,7 +32,6 @@ class BaseTransformer(ABC):
     @abstractmethod
     def transform(self: BaseTransformer, event_data: dict[str, Any]) -> dict[str, Any]:
         """Transform scraped event data to service-specific format"""
-        pass
 
 
 class BaseClient(ABC):
@@ -42,7 +40,6 @@ class BaseClient(ABC):
     @abstractmethod
     async def submit(self: BaseClient, data: dict[str, Any]) -> dict[str, Any]:
         """Submit data to the external service"""
-        pass
 
 
 class BaseSubmitter(ABC):
@@ -58,29 +55,24 @@ class BaseSubmitter(ABC):
     @abstractmethod
     def service_name(self: BaseSubmitter) -> str:
         """Name of the service for this integration."""
-        pass
 
     @abstractmethod
     def _create_client(self: BaseSubmitter) -> BaseClient:
         """Create an instance of the API client."""
-        pass
 
     @abstractmethod
     def _create_transformer(self: BaseSubmitter) -> BaseTransformer:
         """Create an instance of the data transformer."""
-        pass
 
     @abstractmethod
     def _create_selectors(self: BaseSubmitter) -> dict[str, BaseSelector]:
         """Create a dictionary of available event selectors."""
-        pass
 
     @handle_errors_async(reraise=True)
     async def submit_events(
-        self: BaseSubmitter, selector_name: str = "unsubmitted", dry_run: bool = False
+        self: BaseSubmitter, selector_name: str = "unsubmitted", dry_run: bool = False,
     ) -> dict[str, Any]:
-        """
-        Submit events to the integration.
+        """Submit events to the integration.
 
         Args:
             selector_name: Name of selector to use
@@ -88,6 +80,7 @@ class BaseSubmitter(ABC):
 
         Returns:
             Dictionary with submission results
+
         """
         selector = self.selectors.get(selector_name)
         if not selector:
@@ -100,7 +93,7 @@ class BaseSubmitter(ABC):
 
         if not event_ids:
             logger.info(
-                f"No events found with selector: {selector_name} for service {self.service_name}"
+                f"No events found with selector: {selector_name} for service {self.service_name}",
             )
             return {
                 "submitted": [],
@@ -157,7 +150,7 @@ class BaseSubmitter(ABC):
                 if dry_run:
                     with get_db_session() as db:
                         db.query(Submission).filter_by(id=submission_id).update(
-                            {"status": "dry_run", "response_data": {"dry_run": True}}
+                            {"status": "dry_run", "response_data": {"dry_run": True}},
                         )
                         db.commit()
                     results["submitted"].append(
@@ -166,7 +159,7 @@ class BaseSubmitter(ABC):
                             "submission_id": submission_id,
                             "url": source_url,
                             "status": "dry_run",
-                        }
+                        },
                     )
                     continue
 
@@ -176,7 +169,7 @@ class BaseSubmitter(ABC):
                 # Update submission with success
                 with get_db_session() as db:
                     db.query(Submission).filter_by(id=submission_id).update(
-                        {"status": "success", "response_data": response}
+                        {"status": "success", "response_data": response},
                     )
                     db.commit()
                 results["submitted"].append(
@@ -185,18 +178,18 @@ class BaseSubmitter(ABC):
                         "submission_id": submission_id,
                         "url": source_url,
                         "status": "success",
-                    }
+                    },
                 )
 
             except (ValueError, TypeError, KeyError) as e:
                 error_message = str(e)
                 logger.exception(
-                    f"Failed to process event {event_id} for {self.service_name}"
+                    f"Failed to process event {event_id} for {self.service_name}",
                 )
                 if submission_id:
                     with get_db_session() as db:
                         db.query(Submission).filter_by(id=submission_id).update(
-                            {"status": "failed", "error_message": error_message}
+                            {"status": "failed", "error_message": error_message},
                         )
                         db.commit()
 

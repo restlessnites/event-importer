@@ -38,12 +38,11 @@ class GenreService:
 
         if not self.google_enabled:
             logger.debug(
-                "Genre enhancement disabled - Google Search API not configured"
+                "Genre enhancement disabled - Google Search API not configured",
             )
 
     async def enhance_genres(self: "GenreService", event_data: EventData) -> EventData:
-        """
-        Enhance event with missing genre information.
+        """Enhance event with missing genre information.
 
         Only searches if:
         1. No genres are present
@@ -61,7 +60,7 @@ class GenreService:
 
         try:
             found_genres = await self._search_artist_genres(
-                primary_artist, self._build_event_context(event_data)
+                primary_artist, self._build_event_context(event_data),
             )
 
             if found_genres:
@@ -77,7 +76,7 @@ class GenreService:
         return event_data
 
     def _build_event_context(
-        self: "GenreService", event_data: EventData
+        self: "GenreService", event_data: EventData,
     ) -> dict[str, Any]:
         """Build context dict for genre search."""
         context = {
@@ -94,10 +93,9 @@ class GenreService:
 
     @retry_on_error(max_attempts=2)
     async def _search_artist_genres(
-        self: "GenreService", artist_name: str, event_context: dict[str, Any]
+        self: "GenreService", artist_name: str, event_context: dict[str, Any],
     ) -> list[str]:
         """Search for an artist's genres using Google and an LLM."""
-
         # Build search query
         query = f'"{artist_name}" music genre artist'
         logger.debug(f"Searching for artist genres: {query}")
@@ -113,7 +111,7 @@ class GenreService:
 
             # Use LLM to analyze and extract genres
             genres = await self._extract_genres_with_llm(
-                artist_name, search_text, event_context
+                artist_name, search_text, event_context,
             )
 
             return genres
@@ -141,7 +139,7 @@ class GenreService:
         return response.get("items", [])
 
     def _extract_search_text(
-        self: "GenreService", results: list[dict[str, Any]]
+        self: "GenreService", results: list[dict[str, Any]],
     ) -> str:
         """Extract relevant text from search results."""
         texts = []
@@ -171,7 +169,7 @@ class GenreService:
     ) -> list[str]:
         """Use LLM to extract genres from search text."""
         prompt = GenrePrompts.build_artist_verification_prompt(
-            artist_name, search_text, event_context
+            artist_name, search_text, event_context,
         )
         try:
             response = await self.llm.analyze_text(prompt)

@@ -16,7 +16,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
     """Middleware to log API requests and responses."""
 
     async def dispatch(
-        self: LoggingMiddleware, request: Request, call_next: Callable
+        self: LoggingMiddleware, request: Request, call_next: Callable,
     ) -> Response:
         """Process the request and log details."""
         start_time = time.time()

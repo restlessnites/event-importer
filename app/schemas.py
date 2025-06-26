@@ -49,7 +49,7 @@ class EventTime(BaseModel):
 
         # Clean common prefixes
         v = re.sub(
-            r"^\s*(doors?|show|start|begin|end)s?\s*:?\s*", "", v, flags=re.IGNORECASE
+            r"^\s*(doors?|show|start|begin|end)s?\s*:?\s*", "", v, flags=re.IGNORECASE,
         )
 
         try:
@@ -90,7 +90,7 @@ class EventLocation(BaseModel):
     def __bool__(self: EventLocation) -> bool:
         """Check if any location data is set."""
         return any(
-            [self.address, self.city, self.state, self.country, self.coordinates]
+            [self.address, self.city, self.state, self.country, self.coordinates],
         )
 
     def to_string(self: EventLocation) -> str:
@@ -108,7 +108,7 @@ class EventLocation(BaseModel):
 
     @field_validator("coordinates", mode="before")
     def validate_coordinates(
-        cls: type[EventLocation], v: dict[str, Any] | None
+        cls: type[EventLocation], v: dict[str, Any] | None,
     ) -> dict | None:
         """Ensure coordinates are a valid dict or None."""
         if not isinstance(v, dict):
@@ -315,7 +315,7 @@ class EventData(BaseModel):
         return cleaned or None
 
     @field_validator("cost", mode="before")
-    def parse_cost(cls: type[EventData], v: str | int | float | None) -> str | None:
+    def parse_cost(cls: type[EventData], v: str | float | None) -> str | None:
         """Parse and standardize cost information with comprehensive normalization."""
         if not v:
             return None
@@ -453,7 +453,7 @@ class EventData(BaseModel):
                 self.venue,
                 self.date,
                 bool(self.lineup or self.long_description),
-            ]
+            ],
         )
 
     class Config:
@@ -472,7 +472,7 @@ class ImportRequest(BaseModel):
     include_raw_data: bool = False
     timeout: int = Field(default=60, ge=1, le=300)
     ignore_cache: bool = Field(
-        default=False, description="Skip cache and force fresh import"
+        default=False, description="Skip cache and force fresh import",
     )
 
 

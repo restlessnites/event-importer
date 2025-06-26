@@ -86,7 +86,7 @@ class ProgressTracker:
         self._history.pop(request_id, None)
 
     def get_latest_status(
-        self: "ProgressTracker", request_id: str
+        self: "ProgressTracker", request_id: str,
     ) -> ImportStatus | None:
         """Get the latest status for a request."""
         history = self._history.get(request_id)

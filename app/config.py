@@ -153,7 +153,7 @@ class Config:
             import logging
 
             logging.warning(
-                "Ticketmaster API key not configured - Ticketmaster imports disabled"
+                "Ticketmaster API key not configured - Ticketmaster imports disabled",
             )
 
         if not api_status["google_search"]:
@@ -165,7 +165,7 @@ class Config:
             import logging
 
             logging.warning(
-                "TicketFairy API key not configured - TicketFairy integration disabled"
+                "TicketFairy API key not configured - TicketFairy integration disabled",
             )
 
     def get_enabled_features(self: Config) -> dict[str, bool]:

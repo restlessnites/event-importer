@@ -47,13 +47,13 @@ class SecurityPageDetector:
 
     @classmethod
     def detect_security_page(
-        cls: type[SecurityPageDetector], html: str, url: str
+        cls: type[SecurityPageDetector], html: str, url: str,
     ) -> tuple[bool, str | None]:
-        """
-        Detect if the HTML content is a security/protection page.
+        """Detect if the HTML content is a security/protection page.
 
         Returns:
             Tuple of (is_security_page, detected_reason)
+
         """
         if not html or len(html.strip()) < 100:
             return True, "Empty or minimal content"
@@ -88,10 +88,9 @@ class SecurityPageDetector:
 
     @classmethod
     def _is_blocking_captcha_page(
-        cls: type[SecurityPageDetector], html_lower: str
+        cls: type[SecurityPageDetector], html_lower: str,
     ) -> bool:
-        """
-        Detect if this is actually a blocking captcha page vs a page with form reCAPTCHA.
+        """Detect if this is actually a blocking captcha page vs a page with form reCAPTCHA.
 
         Returns True only if the page appears to be primarily a captcha challenge.
         """

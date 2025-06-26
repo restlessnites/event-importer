@@ -23,8 +23,7 @@ class ZyteService:
         self.http = http_service
 
     async def fetch_html(self: ZyteService, url: str) -> str:
-        """
-        Fetch HTML from a URL using Zyte API.
+        """Fetch HTML from a URL using Zyte API.
         This version has retries removed to simplify error handling.
         """
         payload = {
@@ -35,7 +34,7 @@ class ZyteService:
                 {
                     "action": "waitForTimeout",
                     "timeout": self.config.zyte.javascript_wait,
-                }
+                },
             ],
         }
         if self.config.zyte.use_residential_proxy:
@@ -46,7 +45,7 @@ class ZyteService:
 
             # Check for security pages
             is_security, reason = SecurityPageDetector.detect_security_page(
-                html, response_url
+                html, response_url,
             )
             if is_security:
                 # Log a warning with details
@@ -60,8 +59,7 @@ class ZyteService:
             raise
 
     async def fetch_screenshot(self: ZyteService, url: str) -> tuple[bytes, str]:
-        """
-        Fetch a screenshot of a web page using Zyte API.
+        """Fetch a screenshot of a web page using Zyte API.
         This version has retries removed to simplify error handling.
         """
         payload = {
@@ -75,7 +73,7 @@ class ZyteService:
                 {
                     "action": "waitForTimeout",
                     "timeout": self.config.zyte.javascript_wait,
-                }
+                },
             ],
         }
         if self.config.zyte.use_residential_proxy:
@@ -91,7 +89,7 @@ class ZyteService:
             return image_bytes, "image/png"  # Zyte screenshots are PNGs
 
     async def _make_request(
-        self: ZyteService, payload: dict[str, Any], is_screenshot: bool = False
+        self: ZyteService, payload: dict[str, Any], is_screenshot: bool = False,
     ) -> tuple[Any, str]:
         """Make the actual request to Zyte API."""
         if not self.config.api.zyte_key:
@@ -117,12 +115,11 @@ class ZyteService:
                 screenshot_b64 = response["screenshot"]
                 screenshot_data = base64.b64decode(screenshot_b64)
                 return screenshot_data, response_url
-            else:
-                if "browserHtml" not in response:
-                    service_name = "Zyte"
-                    error_msg = "No HTML in response"
-                    raise APIError(service_name, error_msg)
-                return response["browserHtml"], response_url
+            if "browserHtml" not in response:
+                service_name = "Zyte"
+                error_msg = "No HTML in response"
+                raise APIError(service_name, error_msg)
+            return response["browserHtml"], response_url
 
         except Exception as e:
             logger.debug(f"Zyte request failed: {e}")

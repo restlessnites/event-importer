@@ -47,13 +47,13 @@ class ImageService:
     ]
 
     def __init__(
-        self: "ImageService", config: Config, http_service: HTTPService
+        self: "ImageService", config: Config, http_service: HTTPService,
     ) -> None:
         """Initialize image service."""
         self.config = config
         self.http = http_service
         self.google_enabled = bool(
-            config.api.google_api_key and config.api.google_cse_id
+            config.api.google_api_key and config.api.google_cse_id,
         )
         # These are needed for the search call
         self.api_key = config.api.google_api_key
@@ -63,7 +63,7 @@ class ImageService:
             logger.info("✅ Google Custom Search configured - image search enabled")
         else:
             logger.warning(
-                "⚠️ Google Custom Search not configured - image search disabled"
+                "⚠️ Google Custom Search not configured - image search disabled",
             )
 
     @handle_errors_async(reraise=True)
@@ -79,7 +79,7 @@ class ImageService:
 
         # Download image data, disabling SSL verification for robustness
         image_data = await http.download(
-            url, max_size=max_size, service="ImageValidator", verify_ssl=False
+            url, max_size=max_size, service="ImageValidator", verify_ssl=False,
         )
 
         # Validate with Pillow
@@ -163,7 +163,7 @@ class ImageService:
     @handle_errors_async(reraise=True)
     @retry_on_error(max_attempts=2)
     async def search_event_images(
-        self: "ImageService", event_data: EventData, limit: int = 10
+        self: "ImageService", event_data: EventData, limit: int = 10,
     ) -> list[ImageCandidate]:
         """Search for event images using Google Custom Search."""
         if not self.google_enabled:
@@ -195,7 +195,7 @@ class ImageService:
         return candidates[:limit]
 
     def _get_primary_artist_for_search(
-        self: "ImageService", event_data: EventData
+        self: "ImageService", event_data: EventData,
     ) -> str | None:
         """Extract the main artist name from event data for image searching."""
         if event_data.lineup:
@@ -233,7 +233,7 @@ class ImageService:
 
     @handle_errors_async(reraise=True)
     async def _search_google_images(
-        self: "ImageService", query: str, limit: int = 10
+        self: "ImageService", query: str, limit: int = 10,
     ) -> list[dict[str, Any]]:
         """Search for images using Google Custom Search API."""
         if not self.google_enabled:

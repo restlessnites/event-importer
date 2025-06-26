@@ -22,19 +22,16 @@ logger = logging.getLogger(__name__)
 class EventImporterError(Exception):
     """Base exception for all Event Importer errors."""
 
-    pass
 
 
 class ConfigurationError(EventImporterError):
     """Raised when configuration is invalid or missing."""
 
-    pass
 
 
 class ExtractionError(EventImporterError):
     """Base exception for extraction-related errors."""
 
-    pass
 
 
 class ImporterError(Exception):
@@ -128,7 +125,6 @@ class ValidationError(ExtractionError):
 class NotFoundError(ExtractionError):
     """Raised when a requested resource is not found."""
 
-    pass
 
 
 @dataclass
@@ -154,13 +150,13 @@ def handle_errors(
     reraise: bool = True,
     log_level: int = logging.ERROR,
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
-    """
-    Decorator for consistent error handling.
+    """Decorator for consistent error handling.
 
     Args:
         default: Default value to return on error
         reraise: Whether to re-raise the exception after logging
         log_level: Logging level for errors
+
     """
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
@@ -190,13 +186,13 @@ def handle_errors_async(
     reraise: bool = True,
     log_level: int = logging.ERROR,
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
-    """
-    Async version of handle_errors decorator.
+    """Async version of handle_errors decorator.
 
     Args:
         default: Default value to return on error
         reraise: Whether to re-raise the exception after logging
         log_level: Logging level for errors
+
     """
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
@@ -226,14 +222,14 @@ def retry_on_error(
     backoff: float = 2.0,
     exceptions: tuple = (APIError, TimeoutError),
 ) -> Callable:
-    """
-    Decorator to retry a function on specific errors using tenacity.
+    """Decorator to retry a function on specific errors using tenacity.
 
     Args:
         max_attempts: Maximum number of attempts
         delay: Initial delay between retries in seconds
         backoff: Backoff multiplier for exponential backoff
         exceptions: Tuple of exceptions to retry on
+
     """
 
     def should_retry(retry_state: RetryCallState) -> bool:
@@ -242,7 +238,7 @@ def retry_on_error(
             exception = retry_state.outcome.exception()
             # Never retry these error types
             if isinstance(
-                exception, AuthenticationError | SecurityPageError | ValidationError
+                exception, AuthenticationError | SecurityPageError | ValidationError,
             ):
                 return False
             # Only retry specified exceptions
@@ -262,8 +258,7 @@ def format_error_response(
     error: Exception,
     context: ErrorContext | None = None,
 ) -> dict:
-    """
-    Format an error for API response.
+    """Format an error for API response.
 
     Args:
         error: The exception
@@ -271,6 +266,7 @@ def format_error_response(
 
     Returns:
         Dictionary with error details
+
     """
     response = {
         "error": type(error).__name__,

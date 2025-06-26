@@ -27,13 +27,13 @@ class Agent(ABC):
         progress_callback: Callable[[ImportProgress], Awaitable[None]] | None = None,
         services: dict[str, Any] | None = None,
     ) -> None:
-        """
-        Initialize agent.
+        """Initialize agent.
 
         Args:
             config: Application configuration
             progress_callback: Optional callback for progress updates
             services: Required shared services dict
+
         """
         self.config = config
         self.progress_callback = progress_callback
@@ -59,8 +59,7 @@ class Agent(ABC):
         self._start_time = None
 
     def get_service(self: Agent, service_name: str) -> object:
-        """
-        Safely get a service with proper error handling.
+        """Safely get a service with proper error handling.
 
         Args:
             service_name: Name of the service to retrieve
@@ -70,6 +69,7 @@ class Agent(ABC):
 
         Raises:
             ValueError: If service is not available or is None
+
         """
         if not self.services:
             raise ValueError(SERVICES_DICT_NOT_INITIALIZED)
@@ -85,18 +85,15 @@ class Agent(ABC):
     @abstractmethod
     def name(self: Agent) -> str:
         """Agent name for logging."""
-        pass
 
     @property
     @abstractmethod
     def import_method(self: Agent) -> ImportMethod:
         """The import method this agent uses."""
-        pass
 
     @abstractmethod
     async def import_event(self: Agent, url: str, request_id: str) -> EventData | None:
-        """
-        Import event data from the URL.
+        """Import event data from the URL.
 
         Args:
             url: URL to import from
@@ -104,8 +101,8 @@ class Agent(ABC):
 
         Returns:
             Event data if successful, None otherwise
+
         """
-        pass
 
     async def send_progress(
         self: Agent,

@@ -7,9 +7,9 @@ from app.agents.ticketmaster_agent import TicketmasterAgent
 from app.agents.web_agent import WebAgent
 
 __all__ = [
+    "DiceAgent",
+    "ImageAgent",
     "ResidentAdvisorAgent",
     "TicketmasterAgent",
-    "DiceAgent",
     "WebAgent",
-    "ImageAgent",
 ]

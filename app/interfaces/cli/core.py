@@ -122,11 +122,11 @@ class CLI:
     def json(self: CLI, data: dict, title: str | None = None) -> None:
         """Display JSON data with syntax highlighting."""
         self.code_component.render(
-            json.dumps(data, indent=2, default=str), language="json", title=title
+            json.dumps(data, indent=2, default=str), language="json", title=title,
         )
 
     def code(
-        self: CLI, code: str, language: str = "python", title: str | None = None
+        self: CLI, code: str, language: str = "python", title: str | None = None,
     ) -> None:
         """Display code with syntax highlighting."""
         self.code_component.render(code, language, title)
@@ -156,18 +156,15 @@ class CLI:
 
     def progress_update(self: CLI, update: dict) -> None:
         """Display a progress update from the import system."""
-
         formatter = ProgressUpdateFormatter(self.console, self.theme)
         formatter.render(update)
 
     def import_result(self: CLI, result: ImportResult, show_raw: bool = False) -> None:
         """Display import result with all details."""
-
         formatter = ImportResultFormatter(self.console, self.theme)
         formatter.render(result, show_raw)
 
     def event_card(self: CLI, event_data: dict) -> None:
         """Display event data in a nice card format."""
-
         formatter = EventCardFormatter(self.console, self.theme)
         formatter.render(event_data)

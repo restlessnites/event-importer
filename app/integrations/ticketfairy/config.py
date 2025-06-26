@@ -1,4 +1,4 @@
-""" TicketFairy configuration. """
+"""TicketFairy configuration."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ class TicketFairyConfig:
         """Validate configuration and log warnings if needed."""
         if not self.is_enabled():
             logging.warning(
-                "TicketFairy API key not configured - TicketFairy integration disabled"
+                "TicketFairy API key not configured - TicketFairy integration disabled",
             )
 
 

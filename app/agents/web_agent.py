@@ -27,8 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class WebAgent(Agent):
-    """
-    Agent for importing events from a generic webpage.
+    """Agent for importing events from a generic webpage.
     This is the fallback agent when no specific agent matches.
     """
 
@@ -54,13 +53,13 @@ class WebAgent(Agent):
         return ImportMethod.WEB
 
     async def import_event(
-        self: WebAgent, url: str, request_id: str
+        self: WebAgent, url: str, request_id: str,
     ) -> EventData | None:
         """Import event by scraping web page with enhanced error handling."""
         self.start_timer()
 
         await self.send_progress(
-            request_id, ImportStatus.RUNNING, "Initializing web scraper", 0.05
+            request_id, ImportStatus.RUNNING, "Initializing web scraper", 0.05,
         )
 
         try:
@@ -84,7 +83,7 @@ class WebAgent(Agent):
             # Enhance image if web extraction and Google is enabled
             if self.image_service.google_enabled:
                 await self.send_progress(
-                    request_id, ImportStatus.RUNNING, "Starting image enhancement", 0.85
+                    request_id, ImportStatus.RUNNING, "Starting image enhancement", 0.85,
                 )
 
                 # Get more detailed progress during image enhancement
@@ -96,11 +95,11 @@ class WebAgent(Agent):
                 )
 
                 event_data = await self._enhance_image_with_progress(
-                    event_data, request_id
+                    event_data, request_id,
                 )
             else:
                 logger.info(
-                    "Google image search not configured, skipping image enhancement"
+                    "Google image search not configured, skipping image enhancement",
                 )
                 await self.send_progress(
                     request_id,
@@ -129,31 +128,31 @@ class WebAgent(Agent):
             await self.send_progress(
                 request_id,
                 ImportStatus.FAILED,
-                f"Import failed: {str(e)}",
+                f"Import failed: {e!s}",
                 1.0,
                 error=str(e),
             )
             return None
 
     async def _try_html_extraction(
-        self: WebAgent, url: str, request_id: str
+        self: WebAgent, url: str, request_id: str,
     ) -> EventData | None:
         """Try to extract from HTML with detailed progress reporting."""
         # Fetch HTML
         await self.send_progress(
-            request_id, ImportStatus.RUNNING, "Fetching web page HTML", 0.1
+            request_id, ImportStatus.RUNNING, "Fetching web page HTML", 0.1,
         )
         html = await self.zyte.fetch_html(url)
 
         await self.send_progress(
-            request_id, ImportStatus.RUNNING, "Cleaning HTML content", 0.2
+            request_id, ImportStatus.RUNNING, "Cleaning HTML content", 0.2,
         )
 
         # Clean HTML
         cleaned_html = self._clean_html(html)
 
         await self.send_progress(
-            request_id, ImportStatus.RUNNING, "Extracting event data from HTML", 0.3
+            request_id, ImportStatus.RUNNING, "Extracting event data from HTML", 0.3,
         )
 
         # Extract with LLM service - it will generate descriptions if needed
@@ -165,32 +164,31 @@ class WebAgent(Agent):
             return None
 
     async def _try_screenshot_extraction(
-        self: WebAgent, url: str, request_id: str
+        self: WebAgent, url: str, request_id: str,
     ) -> EventData | None:
         """Try to extract from screenshot with detailed progress reporting."""
         # Get screenshot
         await self.send_progress(
-            request_id, ImportStatus.RUNNING, "Taking page screenshot", 0.65
+            request_id, ImportStatus.RUNNING, "Taking page screenshot", 0.65,
         )
         screenshot_data, mime_type = await self.zyte.fetch_screenshot(url)
 
         await self.send_progress(
-            request_id, ImportStatus.RUNNING, "Extracting data from screenshot", 0.75
+            request_id, ImportStatus.RUNNING, "Extracting data from screenshot", 0.75,
         )
 
         # Extract with LLM service - it will generate descriptions if needed
         try:
             llm_service = self.get_service("llm")
             return await llm_service.extract_from_image(
-                screenshot_data, mime_type, url
+                screenshot_data, mime_type, url,
             )
         except Exception:
             logger.exception("Failed to extract from screenshot using LLM")
             return None
 
     def _clean_html(self, html: str) -> str:
-        """
-        Clean HTML by removing unnecessary elements that bloat the content.
+        """Clean HTML by removing unnecessary elements that bloat the content.
         This is generic and doesn't look for specific content.
         """
         try:
@@ -250,7 +248,7 @@ class WebAgent(Agent):
             cleaned_size = len(cleaned)
             reduction = (1 - cleaned_size / original_size) * 100
             logger.info(
-                f"HTML cleaned: {original_size:,} -> {cleaned_size:,} chars ({reduction:.1f}% reduction)"
+                f"HTML cleaned: {original_size:,} -> {cleaned_size:,} chars ({reduction:.1f}% reduction)",
             )
 
             return cleaned
@@ -268,7 +266,7 @@ class WebAgent(Agent):
         original_url = None
         if event_data.images:
             original_url = event_data.images.get("full") or event_data.images.get(
-                "thumbnail"
+                "thumbnail",
             )
             logger.info(f"Original image URL: {original_url}")
 
@@ -298,17 +296,17 @@ class WebAgent(Agent):
                 logger.info(f"Searching with query {i + 1}/{len(queries)}: '{query}'")
                 try:
                     query_results = await self.image_service._search_google_images(
-                        query, 5
+                        query, 5,
                     )
                     logger.info(
-                        f"Query '{query}' returned {len(query_results)} results"
+                        f"Query '{query}' returned {len(query_results)} results",
                     )
 
                     for result in query_results:
                         url = result.get("link")
                         if url and not any(c.url == url for c in search_candidates):
                             search_candidates.append(
-                                ImageCandidate(url=url, source=f"query_{i + 1}")
+                                ImageCandidate(url=url, source=f"query_{i + 1}"),
                             )
                 except (ValueError, TypeError, KeyError) as e:
                     logger.warning(f"Search query '{query}' failed: {e}")
@@ -319,7 +317,7 @@ class WebAgent(Agent):
             rated_candidates = []
             for i, candidate in enumerate(search_candidates):
                 logger.info(
-                    f"Rating image {i + 1}/{len(search_candidates)}: {candidate.url}"
+                    f"Rating image {i + 1}/{len(search_candidates)}: {candidate.url}",
                 )
                 try:
                     rated = await self.image_service.rate_image(candidate.url)
@@ -327,7 +325,7 @@ class WebAgent(Agent):
                     if rated.score > 0:
                         rated_candidates.append(rated)
                         logger.info(
-                            f"Image {i + 1} score: {rated.score} ({rated.reason})"
+                            f"Image {i + 1} score: {rated.score} ({rated.reason})",
                         )
                     else:
                         logger.info(f"Image {i + 1} rejected: {rated.reason}")
@@ -341,7 +339,7 @@ class WebAgent(Agent):
 
             if best_candidate and best_candidate.url != original_url:
                 logger.info(
-                    f"Selected better image: {best_candidate.url} (score: {best_candidate.score}, source: {best_candidate.source})"
+                    f"Selected better image: {best_candidate.url} (score: {best_candidate.score}, source: {best_candidate.source})",
                 )
 
                 # Update event data with the new image
@@ -366,7 +364,7 @@ class WebAgent(Agent):
         return event_data
 
     async def _enhance_image_with_progress(
-        self: WebAgent, event_data: EventData, request_id: str
+        self: WebAgent, event_data: EventData, request_id: str,
     ) -> EventData:
         """Enhance image with detailed progress reporting."""
         logger.info("Starting image enhancement process")
@@ -375,7 +373,7 @@ class WebAgent(Agent):
         original_url = None
         if event_data.images:
             original_url = event_data.images.get("full") or event_data.images.get(
-                "thumbnail"
+                "thumbnail",
             )
             logger.info(f"Original image URL: {original_url}")
 
@@ -385,7 +383,7 @@ class WebAgent(Agent):
         # Rate original if exists
         if original_url:
             await self.send_progress(
-                request_id, ImportStatus.RUNNING, "Rating original image", 0.88
+                request_id, ImportStatus.RUNNING, "Rating original image", 0.88,
             )
             logger.info("Rating original image...")
             original_candidate = await self.image_service.rate_image(original_url)
@@ -421,17 +419,17 @@ class WebAgent(Agent):
                 )
                 try:
                     query_results = await self.image_service._search_google_images(
-                        query, 5
+                        query, 5,
                     )
                     logger.info(
-                        f"Query '{query}' returned {len(query_results)} results"
+                        f"Query '{query}' returned {len(query_results)} results",
                     )
 
                     for result in query_results:
                         url = result.get("link")
                         if url and not any(c.url == url for c in search_candidates):
                             search_candidates.append(
-                                ImageCandidate(url=url, source=f"query_{i + 1}")
+                                ImageCandidate(url=url, source=f"query_{i + 1}"),
                             )
                 except (ValueError, TypeError, KeyError) as e:
                     logger.warning(f"Search query '{query}' failed: {e}")
@@ -449,7 +447,7 @@ class WebAgent(Agent):
             rated_candidates = []
             for i, candidate in enumerate(search_candidates):
                 logger.info(
-                    f"Rating image {i + 1}/{len(search_candidates)}: {candidate.url}"
+                    f"Rating image {i + 1}/{len(search_candidates)}: {candidate.url}",
                 )
                 await self.send_progress(
                     request_id,
@@ -463,7 +461,7 @@ class WebAgent(Agent):
                     if rated.score > 0:
                         rated_candidates.append(rated)
                         logger.info(
-                            f"Image {i + 1} score: {rated.score} ({rated.reason})"
+                            f"Image {i + 1} score: {rated.score} ({rated.reason})",
                         )
                     else:
                         logger.info(f"Image {i + 1} rejected: {rated.reason}")
@@ -474,14 +472,14 @@ class WebAgent(Agent):
 
             # Choose the best candidate
             await self.send_progress(
-                request_id, ImportStatus.RUNNING, "Selecting best image", 0.96
+                request_id, ImportStatus.RUNNING, "Selecting best image", 0.96,
             )
 
             best_candidate = search_result.get_best_candidate()
 
             if best_candidate and best_candidate.url != original_url:
                 logger.info(
-                    f"Selected better image: {best_candidate.url} (score: {best_candidate.score}, source: {best_candidate.source})"
+                    f"Selected better image: {best_candidate.url} (score: {best_candidate.score}, source: {best_candidate.source})",
                 )
 
                 # Update event data with the new image
@@ -504,7 +502,7 @@ class WebAgent(Agent):
                     search_result.selected = search_result.original
 
                 await self.send_progress(
-                    request_id, ImportStatus.RUNNING, "Keeping original image", 0.98
+                    request_id, ImportStatus.RUNNING, "Keeping original image", 0.98,
                 )
 
             # Store the search result in event data for debugging/analysis

@@ -1,4 +1,4 @@
-""" Importer for events. """
+"""Importer for events."""
 
 import asyncio
 import logging
@@ -71,16 +71,16 @@ class EventImporter:
 
     @handle_errors_async(reraise=True)
     async def import_event(
-        self: "EventImporter", request: ImportRequest
+        self: "EventImporter", request: ImportRequest,
     ) -> ImportResult:
-        """
-        Import an event from a URL.
+        """Import an event from a URL.
 
         Args:
             request: Import request with URL and options
 
         Returns:
             Import result with event data or error
+
         """
         start_time = datetime.now(timezone.utc)
         url = str(request.url)
@@ -95,7 +95,7 @@ class EventImporter:
                     status=ImportStatus.RUNNING,
                     message="Starting import",
                     progress=0.1,
-                )
+                ),
             )
 
             # Check cache first (ONLY if not ignoring cache)
@@ -110,7 +110,7 @@ class EventImporter:
                     except ValidationError as e:
                         # If cached data fails validation (e.g., description too long), fix it
                         logger.info(
-                            f"Cached data failed validation: {e}. Attempting to fix descriptions."
+                            f"Cached data failed validation: {e}. Attempting to fix descriptions.",
                         )
 
                         # Create a temporary EventData object without validation to fix descriptions
@@ -161,7 +161,7 @@ class EventImporter:
 
             # Run import with timeout
             event_data = await asyncio.wait_for(
-                agent.import_event(url, request.request_id), timeout=request.timeout
+                agent.import_event(url, request.request_id), timeout=request.timeout,
             )
 
             # --- Fallback to WebAgent if TicketmasterAgent fails ---
@@ -171,7 +171,7 @@ class EventImporter:
                 and self._get_agent_by_name("WebScraper") is not None
             ):
                 logger.info(
-                    f"TicketmasterAgent failed, falling back to WebAgent for {url}"
+                    f"TicketmasterAgent failed, falling back to WebAgent for {url}",
                 )
                 web_agent = self._get_agent_by_name("WebScraper")
                 event_data = await asyncio.wait_for(
@@ -180,7 +180,7 @@ class EventImporter:
                 )
                 if event_data:
                     logger.info(
-                        f"WebAgent succeeded for {url} after TicketmasterAgent failure"
+                        f"WebAgent succeeded for {url} after TicketmasterAgent failure",
                     )
 
             if event_data and not event_data.genres:
@@ -190,12 +190,12 @@ class EventImporter:
                         status=ImportStatus.RUNNING,
                         message="Searching for artist genres",
                         progress=0.95,
-                    )
+                    ),
                 )
 
                 try:
                     event_data = await self._services["genre"].enhance_genres(
-                        event_data
+                        event_data,
                     )
                 except (ValueError, TypeError, KeyError) as e:
                     logger.warning(f"{ServiceMessages.GENRE_ENHANCEMENT_FAILED}: {e}")
@@ -213,7 +213,7 @@ class EventImporter:
                         message="Import completed successfully",
                         progress=1.0,
                         data=event_data,
-                    )
+                    ),
                 )
 
                 return ImportResult(
@@ -226,27 +226,26 @@ class EventImporter:
                         datetime.now(timezone.utc) - start_time
                     ).total_seconds(),
                 )
-            else:
-                error = "Agent returned no data"
-                await self.progress_tracker.send_progress(
-                    ImportProgress(
-                        request_id=request.request_id,
-                        status=ImportStatus.FAILED,
-                        message=error,
-                        progress=1.0,
-                        error=error,
-                    )
-                )
-                return ImportResult(
+            error = "Agent returned no data"
+            await self.progress_tracker.send_progress(
+                ImportProgress(
                     request_id=request.request_id,
                     status=ImportStatus.FAILED,
-                    url=request.url,
-                    method_used=agent.import_method,
+                    message=error,
+                    progress=1.0,
                     error=error,
-                    import_time=(
-                        datetime.now(timezone.utc) - start_time
-                    ).total_seconds(),
-                )
+                ),
+            )
+            return ImportResult(
+                request_id=request.request_id,
+                status=ImportStatus.FAILED,
+                url=request.url,
+                method_used=agent.import_method,
+                error=error,
+                import_time=(
+                    datetime.now(timezone.utc) - start_time
+                ).total_seconds(),
+            )
 
         except asyncio.TimeoutError:
             error = f"Import timed out after {request.timeout}s"
@@ -257,7 +256,7 @@ class EventImporter:
                     message=error,
                     progress=1.0,
                     error=error,
-                )
+                ),
             )
             return ImportResult(
                 request_id=request.request_id,
@@ -278,7 +277,7 @@ class EventImporter:
                     message=f"Import failed: {error}",
                     progress=1.0,
                     error=error,
-                )
+                ),
             )
             return ImportResult(
                 request_id=request.request_id,
@@ -300,31 +299,30 @@ class EventImporter:
         agents.extend(
             [
                 ResidentAdvisorAgent(
-                    self.config, progress_callback, services=self._services
+                    self.config, progress_callback, services=self._services,
                 ),
                 DiceAgent(  # Add this block
-                    self.config, progress_callback, services=self._services
+                    self.config, progress_callback, services=self._services,
                 ),
                 WebAgent(self.config, progress_callback, services=self._services),
                 ImageAgent(self.config, progress_callback, services=self._services),
-            ]
+            ],
         )
 
         # Conditionally available - check if API key is configured
         if self.config.api.ticketmaster_key:
             agents.append(
                 TicketmasterAgent(
-                    self.config, progress_callback, services=self._services
-                )
+                    self.config, progress_callback, services=self._services,
+                ),
             )
 
         return agents
 
     async def _determine_agent(
-        self: "EventImporter", url: str, force_method: str | None = None
+        self: "EventImporter", url: str, force_method: str | None = None,
     ) -> Agent | None:
         """Determine which agent should handle the URL using content-type and URL analysis."""
-
         if force_method:
             # Find agent by method name mapping
             method_mapping = {
@@ -349,11 +347,11 @@ class EventImporter:
         # Route to specialized agents based on URL analysis
         if analysis.get("type") == "resident_advisor" and "event_id" in analysis:
             return self._get_agent_by_name("ResidentAdvisor")
-        elif analysis.get("type") == "ticketmaster":
+        if analysis.get("type") == "ticketmaster":
             agent = self._get_agent_by_name("Ticketmaster")
             # Only return if API key is configured
             return agent if self.config.api.ticketmaster_key else None
-        elif analysis.get("type") == "dice":
+        if analysis.get("type") == "dice":
             return self._get_agent_by_name("Dice")
 
         # Check for image URLs by extension or keywords before falling back to web scraping
@@ -394,7 +392,7 @@ class EventImporter:
         self.progress_tracker.remove_listener(request_id, callback)
 
     def get_progress_history(
-        self: "EventImporter", request_id: str
+        self: "EventImporter", request_id: str,
     ) -> list[ImportProgress]:
         """Get the progress history for a request."""
         return self.progress_tracker.get_history(request_id)
@@ -413,10 +411,9 @@ class EventImporter:
                     image_b64=image_b64,
                     mime_type=mime_type,
                 )
-            else:
-                return await self._services["llm"].extract_event_data(
-                    prompt=prompt, image_b64=None, mime_type=None
-                )
+            return await self._services["llm"].extract_event_data(
+                prompt=prompt, image_b64=None, mime_type=None,
+            )
         except (ValueError, TypeError, KeyError):
             logger.exception(AgentMessages.EVENT_DATA_EXTRACTION_FAILED)
             return None

@@ -7,11 +7,11 @@ def format_timestamp(dt: datetime | str) -> str:
     """Format datetime for display."""
     if hasattr(dt, "strftime"):
         return dt.strftime("%H:%M:%S")
-    elif isinstance(dt, str):
+    if isinstance(dt, str):
         # Try to parse ISO format
         try:
             return datetime.fromisoformat(dt.replace("Z", "+00:00")).strftime(
-                "%H:%M:%S"
+                "%H:%M:%S",
             )
         except (ValueError, TypeError):
             return "??:??:??"
@@ -45,22 +45,20 @@ def humanize_number(num: float) -> str:
     """Format number for human reading."""
     if num >= 1_000_000:
         return f"{num / 1_000_000:.1f}M"
-    elif num >= 1_000:
+    if num >= 1_000:
         return f"{num / 1_000:.1f}K"
-    else:
-        return str(int(num))
+    return str(int(num))
 
 
 def format_duration(seconds: float) -> str:
     """Format duration in seconds to human readable string."""
     if seconds < 60:
         return f"{seconds:.1f}s"
-    elif seconds < 3600:
+    if seconds < 3600:
         minutes = seconds / 60
         return f"{minutes:.1f}m"
-    else:
-        hours = seconds / 3600
-        return f"{hours:.1f}h"
+    hours = seconds / 3600
+    return f"{hours:.1f}h"
 
 
 def format_status(status: str) -> str:
@@ -72,8 +70,7 @@ def format_status(status: str) -> str:
 
 
 def format_url_for_display(url: str, style: str = "full") -> str:
-    """
-    Unified URL formatting.
+    """Unified URL formatting.
 
     Styles:
     - 'full': Complete URL

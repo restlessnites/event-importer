@@ -195,4 +195,4 @@ def run_cli(args: Namespace) -> None:
         sys.exit(1)
 
 
-__all__ = ["get_cli", "CLI", "Theme", "main", "run_cli"]
+__all__ = ["CLI", "Theme", "get_cli", "main", "run_cli"]

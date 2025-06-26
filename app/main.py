@@ -27,10 +27,10 @@ def main() -> int:
         description="Event Importer - Extract structured event data from websites",
     )
     parser.add_argument(
-        "--version", action="version", version=f"event-importer {__version__}"
+        "--version", action="version", version=f"event-importer {__version__}",
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose logging"
+        "--verbose", "-v", action="store_true", help="Enable verbose logging",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -39,17 +39,17 @@ def main() -> int:
     import_parser = subparsers.add_parser("import", help="Import an event from URL")
     import_parser.add_argument("url", help="URL to import")
     import_parser.add_argument(
-        "--method", choices=["api", "web", "image"], help="Force import method"
+        "--method", choices=["api", "web", "image"], help="Force import method",
     )
     import_parser.add_argument(
-        "--timeout", type=int, default=60, help="Timeout in seconds"
+        "--timeout", type=int, default=60, help="Timeout in seconds",
     )
     import_parser.add_argument(
-        "--ignore-cache", action="store_true", help="Skip cache and force fresh import"
+        "--ignore-cache", action="store_true", help="Skip cache and force fresh import",
     )
     # Add verbose flag to import subparser as well for flexibility
     import_parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose logging"
+        "--verbose", "-v", action="store_true", help="Enable verbose logging",
     )
 
     # List command
@@ -57,13 +57,13 @@ def main() -> int:
     list_parser.add_argument("--limit", "-l", type=int, help="Limit number of results")
     list_parser.add_argument("--search", "-s", help="Search in URL or event data")
     list_parser.add_argument(
-        "--details", "-d", action="store_true", help="Show detailed view"
+        "--details", "-d", action="store_true", help="Show detailed view",
     )
     list_parser.add_argument(
-        "--sort", choices=["date", "url"], default="date", help="Sort by field"
+        "--sort", choices=["date", "url"], default="date", help="Sort by field",
     )
     list_parser.add_argument(
-        "--order", choices=["asc", "desc"], default="desc", help="Sort order"
+        "--order", choices=["asc", "desc"], default="desc", help="Sort order",
     )
 
     # Show command

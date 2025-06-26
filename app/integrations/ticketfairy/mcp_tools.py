@@ -1,4 +1,4 @@
-""" TicketFairy MCP tools. """
+"""TicketFairy MCP tools."""
 
 from typing import Any
 
@@ -59,7 +59,7 @@ TOOLS: list[Tool] = [
                     "type": "boolean",
                     "default": False,
                     "description": "Show what would be retried without actually submitting",
-                }
+                },
             },
         },
     ),

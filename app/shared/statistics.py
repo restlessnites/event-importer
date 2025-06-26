@@ -28,7 +28,7 @@ class StatisticsService:
 
             # Recent activity (today)
             today_start = datetime.now().replace(
-                hour=0, minute=0, second=0, microsecond=0
+                hour=0, minute=0, second=0, microsecond=0,
             )
             events_today = (
                 db.query(EventCache)
@@ -83,7 +83,7 @@ class StatisticsService:
             # Submissions by service
             service_counts = (
                 db.query(
-                    Submission.service_name, func.count(Submission.id).label("count")
+                    Submission.service_name, func.count(Submission.id).label("count"),
                 )
                 .group_by(Submission.service_name)
                 .all()
@@ -136,13 +136,13 @@ class StatisticsService:
                         and_(
                             EventCache.scraped_at >= day_start,
                             EventCache.scraped_at <= day_end,
-                        )
+                        ),
                     )
                     .count()
                 )
 
                 daily_counts.append(
-                    {"date": day_start.strftime("%Y-%m-%d"), "count": count}
+                    {"date": day_start.strftime("%Y-%m-%d"), "count": count},
                 )
 
             # Reverse to show oldest first

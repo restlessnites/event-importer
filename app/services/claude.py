@@ -73,7 +73,7 @@ class ClaudeService:
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "genres": {"type": "array", "items": {"type": "string"}}
+                    "genres": {"type": "array", "items": {"type": "string"}},
                 },
                 "required": ["genres"],
             },
@@ -81,7 +81,7 @@ class ClaudeService:
 
     @handle_errors_async(reraise=True)
     async def extract_from_html(
-        self: "ClaudeService", html: str, url: str
+        self: "ClaudeService", html: str, url: str,
     ) -> EventData | None:
         """Extract event data from HTML."""
         max_length = 50000
@@ -109,7 +109,7 @@ class ClaudeService:
 
     @handle_errors_async(reraise=True)
     async def extract_from_image(
-        self: "ClaudeService", image_data: bytes, mime_type: str, url: str
+        self: "ClaudeService", image_data: bytes, mime_type: str, url: str,
     ) -> EventData | None:
         """Extract event data from an image."""
         image_b64 = base64.b64encode(image_data).decode("utf-8")
@@ -171,14 +171,14 @@ class ClaudeService:
                             try:
                                 # Let EventTime parse the time format (it handles AM/PM)
                                 cleaned_result["time"] = EventTime(
-                                    start=start_time, end=end_time
+                                    start=start_time, end=end_time,
                                 )
                                 logger.info(
-                                    f"Successfully parsed time: start='{start_time}', end='{end_time}'"
+                                    f"Successfully parsed time: start='{start_time}', end='{end_time}'",
                                 )
                             except (ValueError, TypeError) as e:
                                 logger.warning(
-                                    f"Failed to parse time '{time_value}': {e}"
+                                    f"Failed to parse time '{time_value}': {e}",
                                 )
                                 # Remove invalid time rather than failing the whole import
                                 cleaned_result.pop("time", None)
@@ -191,17 +191,17 @@ class ClaudeService:
                     try:
                         cleaned_result["time"] = EventTime(**time_value)
                         logger.info(
-                            f"Successfully created EventTime from dict: {time_value}"
+                            f"Successfully created EventTime from dict: {time_value}",
                         )
                     except (ValueError, TypeError) as e:
                         logger.warning(
-                            f"Failed to create EventTime from dict {time_value}: {e}"
+                            f"Failed to create EventTime from dict {time_value}: {e}",
                         )
                         cleaned_result.pop("time", None)
                 else:
                     # Handle other types - convert to string and try again
                     logger.warning(
-                        f"Unexpected time type {type(time_value)}: {time_value}"
+                        f"Unexpected time type {type(time_value)}: {time_value}",
                     )
                     cleaned_result.pop("time", None)
 
@@ -212,7 +212,7 @@ class ClaudeService:
 
     @handle_errors_async(reraise=True)
     async def generate_descriptions(
-        self: "ClaudeService", event_data: EventData
+        self: "ClaudeService", event_data: EventData,
     ) -> EventData:
         """Generate missing descriptions for an event."""
         # Determine which descriptions need to be generated/fixed
@@ -267,9 +267,8 @@ class ClaudeService:
         if image_b64 and mime_type:
             # Use vision for image extraction
             return await self._call_with_vision(prompt, image_b64, mime_type)
-        else:
-            # Use regular tool for text extraction
-            return await self._call_with_tool(prompt)
+        # Use regular tool for text extraction
+        return await self._call_with_tool(prompt)
 
     @handle_errors_async(reraise=True)
     async def enhance_genres(self: "ClaudeService", event_data: EventData) -> EventData:
@@ -279,12 +278,12 @@ class ClaudeService:
 
         # Build prompt using EventPrompts
         prompt = EventPrompts.build_genre_enhancement_prompt(
-            event_data.model_dump(exclude_unset=True)
+            event_data.model_dump(exclude_unset=True),
         )
 
         try:
             result = await self._call_with_tool(
-                prompt, tool=self.GENRE_TOOL, tool_name="enhance_genres"
+                prompt, tool=self.GENRE_TOOL, tool_name="enhance_genres",
             )
             if result and result.get("genres"):
                 event_data.genres = result["genres"]
@@ -330,7 +329,7 @@ class ClaudeService:
                     return json.loads(content)
                 except (json.JSONDecodeError, TypeError):
                     logger.warning(
-                        f"Claude tool response was not a valid JSON object: {content}"
+                        f"Claude tool response was not a valid JSON object: {content}",
                     )
                     return {"raw_text": str(content)}
             else:
@@ -347,7 +346,7 @@ class ClaudeService:
             raise APIError(CLAUDE_SERVICE_NAME, str(e)) from e
 
     async def _call_with_vision(
-        self: "ClaudeService", prompt: str, image_b64: str, mime_type: str
+        self: "ClaudeService", prompt: str, image_b64: str, mime_type: str,
     ) -> dict[str, Any] | None:
         """Call Claude's vision model with a prompt and image."""
         if not self.client:
@@ -370,7 +369,7 @@ class ClaudeService:
                             },
                             {"type": "text", "text": prompt},
                         ],
-                    }
+                    },
                 ],
                 max_tokens=self.max_tokens,
                 temperature=0.1,
@@ -407,7 +406,7 @@ class ClaudeService:
             raise APIError(CLAUDE_SERVICE_NAME, error_msg) from e
 
     def _clean_response_data(
-        self: "ClaudeService", data: dict[str, Any]
+        self: "ClaudeService", data: dict[str, Any],
     ) -> dict[str, Any]:
         """Clean and validate response data before creating EventData."""
         cleaned = {}
@@ -415,12 +414,8 @@ class ClaudeService:
         for key, value in data.items():
             if value is not None:
                 # Convert empty strings to None for optional fields
-                if isinstance(value, str) and value.strip() == "":
+                if (isinstance(value, str) and value.strip() == "") or (isinstance(value, list) and len(value) == 0):
                     continue
-                # Convert empty lists to None for optional fields
-                elif isinstance(value, list) and len(value) == 0:
-                    continue
-                else:
-                    cleaned[key] = value
+                cleaned[key] = value
 
         return cleaned

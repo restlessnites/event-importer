@@ -25,8 +25,7 @@ class TicketFairyClient(BaseClient):
 
     @handle_errors_async(reraise=True)
     async def submit(self: TicketFairyClient, data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Submit event data to TicketFairy.
+        """Submit event data to TicketFairy.
 
         Args:
             data: Event data to submit
@@ -37,6 +36,7 @@ class TicketFairyClient(BaseClient):
         Raises:
             APIError: On API errors
             ValueError: If API key not configured
+
         """
         if not self.config.api_key:
             error_msg = "TicketFairy API key not configured"

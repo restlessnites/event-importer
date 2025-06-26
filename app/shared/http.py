@@ -88,17 +88,17 @@ class HTTPService:
         # Only raise AuthenticationError for services that require auth
         if status == 401 and service in ["Ticketmaster", "Zyte", "TicketFairy"]:
             raise AuthenticationError(service)
-        elif status == 429:
+        if status == 429:
             retry_after = response.headers.get("Retry-After")
             retry_seconds = int(retry_after) if retry_after else None
             raise RateLimitError(service, retry_seconds)
-        elif status >= 400:
+        if status >= 400:
             message = error_text or f"HTTP {status}"
             raise APIError(service, message, status)
 
     @asynccontextmanager
     async def _error_handler(
-        self: HTTPService, service: str, url: str
+        self: HTTPService, service: str, url: str,
     ) -> AsyncGenerator[None, None]:
         """Context manager for consistent error handling."""
         try:
@@ -125,8 +125,7 @@ class HTTPService:
         timeout: float | None = None,
         **kwargs: Unpack[dict[str, Any]],
     ) -> ClientResponse:
-        """
-        Perform HEAD request with error handling.
+        """Perform HEAD request with error handling.
 
         Args:
             url: URL to request
@@ -142,6 +141,7 @@ class HTTPService:
         Raises:
             APIError: On API errors
             TimeoutError: On timeout
+
         """
         session = await self._ensure_session()
 
@@ -179,8 +179,7 @@ class HTTPService:
         timeout: float | None = None,
         **kwargs: Unpack[dict[str, Any]],
     ) -> ClientResponse:
-        """
-        Perform GET request with error handling.
+        """Perform GET request with error handling.
 
         Args:
             url: URL to request
@@ -196,6 +195,7 @@ class HTTPService:
         Raises:
             APIError: On API errors
             TimeoutError: On timeout
+
         """
         session = await self._ensure_session()
 
@@ -235,8 +235,7 @@ class HTTPService:
         raise_for_status: bool = True,
         **kwargs: Unpack[dict[str, Any]],
     ) -> ClientResponse:
-        """
-        Perform POST request with error handling.
+        """Perform POST request with error handling.
 
         Args:
             url: URL to request
@@ -254,6 +253,7 @@ class HTTPService:
         Raises:
             APIError: On API errors
             TimeoutError: On timeout
+
         """
         session = await self._ensure_session()
 
@@ -297,8 +297,7 @@ class HTTPService:
         timeout: float | None = None,
         **kwargs: Unpack[dict[str, Any]],
     ) -> dict[str, Any]:
-        """
-        GET request that returns JSON.
+        """GET request that returns JSON.
 
         Args:
             url: URL to request
@@ -310,6 +309,7 @@ class HTTPService:
 
         Returns:
             Parsed JSON response
+
         """
         response = await self.get(
             url,
@@ -333,8 +333,7 @@ class HTTPService:
         timeout: float | None = None,
         **kwargs: Unpack[dict[str, Any]],
     ) -> dict[str, Any]:
-        """
-        POST request that returns JSON.
+        """POST request that returns JSON.
 
         Args:
             url: URL to request
@@ -347,6 +346,7 @@ class HTTPService:
 
         Returns:
             Parsed JSON response
+
         """
         response = await self.post(
             url,
@@ -371,8 +371,7 @@ class HTTPService:
         verify_ssl: bool = True,
         **kwargs: Unpack[dict[str, Any]],
     ) -> bytes:
-        """
-        Download binary content from a URL.
+        """Download binary content from a URL.
 
         Args:
             url: URL to download from
@@ -390,6 +389,7 @@ class HTTPService:
             APIError: On API errors
             TimeoutError: On timeout
             ValueError: If response exceeds max_size
+
         """
         if not headers:
             headers = {"User-Agent": self.config.http.user_agent}
@@ -433,8 +433,7 @@ class HTTPService:
         timeout: float | None = None,
         **kwargs: Unpack[dict[str, Any]],
     ) -> AsyncGenerator[bytes, None]:
-        """
-        Stream response data.
+        """Stream response data.
 
         Args:
             url: URL to request
@@ -450,6 +449,7 @@ class HTTPService:
         Raises:
             APIError: On API errors
             TimeoutError: On timeout
+
         """
         response = await self.get(
             url,

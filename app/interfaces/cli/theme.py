@@ -120,8 +120,8 @@ class Theme:
         """Apply text transformation."""
         if transform == "upper":
             return text.upper()
-        elif transform == "lower":
+        if transform == "lower":
             return text.lower()
-        elif transform == "title":
+        if transform == "title":
             return text.title()
         return text

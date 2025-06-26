@@ -9,9 +9,9 @@ from app.core.importer import EventImporter
 from app.schemas import EventData, ImportResult
 
 __all__ = [
-    "EventData",
-    "ImportResult",
-    "EventImporter",
     "Config",
+    "EventData",
+    "EventImporter",
+    "ImportResult",
     "__version__",
 ]

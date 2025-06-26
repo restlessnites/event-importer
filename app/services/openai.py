@@ -118,7 +118,7 @@ class OpenAIService:
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "List of enhanced genre categories",
-                    }
+                    },
                 },
                 "required": ["genres"],
             },
@@ -138,7 +138,7 @@ class OpenAIService:
         return f"Return the information as a valid JSON object.\\n{prompt}"
 
     def _clean_response_data(
-        self: OpenAIService, data: dict[str, Any]
+        self: OpenAIService, data: dict[str, Any],
     ) -> dict[str, Any]:
         """Clean and validate response data before creating EventData."""
         cleaned = {}
@@ -149,7 +149,7 @@ class OpenAIService:
                 if isinstance(value, str) and value.strip() == "":
                     continue
                 # Convert empty lists to empty list (not None) for list fields
-                elif (
+                if (
                     isinstance(value, list)
                     and len(value) == 0
                     and key in ["promoters", "lineup", "genres"]
@@ -208,7 +208,7 @@ class OpenAIService:
                     cleaned["time"] = EventTime(**time_value)
                 except (ValueError, TypeError) as e:
                     logger.warning(
-                        f"Failed to create EventTime from dict {time_value}: {e}"
+                        f"Failed to create EventTime from dict {time_value}: {e}",
                     )
                     cleaned.pop("time", None)
 
@@ -216,7 +216,7 @@ class OpenAIService:
 
     @handle_errors_async(reraise=True)
     async def extract_from_html(
-        self: OpenAIService, html: str, url: str, max_length: int = 50000
+        self: OpenAIService, html: str, url: str, max_length: int = 50000,
     ) -> EventData | None:
         """Extract event data from HTML content."""
         if not self.client:
@@ -247,7 +247,7 @@ class OpenAIService:
 
     @handle_errors_async(reraise=True)
     async def extract_from_image(
-        self: OpenAIService, image_data: bytes, mime_type: str, url: str
+        self: OpenAIService, image_data: bytes, mime_type: str, url: str,
     ) -> EventData | None:
         """Extract event data from an image."""
         if not self.client:
@@ -278,7 +278,7 @@ class OpenAIService:
 
     @handle_errors_async(reraise=True)
     async def generate_descriptions(
-        self: OpenAIService, event_data: EventData
+        self: OpenAIService, event_data: EventData,
     ) -> EventData:
         """Generate missing descriptions for an event."""
         if not self.client:
@@ -308,7 +308,7 @@ class OpenAIService:
         prompt = self._add_json_requirement(prompt)
 
         result = await self._call_with_tool(
-            prompt, tool=self.DESCRIPTION_TOOL, tool_name="generate_descriptions"
+            prompt, tool=self.DESCRIPTION_TOOL, tool_name="generate_descriptions",
         )
 
         if result:
@@ -349,9 +349,8 @@ class OpenAIService:
         if image_b64 and mime_type:
             # Use vision for image extraction
             return await self._call_with_vision(prompt, image_b64, mime_type)
-        else:
-            # Use regular tool for text extraction
-            return await self._call_with_tool(prompt)
+        # Use regular tool for text extraction
+        return await self._call_with_tool(prompt)
 
     async def enhance_genres(self: OpenAIService, event_data: EventData) -> EventData:
         """Enhance event genres using OpenAI."""
@@ -363,14 +362,14 @@ class OpenAIService:
 
         # Build prompt using EventPrompts
         prompt = EventPrompts.build_genre_enhancement_prompt(
-            event_data.model_dump(exclude_unset=True)
+            event_data.model_dump(exclude_unset=True),
         )
         # Add JSON requirement for OpenAI
         prompt = self._add_json_requirement(prompt)
 
         try:
             result = await self._call_with_tool(
-                prompt, tool=self.GENRE_TOOL, tool_name="enhance_genres"
+                prompt, tool=self.GENRE_TOOL, tool_name="enhance_genres",
             )
             if result and result.get("genres"):
                 event_data.genres = result["genres"]
@@ -411,7 +410,7 @@ class OpenAIService:
             raise APIError(service_name, str(e)) from e
 
     async def _call_with_vision(
-        self: OpenAIService, prompt: str, image_b64: str, mime_type: str
+        self: OpenAIService, prompt: str, image_b64: str, mime_type: str,
     ) -> dict[str, Any] | None:
         """Call OpenAI vision API with a given prompt and image."""
         if not self.client:
@@ -429,11 +428,11 @@ class OpenAIService:
                             {
                                 "type": "image_url",
                                 "image_url": {
-                                    "url": f"data:{mime_type};base64,{image_b64}"
+                                    "url": f"data:{mime_type};base64,{image_b64}",
                                 },
                             },
                         ],
-                    }
+                    },
                 ],
                 max_tokens=self.max_tokens,
             )
@@ -510,7 +509,7 @@ class OpenAIService:
             return None
 
     async def get_embedding(
-        self: OpenAIService, text: str, model: str = "text-embedding-3-small"
+        self: OpenAIService, text: str, model: str = "text-embedding-3-small",
     ) -> list[float]:
         text = text.replace("\n", " ")
         return (

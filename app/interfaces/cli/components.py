@@ -49,17 +49,17 @@ class Header:
 
         # Transform and style title
         title_text = self.theme.transform_text(
-            title, self.theme.typography.header_transform
+            title, self.theme.typography.header_transform,
         )
         self.console.print(Text(title_text, style=self.theme.typography.header_style))
 
         # Subtitle if provided
         if subtitle:
             subtitle_text = self.theme.transform_text(
-                subtitle, self.theme.typography.subheader_transform
+                subtitle, self.theme.typography.subheader_transform,
             )
             self.console.print(
-                Text(subtitle_text, style=self.theme.typography.subheader_style)
+                Text(subtitle_text, style=self.theme.typography.subheader_style),
             )
         # Add spacing after
         self.spacer.add(self.theme.spacing.after_header)
@@ -80,7 +80,7 @@ class Section:
 
         # Transform and style title
         title_text = self.theme.transform_text(
-            title, self.theme.typography.section_transform
+            title, self.theme.typography.section_transform,
         )
         self.console.print(Text(title_text, style=self.theme.typography.section_style))
 
@@ -106,7 +106,7 @@ class Message:
     def info(self: Message, text: str) -> None:
         """Info message."""
         self.console.print(
-            f"{self.theme.icons.info} {text}", style=self.theme.typography.info_style
+            f"{self.theme.icons.info} {text}", style=self.theme.typography.info_style,
         )
 
     def success(self: Message, text: str) -> None:
@@ -119,7 +119,7 @@ class Message:
     def error(self: Message, text: str) -> None:
         """Error message."""
         self.console.print(
-            f"{self.theme.icons.error} {text}", style=self.theme.typography.error_style
+            f"{self.theme.icons.error} {text}", style=self.theme.typography.error_style,
         )
 
     def warning(self: Message, text: str) -> None:
@@ -139,7 +139,7 @@ class DataTable:
         self.spacer = Spacer(console, theme)
 
     def render(
-        self: DataTable, data: list[dict[str, Any]], title: str | None = None
+        self: DataTable, data: list[dict[str, Any]], title: str | None = None,
     ) -> None:
         """Render a data table."""
         if not data:
@@ -199,7 +199,7 @@ class CodeBlock:
         self.spacer = Spacer(console, theme)
 
     def render(
-        self: CodeBlock, code: str, language: str = "python", title: str | None = None
+        self: CodeBlock, code: str, language: str = "python", title: str | None = None,
     ) -> None:
         """Render code with syntax highlighting."""
         if title:

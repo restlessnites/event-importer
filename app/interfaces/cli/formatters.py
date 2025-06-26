@@ -93,7 +93,7 @@ class EventCardFormatter:
         # Render as aligned pairs
         for label, value in details:
             self.console.print(
-                f"[{self.theme.typography.label_style}]{label:12}[/] {value}"
+                f"[{self.theme.typography.label_style}]{label:12}[/] {value}",
             )
 
         if details:
@@ -112,7 +112,7 @@ class EventCardFormatter:
         self.console.print()
 
     def _render_descriptions(
-        self: EventCardFormatter, event_data: dict[str, Any]
+        self: EventCardFormatter, event_data: dict[str, Any],
     ) -> None:
         """Render event descriptions."""
         if event_data.get("short_description"):
@@ -156,11 +156,11 @@ class EventCardFormatter:
                     self.console.print(f"{self.theme.icons.image} Full: {full_url}")
 
                 if images.get("thumbnail") and images["thumbnail"] != images.get(
-                    "full"
+                    "full",
                 ):
                     thumb_url = format_url_for_display(images["thumbnail"], "full")
                     self.console.print(
-                        f"{self.theme.icons.image} Thumbnail: {thumb_url}"
+                        f"{self.theme.icons.image} Thumbnail: {thumb_url}",
                     )
 
             # Image search info (if available)
@@ -170,27 +170,27 @@ class EventCardFormatter:
                     score = selected.get("score", 0)
                     source = selected.get("source", "unknown")
                     self.console.print(
-                        f"{self.theme.icons.bullet} Quality Score: {score} (from {source})"
+                        f"{self.theme.icons.bullet} Quality Score: {score} (from {source})",
                     )
 
             self.console.print()
 
     def _render_additional_info(
-        self: EventCardFormatter, event_data: dict[str, Any]
+        self: EventCardFormatter, event_data: dict[str, Any],
     ) -> None:
         """Render additional event information."""
         # Genres
         if event_data.get("genres"):
             genres = ", ".join(event_data["genres"])
             self.console.print(
-                f"[{self.theme.typography.label_style}]Genres:[/] {genres}"
+                f"[{self.theme.typography.label_style}]Genres:[/] {genres}",
             )
 
         # Promoters
         if event_data.get("promoters"):
             promoters = ", ".join(event_data["promoters"])
             self.console.print(
-                f"[{self.theme.typography.label_style}]Promoters:[/] {promoters}"
+                f"[{self.theme.typography.label_style}]Promoters:[/] {promoters}",
             )
 
         # Location
@@ -200,7 +200,7 @@ class EventCardFormatter:
             location = ", ".join(filter(None, loc_parts))
             if location:
                 self.console.print(
-                    f"[{self.theme.typography.label_style}]Location:[/] {location}"
+                    f"[{self.theme.typography.label_style}]Location:[/] {location}",
                 )
 
     def _render_links(self: EventCardFormatter, event_data: dict[str, Any]) -> None:
@@ -242,13 +242,13 @@ class ImportResultFormatter:
         self.spacer = Spacer(console, theme)
 
     def render(
-        self: ImportResultFormatter, result: ImportResult, show_raw: bool = False
+        self: ImportResultFormatter, result: ImportResult, show_raw: bool = False,
     ) -> None:
         """Render import result."""
         # Import status
         self.console.print()
         self.console.print(
-            Text("IMPORT RESULT", style=self.theme.typography.section_style)
+            Text("IMPORT RESULT", style=self.theme.typography.section_style),
         )
         self.console.print("─" * 13, style=self.theme.typography.muted_style)
         self.console.print()
@@ -262,7 +262,7 @@ class ImportResultFormatter:
             # Event data
             self.console.print()
             self.console.print(
-                Text("EVENT DATA", style=self.theme.typography.section_style)
+                Text("EVENT DATA", style=self.theme.typography.section_style),
             )
             self.console.print("─" * 10, style=self.theme.typography.muted_style)
             self.event_formatter.render(result.event_data.model_dump())
@@ -282,7 +282,7 @@ class ImportResultFormatter:
         self.message.success(f"Import completed in {result.import_time:.2f}s")
         if result.method_used:
             self.console.print(
-                f"[{self.theme.typography.label_style}]Method:[/] {result.method_used.value}"
+                f"[{self.theme.typography.label_style}]Method:[/] {result.method_used.value}",
             )
 
     def _render_failure(self: ImportResultFormatter, result: ImportResult) -> None:
@@ -290,19 +290,19 @@ class ImportResultFormatter:
         self.message.error(f"Import failed: {result.error}")
         if result.method_used:
             self.console.print(
-                f"[{self.theme.typography.label_style}]Method attempted:[/] {result.method_used.value}"
+                f"[{self.theme.typography.label_style}]Method attempted:[/] {result.method_used.value}",
             )
         self.console.print(
-            f"[{self.theme.typography.label_style}]Duration:[/] {result.import_time:.2f}s"
+            f"[{self.theme.typography.label_style}]Duration:[/] {result.import_time:.2f}s",
         )
 
     def _render_data_quality(
-        self: ImportResultFormatter, event_data: EventData
+        self: ImportResultFormatter, event_data: EventData,
     ) -> None:
         """Render data completeness check."""
         self.console.print()
         self.console.print(
-            Text("DATA QUALITY", style=self.theme.typography.section_style)
+            Text("DATA QUALITY", style=self.theme.typography.section_style),
         )
         self.console.print("─" * 12, style=self.theme.typography.muted_style)
         self.console.print()
@@ -342,7 +342,7 @@ class ImportResultFormatter:
             self.console.print(
                 f"[{style}]{icon}[/] "
                 f"[{self.theme.typography.label_style}]{field:12}[/] "
-                f"{display_value}"
+                f"{display_value}",
             )
 
     def _format_time(self: ImportResultFormatter, time: EventTime | None) -> str:
@@ -357,7 +357,7 @@ class ImportResultFormatter:
         return str(time)
 
     def _render_image_results(
-        self: ImportResultFormatter, search_data: dict[str, Any]
+        self: ImportResultFormatter, search_data: dict[str, Any],
     ) -> None:
         """Render image search results."""
         if not search_data:
@@ -365,7 +365,7 @@ class ImportResultFormatter:
 
         self.console.print()
         self.console.print(
-            Text("IMAGE SEARCH", style=self.theme.typography.section_style)
+            Text("IMAGE SEARCH", style=self.theme.typography.section_style),
         )
         self.console.print("─" * 12, style=self.theme.typography.muted_style)
         self.console.print()
@@ -378,7 +378,7 @@ class ImportResultFormatter:
         if search_data.get("candidates"):
             count = len(search_data["candidates"])
             self.console.print(
-                f"[{self.theme.typography.label_style}]Search Results:[/] {count} images found"
+                f"[{self.theme.typography.label_style}]Search Results:[/] {count} images found",
             )
 
             # Show top 3
