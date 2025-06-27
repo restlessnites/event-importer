@@ -268,20 +268,7 @@ class DiceAgent(Agent):
             # Fix: Remove the incorrect event extraction - data is at root level
             title = api_data.get("name", "")
 
-            # Fix: Access dates directly from api_data, not from non-existent event object
-            dates = api_data.get("dates", {})
-            event_start = dates.get("event_start_date")
-            event_end = dates.get("event_end_date")
-
-            event_time = None
-            if event_start:
-                event_time = EventTime(
-                    start=event_start,
-                    end=event_end,
-                    timezone=dates.get("timezone", "UTC"),
-                )
-
-            # Venues are at root level
+            # Venues are at root level (extract first for timezone detection)
             venues = api_data.get("venues", [])
             location = None
             venue_name = None
@@ -296,6 +283,22 @@ class DiceAgent(Agent):
                     state=None,
                     country=city_info.get("country_name"),
                     coordinates=venue.get("location", {}),
+                )
+
+            # Fix: Access dates directly from api_data, not from non-existent event object
+            dates = api_data.get("dates", {})
+            event_start = dates.get("event_start_date")
+            event_end = dates.get("event_end_date")
+
+            event_time = None
+            if event_start:
+                # Use API timezone if available, otherwise detect from location
+                api_timezone = dates.get("timezone")
+                event_time = self.create_event_time(
+                    start=event_start,
+                    end=event_end,
+                    location=location,
+                    timezone=api_timezone,  # This will fallback to location detection if None
                 )
 
             # Lineup from summary_lineup

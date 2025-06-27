@@ -191,9 +191,10 @@ class ResidentAdvisorAgent(Agent):
         # Build time
         time = None
         if event.get("startTime") or event.get("endTime"):
-            time = EventTime(
+            time = self.create_event_time(
                 start=event.get("startTime"),
                 end=event.get("endTime"),
+                location=location,
             )
 
         # Extract lineup

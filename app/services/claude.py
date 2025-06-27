@@ -43,9 +43,25 @@ class ClaudeService:
                 "properties": {
                     "title": {"type": "string"},
                     "venue": {"type": "string"},
-                    "address": {"type": "string"},
                     "date": {"type": "string"},
-                    "time": {"type": "string"},
+                    "location": {
+                        "type": "object",
+                        "properties": {
+                            "address": {"type": "string", "description": "Street address"},
+                            "city": {"type": "string", "description": "City name"},
+                            "state": {"type": "string", "description": "State/province"},
+                            "country": {"type": "string", "description": "Country name"},
+                            "coordinates": {"type": "object", "description": "Lat/lng coordinates (optional)"},
+                        },
+                    },
+                    "time": {
+                        "type": "object",
+                        "properties": {
+                            "start": {"type": "string", "description": "Start time in HH:MM format"},
+                            "end": {"type": "string", "description": "End time in HH:MM format"},
+                            "timezone": {"type": "string", "description": "Timezone (optional)"},
+                        },
+                    },
                     "doors_time": {"type": "string"},
                     "lineup": {"type": "array", "items": {"type": "string"}},
                     "genres": {"type": "array", "items": {"type": "string"}},
@@ -217,7 +233,7 @@ class ClaudeService:
         """Generate missing descriptions for an event."""
         # Determine which descriptions need to be generated/fixed
         needs_long = (
-            not event_data.long_description or len(event_data.long_description) > 500
+            not event_data.long_description or len(event_data.long_description) < 100
         )
         needs_short = (
             not event_data.short_description or len(event_data.short_description) > 100

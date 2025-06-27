@@ -436,8 +436,8 @@ class EventData(BaseModel):
                 end_date = start_date + timedelta(days=1)
                 self.end_date = end_date.strftime("%Y-%m-%d")
             else:
-                # Same day event - end_date stays None (same as start date)
-                self.end_date = None
+                # Same day event - end_date should be same as start date
+                self.end_date = self.date
 
         except (ValueError, TypeError):
             # If any parsing fails, leave end_date as None

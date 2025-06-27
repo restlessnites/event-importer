@@ -40,6 +40,7 @@ class OpenAIService:
                         "properties": {
                             "start": {"type": ["string", "null"]},
                             "end": {"type": ["string", "null"]},
+                            "timezone": {"type": ["string", "null"]},
                         },
                     },
                     "promoters": {
@@ -284,9 +285,9 @@ class OpenAIService:
         if not self.client:
             raise ConfigurationError(OPENAI_CLIENT_NOT_INITIALIZED)
 
-        # Check if we need to generate descriptions (missing or too long)
+        # Check if we need to generate descriptions (missing or too short)
         needs_long = (
-            not event_data.long_description or len(event_data.long_description) > 500
+            not event_data.long_description or len(event_data.long_description) < 100
         )
         needs_short = (
             not event_data.short_description or len(event_data.short_description) > 100

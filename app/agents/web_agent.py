@@ -22,6 +22,7 @@ from app.services.llm import LLMService
 from app.services.zyte import ZyteService
 from app.shared.agent import Agent
 from app.shared.http import HTTPService
+from app.shared.timezone import get_timezone_from_location
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +109,18 @@ class WebAgent(Agent):
                     0.9,
                 )
 
+            # Generate missing descriptions if needed
+            if event_data and (not event_data.short_description or not event_data.long_description):
+                await self.send_progress(
+                    request_id, ImportStatus.RUNNING, "Generating descriptions", 0.95,
+                )
+                try:
+                    llm_service = self.get_service("llm")
+                    event_data = await llm_service.generate_descriptions(event_data)
+                except (ValueError, TypeError, KeyError):
+                    logger.exception("Description generation failed")
+                    # Continue without descriptions rather than failing completely
+
             await self.send_progress(
                 request_id,
                 ImportStatus.SUCCESS,
@@ -158,7 +171,14 @@ class WebAgent(Agent):
         # Extract with LLM service - it will generate descriptions if needed
         try:
             llm_service = self.get_service("llm")
-            return await llm_service.extract_from_html(cleaned_html, url)
+            event_data = await llm_service.extract_from_html(cleaned_html, url)
+            
+            # Post-process: Add timezone if missing but location is available
+            if event_data and event_data.time and not event_data.time.timezone and event_data.location:
+                timezone = get_timezone_from_location(event_data.location)
+                event_data.time.timezone = timezone
+                
+            return event_data
         except Exception:
             logger.exception("Failed to extract from HTML using LLM")
             return None
@@ -180,9 +200,16 @@ class WebAgent(Agent):
         # Extract with LLM service - it will generate descriptions if needed
         try:
             llm_service = self.get_service("llm")
-            return await llm_service.extract_from_image(
+            event_data = await llm_service.extract_from_image(
                 screenshot_data, mime_type, url,
             )
+            
+            # Post-process: Add timezone if missing but location is available
+            if event_data and event_data.time and not event_data.time.timezone and event_data.location:
+                timezone = get_timezone_from_location(event_data.location)
+                event_data.time.timezone = timezone
+                
+            return event_data
         except Exception:
             logger.exception("Failed to extract from screenshot using LLM")
             return None

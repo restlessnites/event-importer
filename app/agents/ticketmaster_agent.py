@@ -139,17 +139,7 @@ class TicketmasterAgent(Agent):
 
     def _parse_event(self: TicketmasterAgent, event: dict, url: str) -> EventData:
         """Parse Ticketmaster event data to our schema, with robust description extraction."""
-        # Extract date and time
-        date = None
-        time = None
-        if event.get("dates", {}).get("start"):
-            start = event["dates"]["start"]
-            if start.get("localDate"):
-                date = start["localDate"]
-            if start.get("localTime"):
-                time = EventTime(start=start["localTime"])
-
-        # Extract venue and location
+        # Extract venue and location first (needed for timezone)
         venue_name = None
         location = None
         if event.get("_embedded", {}).get("venues"):
@@ -169,6 +159,19 @@ class TicketmasterAgent(Agent):
 
             if loc_parts:
                 location = EventLocation(**loc_parts)
+
+        # Extract date and time (with timezone from location)
+        date = None
+        time = None
+        if event.get("dates", {}).get("start"):
+            start = event["dates"]["start"]
+            if start.get("localDate"):
+                date = start["localDate"]
+            if start.get("localTime"):
+                time = self.create_event_time(
+                    start=start["localTime"],
+                    location=location,
+                )
 
         # Extract lineup
         lineup = []
