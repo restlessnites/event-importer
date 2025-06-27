@@ -12,7 +12,6 @@ from app.error_messages import AgentMessages
 from app.schemas import (
     EventData,
     EventLocation,
-    EventTime,
     ImportMethod,
     ImportProgress,
     ImportStatus,

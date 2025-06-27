@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from app.error_messages import AgentMessages, ServiceMessages
-from app.schemas import EventData, EventLocation, EventTime, ImportMethod, ImportStatus
+from app.schemas import EventData, EventLocation, ImportMethod, ImportStatus
 from app.shared.agent import Agent
 from app.shared.http import HTTPService
 from app.shared.url_analyzer import URLAnalyzer
