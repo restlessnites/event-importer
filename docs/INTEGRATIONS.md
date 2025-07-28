@@ -17,6 +17,7 @@ Each integration consists of several Python classes, which inherit from base cla
 This is the main entry point for an integration. It must inherit from `app.integrations.base.Integration` and implement the `name` property.
 
 **Example (`TicketFairyIntegration`):**
+
 ```python
 from app.integrations.base import Integration
 
@@ -89,9 +90,9 @@ This is handled by the `get_mcp_tools()` and `get_routes()` methods on the base 
 
 ## How to Create a New Integration
 
-1.  **Create a Directory**: Add a new folder inside `app/integrations/`, for example, `app/integrations/my_service`.
+1. **Create a Directory**: Add a new folder inside `app/integrations/`, for example, `app/integrations/my_service`.
 
-2.  **Implement the `Integration` Class**: Create a `base.py` file and define your main integration class, inheriting from `app.integrations.base.Integration`.
+2. **Implement the `Integration` Class**: Create a `base.py` file and define your main integration class, inheriting from `app.integrations.base.Integration`.
 
     ```python
     from app.integrations.base import Integration
@@ -102,17 +103,17 @@ This is handled by the `get_mcp_tools()` and `get_routes()` methods on the base 
             return "my_service"
     ```
 
-3.  **Implement Components**:
-    -   Create `selectors.py` and define your `Selector` classes.
-    -   Create `transformer.py` and define your `Transformer` class.
-    -   Create `client.py` and define your `Client` class.
-    -   Create `submitter.py` and define your `Submitter` class that wires everything together.
+3. **Implement Components**:
+    - Create `selectors.py` and define your `Selector` classes.
+    - Create `transformer.py` and define your `Transformer` class.
+    - Create `client.py` and define your `Client` class.
+    - Create `submitter.py` and define your `Submitter` class that wires everything together.
 
-4.  **Add Configuration**:
-    -   Add any required API keys or settings to `.env.example`.
-    -   Update `app/config.py` to load these new environment variables.
+4. **Add Configuration**:
+    - Add any required API keys or settings to `.env.example`.
+    - Update `app/config.py` to load these new environment variables.
 
-5.  **Register the Entry Point**: Open `pyproject.toml` and add your new integration class to the `app.integrations` entry points group.
+5. **Register the Entry Point**: Open `pyproject.toml` and add your new integration class to the `app.integrations` entry points group.
 
     ```toml
     [project.entry-points."app.integrations"]
@@ -120,9 +121,9 @@ This is handled by the `get_mcp_tools()` and `get_routes()` methods on the base 
     my_service = "app.integrations.my_service.base:MyServiceIntegration"
     ```
 
-6.  **(Optional) Add Interfaces**:
-    -   Create `mcp_tools.py` to add custom tools to the MCP server.
-    -   Create `routes.py` to add API endpoints.
-    -   Create `cli.py` to add command-line functionality.
+6. **(Optional) Add Interfaces**:
+    - Create `mcp_tools.py` to add custom tools to the MCP server.
+    - Create `routes.py` to add API endpoints.
+    - Create `cli.py` to add command-line functionality.
 
-7.  **Run It**: Your new integration's tools, routes, and commands will be available automatically the next time you run the application.
+7. **Run It**: Your new integration's tools, routes, and commands will be available automatically the next time you run the application.
