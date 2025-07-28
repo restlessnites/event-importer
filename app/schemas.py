@@ -5,14 +5,20 @@ from __future__ import annotations
 import logging
 import re
 import uuid
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
+
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = UTC
 from enum import StrEnum
-from typing import Any
+from typing import Any, ForwardRef, TypeVar
 
 import nh3
 from dateutil import parser as date_parser
-from pydantic import (
+from pydantic import (  # pylint: disable=E0611
     BaseModel,
+    ConfigDict,
     Field,
     HttpUrl,
     field_serializer,
@@ -22,20 +28,28 @@ from pydantic import (
 
 
 def to_camel(string: str) -> str:
+    """Convert snake_case to camelCase."""
     return "".join(
         word.capitalize() if i > 0 else word for i, word in enumerate(string.split("_"))
     )
 
 
 class CustomBaseModel(BaseModel):
-    model_config = {
-        "alias_generator": to_camel,
-        "populate_by_name": True,
-        "arbitrary_types_allowed": True,
-    }
+    """Custom base model with shared configuration."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+    )
 
     @field_serializer("*", mode="wrap")
-    def serialize_datetime_fields(self, value, serializer):
+    def serialize_datetime_fields(
+        self: CustomBaseModel,
+        value: Any,
+        serializer: Any,
+    ) -> Any:
+        """Serialize datetime fields to ISO format."""
         if isinstance(value, (datetime, date)):
             return value.isoformat()
         if isinstance(value, time):
@@ -58,17 +72,17 @@ class ImportStatus(StrEnum):
 class ImportMethod(StrEnum):
     """Method used for import."""
 
-    API = "api"  # Direct API (e.g., RA.co GraphQL, Ticketmaster)
-    WEB = "web"  # Web scraping via Zyte
-    IMAGE = "image"  # Visual extraction from images
-    CACHE = "cache"  # Served from cache
+    API = "api"
+    WEB = "web"
+    IMAGE = "image"
+    CACHE = "cache"
 
 
 class EventTime(BaseModel):
     """Event time information."""
 
-    start: str | None = None  # HH:MM format
-    end: str | None = None  # HH:MM format
+    start: str | None = None
+    end: str | None = None
     timezone: str | None = None
 
     @field_validator("start", "end", mode="before")
@@ -77,19 +91,14 @@ class EventTime(BaseModel):
         """Parse various time formats to HH:MM."""
         if not v:
             return None
-
         v = str(v).strip()
-
-        # Clean common prefixes
         v = re.sub(
             r"^\s*(doors?|show|start|begin|end)s?\s*:?\s*",
             "",
             v,
             flags=re.IGNORECASE,
         )
-
         try:
-            # dateutil can parse many time formats
             parsed = date_parser.parse(v, fuzzy=True)
             return parsed.strftime("%H:%M")
         except (ValueError, TypeError):
@@ -156,20 +165,32 @@ class EventLocation(BaseModel):
             return v
         if not isinstance(v, dict):
             return None
-        # If lat or lng are missing or None, the whole object is invalid
         if v.get("lat") is None or v.get("lng") is None:
             return None
         return v
 
 
+T = TypeVar("T")
+
+ResponseRef = ForwardRef("Response")
+
+
+class Response[T](CustomBaseModel):
+    """Generic API response model."""
+
+    success: bool = True
+    data: T | None = None
+    error: str | None = None
+
+
 class ImageCandidate(BaseModel):
     """Information about a candidate image during import."""
 
-    url: str  # Changed from HttpUrl to avoid validation issues
+    url: str
     score: int = 0
-    source: str = "unknown"  # "original", "google_search", "page", etc.
-    dimensions: str | None = None  # "800x600"
-    reason: str | None = None  # Reason for low score/rejection
+    source: str = "unknown"
+    dimensions: str | None = None
+    reason: str | None = None
 
     def __lt__(self: ImageCandidate, other: ImageCandidate) -> bool:
         """Sort by score (highest first)."""
@@ -192,7 +213,9 @@ class ImageSearchResult(BaseModel):
 
 
 class Statistics(BaseModel):
-    model_config = {"arbitrary_types_allowed": True}
+    """Statistics model."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     total_events: int = 0
     new_events: int = 0
@@ -200,60 +223,45 @@ class Statistics(BaseModel):
     last_updated: timedelta | None = None
 
     @field_serializer("last_updated", when_used="json")
-    def ser_json_timedelta(self, v: timedelta) -> float:
+    def ser_json_timedelta(self: Statistics, v: timedelta) -> float:
+        """Serialize timedelta to seconds."""
         return v.total_seconds()
 
 
 class EventData(BaseModel):
     """Structured event data imported from sources."""
 
+    title: str = Field(..., min_length=3, max_length=200)
+    venue: str | None = None
+    date: str | None = None
+    end_date: str | None = None
+    time: EventTime | None = None
+    promoters: list[str] = Field(default_factory=list)
+    lineup: list[str] = Field(default_factory=list)
+    long_description: str | None = None
+    short_description: str | None = Field(None, max_length=150)
+    genres: list[str] = Field(default_factory=list)
+    location: EventLocation | None = None
+    images: dict[str, str] | None = None
+    image_search: ImageSearchResult | None = None
+    minimum_age: str | None = None
+    cost: str | None = None
+    ticket_url: HttpUrl | None = None
+    source_url: HttpUrl | None = None
+    imported_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
     @field_serializer("*", mode="wrap")
-    def serialize_fields(self, value, serializer):
+    def serialize_fields(
+        self: EventData,
+        value: Any,
+        serializer: Any,
+    ) -> Any:
+        """Serialize special fields."""
         if isinstance(value, datetime):
             return value.isoformat()
         if isinstance(value, HttpUrl):
             return str(value)
         return serializer(value)
-
-    # Required field
-    title: str = Field(..., min_length=3, max_length=200)
-
-    # Event details
-    venue: str | None = None
-    date: str | None = None  # ISO format YYYY-MM-DD (start date)
-    end_date: str | None = (
-        None  # ISO format YYYY-MM-DD (end date, if different from start)
-    )
-    time: EventTime | None = None
-
-    # People/organizations
-    promoters: list[str] = Field(default_factory=list)
-    lineup: list[str] = Field(default_factory=list)
-
-    # Descriptions
-    long_description: str | None = None
-    short_description: str | None = Field(None, max_length=150)
-
-    # Categorization
-    genres: list[str] = Field(default_factory=list)
-
-    # Location
-    location: EventLocation | None = None
-
-    # Media
-    images: dict[str, str] | None = None  # Changed from EventImages to Dict
-    image_search: ImageSearchResult | None = None  # For non-API imports
-
-    # Restrictions and pricing
-    minimum_age: str | None = None  # e.g., "21+", "All Ages"
-    cost: str | None = None
-
-    # Links
-    ticket_url: HttpUrl | None = None
-    source_url: HttpUrl | None = None
-
-    # Metadata
-    imported_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     @field_validator("images", mode="before")
     @classmethod
@@ -278,16 +286,11 @@ class EventData(BaseModel):
         """Parse various date formats to ISO format with smart year handling."""
         if not v:
             return None
-
         try:
             current_date = datetime.now()
             current_year = current_date.year
-
-            # Clean the input string
             date_str = str(v).strip()
             original_str = date_str.lower()
-
-            # Check if year is explicitly mentioned in the string
             year_indicators = [
                 str(current_year - 2),
                 str(current_year - 1),
@@ -310,49 +313,35 @@ class EventData(BaseModel):
                 "2027",
                 "2028",
             ]
-
             has_explicit_year = any(
                 year_str in original_str for year_str in year_indicators
             )
-
-            # IMPORTANT: Always use current year as the default to start with
             default_date = datetime(current_year, 1, 1)
             parsed = date_parser.parse(date_str, fuzzy=True, default=default_date)
-
-            # If no explicit year was provided, apply smart year logic
             if not has_explicit_year:
-                # Ensure the parsed date used our current year default
                 if parsed.year != current_year:
-                    # If dateutil somehow chose a different year, force it to current year first
                     parsed = parsed.replace(year=current_year)
-
-                # Now check if the date with current year is in the past
                 if parsed.date() < current_date.date():
                     days_diff = (current_date.date() - parsed.date()).days
-
-                    # If it's more than 1 day in the past, assume it's next year
                     if days_diff > 1:
                         parsed = parsed.replace(year=current_year + 1)
-
             return parsed.date().isoformat()
-
         except (ValueError, TypeError) as e:
-            # Import logging here to avoid circular imports
             logger = logging.getLogger(__name__)
             logger.debug(f"Date parsing failed for '{v}': {e}")
             return None
 
     @field_validator("promoters", "lineup", "genres", mode="before")
     @classmethod
-    def clean_list_field(cls: type[EventData], v: list[str] | str | None) -> list[str]:
+    def clean_list_field(
+        cls: type[EventData],
+        v: list[str] | str | None,
+    ) -> list[str]:
         """Clean and deduplicate list fields."""
         if not v:
             return []
-
         if isinstance(v, str):
             v = [v]
-
-        # Clean each item and remove duplicates while preserving order
         seen = set()
         result = []
         for item in v:
@@ -362,7 +351,6 @@ class EventData(BaseModel):
             if cleaned and cleaned not in seen:
                 seen.add(cleaned)
                 result.append(cleaned)
-
         return result
 
     @field_validator("long_description", "short_description", mode="before")
@@ -371,34 +359,20 @@ class EventData(BaseModel):
         """Clean description fields."""
         if not v:
             return None
-
-        # Strip HTML and clean
         cleaned = nh3.clean(str(v), tags=set()).strip()
-
-        # Remove excessive whitespace
         cleaned = re.sub(r"\s+", " ", cleaned).strip()
-
-        # Remove trailing ellipsis
         cleaned = cleaned.rstrip(".")
-
         return cleaned or None
 
     @field_validator("cost", mode="before")
     @classmethod
     def parse_cost(cls: type[EventData], v: str | float | None) -> str | None:
-        """Parse and standardize cost information with comprehensive normalization."""
+        """Parse and standardize cost information."""
         if not v:
             return None
-
-        # Convert to string and clean
         v_str = str(v).strip().lower()
-
-        # Remove common HTML entities and extra whitespace
         v_clean = nh3.clean(v_str, tags=set()).strip()
-
-        # Check for free indicators (case insensitive)
         free_indicators = [
-            # Direct free terms
             "free",
             "gratis",
             "no cover",
@@ -409,14 +383,12 @@ class EventData(BaseModel):
             "no charge",
             "gratuito",
             "gratuit",
-            # None/null indicators
             "none",
             "null",
             "n/a",
             "na",
             "no cost",
             "no fee",
-            # Special free event phrases
             "free w/ rsvp",
             "free with rsvp",
             "free w/rsvp",
@@ -428,30 +400,20 @@ class EventData(BaseModel):
             "pwyw",
             "by donation",
         ]
-
-        # Check if it's a free event (using exact match or word boundaries for safety)
         for indicator in free_indicators:
             if indicator in v_clean:
                 return "Free"
-
-        # Check for numeric zero values with various formats
-        # Match patterns like "0", "$0", "0.00", "$0.00", etc.
         zero_patterns = [
-            r"^0+$",  # Just zeros
-            r"^0+\.0+$",  # 0.00, 0.000, etc.
-            r"^[\$£€¥]?\s*0+$",  # Currency + zeros
-            r"^[\$£€¥]?\s*0+\.0+$",  # Currency + 0.00
-            r"^\s*0+\s*(usd|gbp|eur|cad|dollars?|pounds?|euros?)\s*$",  # 0 USD, etc.
+            r"^0+$",
+            r"^0+\.0+$",
+            r"^[\$£€¥]?\s*0+$",
+            r"^[\$£€¥]?\s*0+\.0+$",
+            r"^\s*0+\s*(usd|gbp|eur|cad|dollars?|pounds?|euros?)\s*$",
         ]
-
         for pattern in zero_patterns:
             if re.match(pattern, v_clean):
                 return "Free"
-
-        # If we get here, it's not free - clean up the original value
         original_clean = nh3.clean(str(v), tags=set()).strip()
-
-        # Return the cleaned cost if it has meaningful content
         if original_clean and original_clean.lower() not in [
             "",
             "n/a",
@@ -462,8 +424,6 @@ class EventData(BaseModel):
             "tba",
         ]:
             return original_clean
-
-        # Default to None if no meaningful cost information
         return None
 
     @field_validator("minimum_age", mode="before")
@@ -472,19 +432,13 @@ class EventData(BaseModel):
         """Standardize age restrictions."""
         if not v:
             return None
-
         v = str(v).strip()
-
-        # Check for all ages
         if any(word in v.lower() for word in ["all ages", "todos", "family"]):
             return "All Ages"
-
-        # Extract age number
         match = re.search(r"(\d+)\s*\+?", v)
         if match:
             age = int(match.group(1))
             return f"{age}+"
-
         return nh3.clean(v, tags=set()).strip() or None
 
     @model_validator(mode="after")
@@ -492,26 +446,17 @@ class EventData(BaseModel):
         """Calculate end_date for events that cross midnight."""
         if not self.date or not self.time or not self.time.start or not self.time.end:
             return self
-
         try:
-            # Parse start and end times
             start_time = datetime.strptime(self.time.start, "%H:%M").time()
             end_time = datetime.strptime(self.time.end, "%H:%M").time()
-
-            # If end time is earlier than start time, it's a midnight crossover
             if end_time < start_time:
-                # Parse the start date and add one day for end date
                 start_date = datetime.fromisoformat(self.date)
                 end_date = start_date + timedelta(days=1)
                 self.end_date = end_date.strftime("%Y-%m-%d")
             else:
-                # Same day event - end_date should be same as start date
                 self.end_date = self.date
-
         except (ValueError, TypeError):
-            # If any parsing fails, leave end_date as None
             pass
-
         return self
 
     def is_complete(self: EventData) -> bool:
@@ -552,7 +497,8 @@ class ImportProgress(BaseModel):
     error: str | None = None
 
     @field_serializer("timestamp", mode="plain")
-    def serialize_timestamp(self, value: datetime) -> str:
+    def serialize_timestamp(self: ImportProgress, value: datetime) -> str:
+        """Serialize timestamp to ISO format."""
         return value.isoformat()
 
 
@@ -566,17 +512,19 @@ class ImportResult(BaseModel):
     event_data: EventData | None = None
     error: str | None = None
     raw_data: dict[str, Any] | None = None
-    import_time: float = Field(default=0.0, ge=0.0)  # seconds
+    import_time: float = Field(default=0.0, ge=0.0)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
-    def __bool__(self) -> bool:
+    def __bool__(self: ImportResult) -> bool:
         """Check if import was successful."""
         return self.status == ImportStatus.SUCCESS and self.event_data is not None
 
     @field_serializer("timestamp", mode="plain")
-    def serialize_timestamp(self, value: datetime) -> str:
+    def serialize_timestamp(self: ImportResult, value: datetime) -> str:
+        """Serialize timestamp to ISO format."""
         return value.isoformat()
 
     @field_serializer("url", mode="plain")
-    def serialize_url(self, value: HttpUrl) -> str:
+    def serialize_url(self: ImportResult, value: HttpUrl) -> str:
+        """Serialize URL to string."""
         return str(value)
