@@ -92,14 +92,6 @@ class ClaudeDesktopConfig:
         if "mcpServers" not in config:
             config["mcpServers"] = {}
 
-        # Check if already configured
-        if "event-importer" in config["mcpServers"]:
-            self.console.print_warning(
-                "Event Importer already configured in Claude Desktop"
-            )
-            if not self.console.confirm("Update existing configuration?"):
-                return True
-
         config["mcpServers"]["event-importer"] = mcp_config
 
         # Save config
@@ -160,8 +152,7 @@ class ClaudeDesktopConfig:
                     if idx + 1 < len(args):
                         configured_path = Path(args[idx + 1])
                         return configured_path == project_root
-
-            return True
+            return False
         except Exception:
             return False
 

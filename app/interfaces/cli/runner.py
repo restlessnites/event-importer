@@ -1,9 +1,12 @@
 """CLI runner for the event importer."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import sys
 from argparse import Namespace
+from pathlib import Path
 
 from rich.logging import RichHandler
 
@@ -12,6 +15,7 @@ from app.core.router import Router
 from app.error_messages import CommonMessages, InterfaceMessages
 from app.interfaces.cli.core import CLI
 from app.shared.http import close_http_service
+from app.validators import InstallationValidator
 
 # Global instance
 _cli: CLI | None = None
@@ -28,7 +32,7 @@ def get_cli() -> CLI:
 class SuppressConsoleHandler(logging.StreamHandler):
     """Custom handler that suppresses console output during CLI operations."""
 
-    def emit(self: "SuppressConsoleHandler", record: logging.LogRecord) -> None:
+    def emit(self: SuppressConsoleHandler, record: logging.LogRecord) -> None:
         # Don't emit to console - let error capture handle it
         pass
 
@@ -182,3 +186,44 @@ def run_cli(args: Namespace) -> None:
         cli = get_cli()
         cli.error(f"{CommonMessages.FATAL_ERROR}: {e}")
         sys.exit(1)
+
+
+def run_validation_cli() -> None:
+    """Run the validation checks from the CLI."""
+    cli = CLI()
+    cli.header("Validating Installation")
+
+    project_root = Path.cwd()
+    validator = InstallationValidator()
+    results = validator.validate(project_root)
+
+    # Print a summary of checks by category
+    for category, checks in results["checks"].items():
+        if not checks:
+            continue
+        cli.console.print(f"\n[bold]{category}:[/bold]")
+        for check, result in sorted(checks.items()):
+            if isinstance(result, bool):
+                status = "[green]✓[/green]" if result else "[red]✗[/red]"
+                cli.console.print(f"  {status} {check}")
+            else:
+                cli.console.print(f"  [cyan]ℹ[/cyan] {check}: {result}")
+
+    # Print detailed errors if validation failed
+    if not results["success"]:
+        cli.console.print("\n[bold red]Issues Found:[/bold red]")
+        for error in results["errors"]:
+            cli.console.print(f"  [red]✗ {error}[/red]")
+
+    # Print warnings, regardless of success
+    if results["warnings"]:
+        cli.console.print("\n[bold yellow]Warnings:[/bold yellow]")
+        for warning in results["warnings"]:
+            cli.console.print(f"  [yellow]⚠ {warning}[/yellow]")
+
+    # Print final status
+    if not results["success"]:
+        cli.console.print("\n[bold red]Validation Failed.[/bold red]")
+        sys.exit(1)
+    else:
+        cli.console.print("\n[bold green]✅ Validation Succeeded.[/bold green]")

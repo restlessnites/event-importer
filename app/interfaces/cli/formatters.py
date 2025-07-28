@@ -459,7 +459,7 @@ class ImportResultFormatter:
 
 
 class ProgressUpdateFormatter:
-    """Format progress updates."""
+    """Format and display progress updates."""
 
     def __init__(self: ProgressUpdateFormatter, console: Console, theme: Theme) -> None:
         self.console = console
@@ -502,3 +502,34 @@ class ProgressUpdateFormatter:
         parts.append(message)
 
         self.console.print(" ".join(parts))
+
+
+class ValidationFormatter:
+    """Format and display validation results."""
+
+    def __init__(self: ValidationFormatter, console: Console, theme: Theme) -> None:
+        """Initialize with console and theme."""
+        self.console = console
+        self.theme = theme
+
+    def render(self: ValidationFormatter, results: dict[str, Any]) -> None:
+        """Render the validation report."""
+        if results["errors"]:
+            self.console.print("[bold red]Validation Failed[/bold red]")
+            for error in results["errors"]:
+                self.console.print(f"  [red]✗[/red] {error}")
+        else:
+            self.console.print("[bold green]Validation Succeeded[/bold green]")
+
+        if results["warnings"]:
+            self.console.print("\n[bold yellow]Warnings:[/bold yellow]")
+            for warning in results["warnings"]:
+                self.console.print(f"  [yellow]⚠[/yellow] {warning}")
+
+        self.console.print("\n[bold]Details:[/bold]")
+        for check, result in results["checks"].items():
+            if isinstance(result, bool):
+                status = "[green]✓[/green]" if result else "[red]✗[/red]"
+                self.console.print(f"  {status} {check}")
+            else:
+                self.console.print(f"  [cyan]ℹ[/cyan] {check}: {result}")

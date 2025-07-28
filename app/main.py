@@ -1,14 +1,14 @@
 """Main application entry point and factory with database initialization."""
 
 import logging.config
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 
 from app import __version__
 from app.error_messages import CommonMessages
 from app.integrations.ticketfairy.cli import main as run_ticketfairy_cli
 from app.interfaces.api.server import run as api_run
 from app.interfaces.cli.events import run_events_cli
-from app.interfaces.cli.runner import run_cli
+from app.interfaces.cli.runner import run_cli, run_validation_cli
 from app.interfaces.mcp.server import run as mcp_run
 from app.startup import startup_checks
 
@@ -25,36 +25,50 @@ def configure_logging(verbose: bool = False) -> None:
     logging.basicConfig(level=level, format=format_str, force=True)
 
 
-def main() -> int:
-    """Main entry point that routes to appropriate interface."""
+def create_parser() -> ArgumentParser:
+    """Create and configure the argument parser."""
     parser = ArgumentParser(
         prog="event-importer",
         description="Event Importer - Extract structured event data from websites",
     )
     parser.add_argument(
-        "--version", action="version", version=f"event-importer {__version__}",
+        "--version",
+        action="version",
+        version=f"event-importer {__version__}",
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose logging",
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Enable verbose logging",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
-    # Import command (replaces old "cli" interface)
+    # Import command
     import_parser = subparsers.add_parser("import", help="Import an event from URL")
     import_parser.add_argument("url", help="URL to import")
     import_parser.add_argument(
-        "--method", choices=["api", "web", "image"], help="Force import method",
+        "--method",
+        choices=["api", "web", "image"],
+        help="Force import method",
     )
     import_parser.add_argument(
-        "--timeout", type=int, default=60, help="Timeout in seconds",
+        "--timeout",
+        type=int,
+        default=60,
+        help="Timeout in seconds",
     )
     import_parser.add_argument(
-        "--ignore-cache", action="store_true", help="Skip cache and force fresh import",
+        "--ignore-cache",
+        action="store_true",
+        help="Skip cache and force fresh import",
     )
-    # Add verbose flag to import subparser as well for flexibility
     import_parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose logging",
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Enable verbose logging",
     )
 
     # List command
@@ -62,13 +76,22 @@ def main() -> int:
     list_parser.add_argument("--limit", "-l", type=int, help="Limit number of results")
     list_parser.add_argument("--search", "-s", help="Search in URL or event data")
     list_parser.add_argument(
-        "--details", "-d", action="store_true", help="Show detailed view",
+        "--details",
+        "-d",
+        action="store_true",
+        help="Show detailed view",
     )
     list_parser.add_argument(
-        "--sort", choices=["date", "url"], default="date", help="Sort by field",
+        "--sort",
+        choices=["date", "url"],
+        default="date",
+        help="Sort by field",
     )
     list_parser.add_argument(
-        "--order", choices=["asc", "desc"], default="desc", help="Sort order",
+        "--order",
+        choices=["asc", "desc"],
+        default="desc",
+        help="Sort order",
     )
 
     # Show command
@@ -77,6 +100,9 @@ def main() -> int:
 
     # Stats command
     subparsers.add_parser("stats", help="Show database statistics")
+
+    # Validate command
+    subparsers.add_parser("validate", help="Validate the installation")
 
     # MCP interface
     subparsers.add_parser("mcp", help="Run MCP server")
@@ -90,6 +116,28 @@ def main() -> int:
     # Ticketfairy interface
     subparsers.add_parser("ticketfairy", help="Run Ticketfairy CLI")
 
+    return parser
+
+
+def route_command(parser: ArgumentParser, args: Namespace) -> None:
+    """Route to the appropriate interface based on the command."""
+    if args.command == "import":
+        run_cli(args)
+    elif args.command in ["list", "show", "stats"]:
+        run_events_cli(args)
+    elif args.command == "mcp":
+        mcp_run()
+    elif args.command == "api":
+        api_run(host=args.host, port=args.port, reload=args.reload)
+    elif args.command == "ticketfairy":
+        run_ticketfairy_cli(args)
+    else:
+        parser.print_help()
+
+
+def main() -> int:
+    """Main entry point that routes to appropriate interface."""
+    parser = create_parser()
     args = parser.parse_args()
 
     # Check for verbose flag from either global or subcommand
@@ -104,6 +152,11 @@ def main() -> int:
         parser.print_help()
         return 0
 
+    # For commands that don't need the full startup procedure
+    if args.command == "validate":
+        run_validation_cli()
+        return 0
+
     # Run startup checks and database initialization for all commands
     try:
         startup_checks()
@@ -113,18 +166,7 @@ def main() -> int:
 
     # Route to appropriate interface
     try:
-        if args.command == "import":
-            run_cli(args)
-        elif args.command in ["list", "show", "stats"]:
-            run_events_cli(args)
-        elif args.command == "mcp":
-            mcp_run()
-        elif args.command == "api":
-            api_run(host=args.host, port=args.port, reload=args.reload)
-        elif args.command == "ticketfairy":
-            run_ticketfairy_cli(args)
-        else:
-            parser.print_help()
+        route_command(parser, args)
     except KeyboardInterrupt:
         logger.info("Operation cancelled by user")
         return 0

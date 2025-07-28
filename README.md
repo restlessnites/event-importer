@@ -595,6 +595,16 @@ The installer will:
 - Offer to update configurations if needed
 - Validate your installation
 
+### Validating Your Installation
+
+After installation, you can verify that all components are set up correctly by running:
+
+```bash
+make validate
+```
+
+This will check your API keys, database connection, and other critical parts of the application.
+
 ### Common Issues
 
 1. **Import fails**: Check that required API keys are set in `.env`
@@ -605,8 +615,8 @@ The installer will:
 
 ### Getting Help
 
-- Run `python install.py` to validate your installation
-- Check the test scripts in `scripts/` for working examples
+- Run `make install` to validate your installation
+- Check the test scripts in `tests/integration_tests/` for working examples
 - Review the [Architecture documentation](docs/ARCHITECTURE.md) for technical details
 - Examine log output for specific error messages
 

@@ -5,12 +5,14 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from app import __version__
+from app.validators import InstallationValidator
 from installer.components.api_keys import APIKeyManager
 from installer.components.claude_desktop import ClaudeDesktopConfig
 from installer.components.dependencies import DependencyInstaller
 from installer.components.environment import EnvironmentSetup
+from installer.components.upgrade import UpgradeManager
 from installer.utils import SystemCheck, get_rich_console
-from installer.validators import InstallationValidator
 
 
 class EventImporterInstaller:
@@ -18,23 +20,28 @@ class EventImporterInstaller:
 
     def __init__(self):
         self.console = get_rich_console()
+        self.project_root = Path(__file__).parent.parent
         self.system_check = SystemCheck()
         self.dependency_installer = DependencyInstaller()
         self.env_setup = EnvironmentSetup()
         self.claude_config = ClaudeDesktopConfig()
         self.api_key_manager = APIKeyManager()
         self.validator = InstallationValidator()
-        self.project_root = Path(__file__).parent.parent
+        self.upgrade_manager = UpgradeManager(self.console, self.project_root)
 
     def run(self) -> bool:
         """Run the complete installation process."""
-        self.console.print_header("Event Importer Setup")
+
+        self.console.print_header(f"Event Importer v{__version__} Setup")
         self.console.print_info(
             "This installer will check and configure all required components."
         )
         self.console.print_info("Already installed components will be skipped.\n")
 
         try:
+            # Handle upgrades
+            self.upgrade_manager.check_and_run()
+
             # Pre-flight checks
             if not self._pre_flight_checks():
                 return False
@@ -185,24 +192,29 @@ class EventImporterInstaller:
             self.console.print_success(
                 "✓ Claude Desktop already configured for this project"
             )
-            if self.console.confirm(
-                "Would you like to update the configuration?"
-            ) and not self.claude_config.configure(self.project_root):
-                self.console.print_error(
-                    "Failed to update Claude Desktop configuration."
-                )
+            # In an upgrade scenario, just verify. The user might have
+            # moved the project folder, so we may need to re-configure.
+            if self.claude_config.verify_configuration(self.project_root):
+                return True
+            self.console.print_info(
+                "Project path seems to have changed. "
+                "Updating Claude Desktop configuration..."
+            )
+            if not self.claude_config.configure(self.project_root):
                 return bool(
                     self.console.confirm(
-                        "Continue without updating Claude Desktop configuration?"
+                        "Failed to update. Continue without Claude Desktop?"
                     )
                 )
         else:
-            # Configure MCP
+            # Configure MCP for a new installation
+            if not self.console.confirm("Configure Claude Desktop for project?"):
+                return True
+
             if not self.claude_config.configure(self.project_root):
-                self.console.print_error("Failed to configure Claude Desktop.")
                 return bool(
                     self.console.confirm(
-                        "Continue without Claude Desktop configuration?"
+                        "Failed to configure. Continue without Claude Desktop?"
                     )
                 )
 

@@ -21,10 +21,15 @@ app/
 ├── config.py                   # Configuration management
 ├── schemas.py                  # Shared data models (Pydantic)
 ├── errors.py                   # Custom exceptions and error handling
+├── error_messages.py           # Centralized error message definitions
+├── prompts.py                  # LLM prompts for event extraction
+├── startup.py                  # Application startup and initialization
+├── genres.py                   # Genre mappings and enhancements
 ├──
 ├── core/                       # Core business logic (domain layer)
 │   ├── importer.py             # Main business logic orchestrator
-│   └── ...
+│   ├── router.py               # Request routing logic
+│   └── progress.py             # Progress tracking for imports
 │
 ├── services/                   # External service integrations
 │   ├── llm.py                  # Fallback LLM service (Claude/OpenAI)
@@ -32,12 +37,15 @@ app/
 │   ├── openai.py               # OpenAI service
 │   ├── genre.py                # Genre enhancement service
 │   ├── image.py                # Image processing service
+│   ├── security_detector.py    # Security detection service
 │   └── zyte.py                 # Web scraping service
 │
 ├── agents/                     # Import agents for different sources
 │   ├── ra_agent.py             # Resident Advisor agent
 │   ├── ticketmaster_agent.py   # Ticketmaster agent
-│   └── ...
+│   ├── dice_agent.py           # Dice.fm agent
+│   ├── web_agent.py            # Generic web scraping agent
+│   └── image_agent.py          # Direct image import agent
 │
 ├── integrations/               # Pluggable output integrations
 │   ├── __init__.py             # Auto-discovery of integrations
@@ -49,17 +57,41 @@ app/
 │       ├── selectors.py        # Selects which events to submit
 │       ├── submitter.py        # Orchestrates the submission process
 │       ├── cli.py              # Adds CLI commands (e.g., `uv run event-importer ticketfairy submit`)
-│       └── routes.py           # Adds API routes (e.g., `/integrations/ticketfairy/submit`)
+│       ├── routes.py           # Adds API routes (e.g., `/integrations/ticketfairy/submit`)
+│       ├── config.py           # Integration-specific configuration
+│       └── mcp_tools.py        # MCP tools for TicketFairy integration
 │
 ├── interfaces/                 # User-facing interfaces
 │   ├── cli/                    # Command-line interface
+│   │   ├── components.py       # Reusable CLI components
+│   │   ├── core.py             # Core CLI setup and commands
+│   │   ├── error_capture.py    # Error handling for CLI
+│   │   ├── events.py           # Event-related CLI commands
+│   │   ├── formatters.py       # Output formatting utilities
+│   │   ├── runner.py           # CLI command runner
+│   │   ├── theme.py            # CLI theming and styling
+│   │   └── utils.py            # CLI utility functions
 │   ├── mcp/                    # MCP server interface for AI assistants
+│   │   └── server.py           # MCP server implementation
 │   └── api/                    # HTTP REST API interface
+│       ├── server.py           # FastAPI server setup
+│       ├── middleware/         # API middleware
+│       │   ├── cors.py         # CORS configuration
+│       │   └── logging.py      # Request/response logging
+│       ├── models/             # API request/response models
+│       │   ├── requests.py     # Request schemas
+│       │   └── responses.py    # Response schemas
+│       └── routes/             # API route handlers
+│           ├── events.py       # Event import endpoints
+│           ├── health.py       # Health check endpoints
+│           └── statistics.py   # Statistics endpoints
 │
 └── shared/                     # Shared utilities across layers
     ├── http.py                 # HTTP client utility
     ├── agent.py                # Agent base class
     ├── statistics.py           # Statistics and analytics service
+    ├── timezone.py             # Timezone handling utilities
+    ├── url_analyzer.py         # URL analysis and agent routing
     └── database/               # Database connection and models
         ├── connection.py       # Database session management
         ├── models.py           # SQLAlchemy models (EventCache, Submission)

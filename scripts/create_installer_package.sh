@@ -11,16 +11,18 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}Event Importer Installer Package Creator${NC}"
-echo "========================================"
+echo -e "${BLUE}RESTLESS / EVENT IMPORTER INSTALLER GENERATOR${NC}"
 
 # Get the directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
+# Read version from pyproject.toml
+VERSION=$(grep "^version =" "$PROJECT_ROOT/pyproject.toml" | awk -F'"' '{print $2}')
+
 # Output directory
 OUTPUT_DIR="$PROJECT_ROOT/dist"
-PACKAGE_NAME="event-importer-installer"
+PACKAGE_NAME="restless-event-importer-v$VERSION"
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
@@ -41,6 +43,7 @@ cp "$PROJECT_ROOT/pyproject.toml" "$PACKAGE_DIR/"
 cp "$PROJECT_ROOT/env.example" "$PACKAGE_DIR/"
 cp "$PROJECT_ROOT/README.md" "$PACKAGE_DIR/"
 cp "$PROJECT_ROOT/install.py" "$PACKAGE_DIR/"
+cp "$PROJECT_ROOT/Makefile" "$PACKAGE_DIR/"
 
 # Create data directory (empty)
 mkdir -p "$PACKAGE_DIR/data"
@@ -55,12 +58,12 @@ cat > "$PACKAGE_DIR/INSTALL_README.md" << 'EOF'
 
 2. Navigate to this folder:
    ```bash
-   cd ~/Downloads/event-importer-installer
+   cd ~/Downloads/restless-event-importer-installer
    ```
 
 3. Run the installer:
    ```bash
-   python3 install.py
+   make install
    ```
 
 4. Follow the on-screen instructions to:
@@ -109,4 +112,4 @@ echo -e "Size: ${BLUE}$SIZE${NC}"
 echo -e "\nUsers can now:"
 echo "1. Download this zip file"
 echo "2. Extract it"
-echo "3. Run: python3 install.py"
+echo "3. Run: make install"

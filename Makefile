@@ -1,100 +1,98 @@
-.PHONY: install setup test test-verbose coverage-report test-all clean lint format run-cli run-api run-mcp help
+.PHONY: install setup test test-verbose coverage-report test-all clean lint format run-cli run-api run-mcp help dist
 
 # Default target
 .DEFAULT_GOAL := help
 
-# Installation and setup
-install:
-	@echo "🚀 Running Event Importer installer..."
+##@ Installation & Setup
+install: ## Run the interactive installer
 	@python install.py
 
-setup:
-	@echo "📦 Setting up development environment..."
+setup: ## Set up the development environment
 	@uv sync
 	@cp -n env.example .env || true
 	@echo "✅ Setup complete! Don't forget to configure your .env file"
 
-# Testing
-test:
-	@echo "Running all tests..."
+dev-setup: setup ## Set up for development (includes pre-commit hooks)
+	@pre-commit install || true
+	@echo "✅ Development environment ready!"
+
+
+##@ Testing
+test: ## Run all tests with coverage
 	@uv run pytest --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml
 	@make badge
 
-coverage-report:
+coverage-report: ## Show detailed coverage report in the console
 	@python scripts/coverage_report.py
 
-quick:
+quick: ## Run a quick test run without coverage
 	@pytest tests -v --tb=short
 
-badge:
-	@echo "🎨 Generating coverage badge..."
+badge: ## Generate and update the coverage badge in README.md
 	@python scripts/generate_badge.py
 
-# Integration tests
-test-genre-enhancer:
+
+##@ Integration Tests
+test-genre-enhancer: ## Run the Genre Enhancer integration tests
 	@pytest tests/integration_tests/test_genre_enhancer.py
 
-test-url-analyzer:
+test-url-analyzer: ## Run the URL Analyzer integration tests
 	@pytest tests/integration_tests/test_url_analyzer.py
 
-test-date-parser:
+test-date-parser: ## Run the Date Parser integration tests
 	@pytest tests/integration_tests/test_date_parser.py
 
-test-ra-genres:
+test-ra-genres: ## Run the RA Genres integration tests
 	@pytest tests/integration_tests/test_ra_genres.py
 
-test-google-custom-search-api:
+test-google-custom-search-api: ## Run the Google Custom Search API integration tests
 	@pytest tests/integration_tests/test_google_custom_search_api.py
 
-test-image-enhancer:
+test-image-enhancer: ## Run the Image Enhancer integration tests
 	@pytest tests/integration_tests/test_image_enhancer.py
 
-test-importer:
+test-importer: ## Run the Importer integration tests
 	@pytest tests/integration_tests/test_importer.py
 
-test-error-capture:
+test-error-capture: ## Run the Error Capture integration tests
 	@pytest tests/integration_tests/test_error_capture.py
 
-test-dice-api:
+test-dice-api: ## Run the Dice API integration tests
 	@pytest tests/integration_tests/test_dice_api.py
 
-# Code quality
-lint:
-	@echo "🔍 Running linters..."
+
+##@ Code Quality
+lint: ## Run linters (ruff and mypy)
 	@ruff check . || true
 	@mypy app || true
 
-format:
-	@echo "🎨 Formatting code..."
+format: ## Auto-format code with ruff
 	@ruff check . --fix
 	@ruff format .
 
-# Running the application
-run-cli:
-	@echo "🖥️ Starting CLI..."
+check: lint test ## Run all checks (linting and tests)
+	@echo "✅ All checks passed!"
+
+
+##@ Running
+run-cli: ## Run the CLI interface (pass args with ARGS="...")
 	@uv run event-importer $(ARGS)
 
-run-api:
-	@echo "🌐 Starting API server..."
+run-api: ## Start the HTTP API server
 	@uv run event-importer api
 
-run-mcp:
-	@echo "🤖 Starting MCP server..."
+run-mcp: ## Start the MCP server
 	@uv run event-importer mcp
 
-# Import shortcuts
-import:
-	@echo "📥 Importing event from URL..."
+import: ## Import an event from a URL (pass url with URL="...")
 	@uv run event-importer import $(URL)
 
-# Database operations
-db-stats:
-	@echo "📊 Database statistics..."
+db-stats: ## Show database statistics
 	@uv run event-importer stats
 
-# Utility commands
-clean:
-	@echo "🧹 Cleaning up..."
+
+##@ Cleanup
+clean: ## Clean up test and cache artifacts
 	@rm -rf .pytest_cache
 	@rm -rf htmlcov
 	@rm -rf coverage.xml
@@ -104,68 +102,33 @@ clean:
 	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	@echo "✅ Cleaned!"
 
-clean-all: clean
-	@echo "🗑️ Deep cleaning..."
+clean-all: clean ## Deep clean the project (includes venv)
 	@rm -rf .venv
 	@rm -rf node_modules
 	@echo "✅ All cleaned!"
 
-# Development helpers
-dev-setup: setup
-	@echo "🛠️ Setting up development tools..."
-	@pre-commit install || true
-	@echo "✅ Development environment ready!"
 
-# Check everything
-check: lint test
-	@echo "✅ All checks passed!"
+##@ Distribution
+dist: ## Generate the installer package
+	@bash scripts/create_installer_package.sh
+	@echo "✅ Installer package created in dist/ directory"
 
-# Help
-help:
+
+##@ Validation
+validate: ## Validate the installation
+	@uv run event-importer validate
+
+
+##@ Help
+help: ## Show this help message
 	@echo "RESTLESS / EVENT IMPORTER"
 	@echo ""
-	@echo "Installation & Setup:"
-	@echo "  make install             - Run the automated installer"
-	@echo "  make setup               - Quick setup (uv sync + env file)"
-	@echo "  make dev-setup           - Setup for development (includes pre-commit)"
-	@echo ""
-	@echo "Testing:"
-	@echo "  make test                - Run tests with nice formatted output"
-	@echo "  make test-verbose        - Run tests with verbose output"
-	@echo "  make coverage-report     - Show detailed coverage report"
-	@echo "  make test-all            - Run all tests (scripts + app)"
-	@echo "  make quick               - Quick test run without coverage"
-	@echo "  make badge               - Update coverage badge in README"
-	@echo ""
-	@echo "Integration Tests:"
-	@echo "  make test-genre-enhancer - Test genre enhancer"
-	@echo "  make test-url-analyzer   - Test URL analyzer"
-	@echo "  make test-date-parser    - Test date parser"
-	@echo "  make test-ra-genres      - Test RA genres"
-	@echo "  make test-google-custom-search-api"
-	@echo "                           - Test Google Custom Search API"
-	@echo "  make test-image-enhancer - Test image enhancer"
-	@echo "  make test-importer       - Test importer"
-	@echo "  make test-error-capture  - Test error capture"
-	@echo "  make test-dice-api       - Test Dice API"
-	@echo ""
-	@echo "Code Quality:"
-	@echo "  make lint                - Run linters"
-	@echo "  make format              - Auto-format code"
-	@echo "  make check               - Run lint + tests"
-	@echo ""
-	@echo "Running:"
-	@echo "  make run-cli ARGS='--help'"
-	@echo "                           - Run CLI with arguments"
-	@echo "  make run-api             - Start HTTP API server"
-	@echo "  make run-mcp             - Start MCP server"
-	@echo "  make import URL=<url>    - Import an event from URL"
-	@echo "  make db-stats            - Show database statistics"
-	@echo ""
-	@echo "Cleanup:"
-	@echo "  make clean               - Clean test/cache artifacts"
-	@echo "  make clean-all           - Deep clean (including venv)"
-	@echo ""
-	@echo "Examples:"
-	@echo "  make import URL='https://ra.co/events/1234567'"
-	@echo "  make run-cli ARGS='list --format table'"
+	@echo "Usage: make [target]"
+	@awk 'BEGIN {FS = ":.*?## |^##@ "} \
+		/^(##@|([a-zA-Z0-9_-]+:.*?##))/ { \
+			if ($$1 == "") { \
+				printf "\n\033[1;33m%s\033[0m\n", $$2; \
+			} else { \
+				printf "  \033[36m%-29s\033[0m %s\n", $$1, $$2; \
+			} \
+		}' $(MAKEFILE_LIST)
