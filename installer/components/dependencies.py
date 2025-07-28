@@ -11,10 +11,10 @@ from installer.utils import (
 )
 
 
-class DependencyManager:
+class DependencyInstaller:
     """Manages the installation of dependencies."""
 
-    def __init__(self: "DependencyManager") -> None:
+    def __init__(self: "DependencyInstaller") -> None:
         """Initialize the dependency manager."""
         self.console = get_rich_console()
         self.system_check = SystemCheck()

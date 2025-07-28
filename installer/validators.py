@@ -6,18 +6,15 @@ from pathlib import Path
 from installer.components.api_keys import APIKeyManager
 from installer.components.claude_desktop import ClaudeDesktopConfig
 from installer.components.environment import EnvironmentSetup
-from installer.utils import ProcessRunner, get_rich_console
+from installer.utils import ProcessRunner, Console
 
 
 class InstallationValidator:
     """Validate the Event Importer installation."""
 
     def __init__(self):
-        self.console = get_rich_console()
-        self.runner = self._get_process_runner()
-
-    def _get_process_runner(self):
-        return ProcessRunner()
+        self.console = Console()
+        self.runner = ProcessRunner()
 
     def validate(self, project_root: Path) -> dict[str, any]:
         """Run comprehensive validation checks."""
@@ -47,9 +44,14 @@ class InstallationValidator:
         """Check if all dependencies are properly installed."""
         try:
             # Check uv
-            result = self.runner.run_silent(["uv", "--version"])
-            results["checks"]["uv installed"] = result
-            if not result:
+            result = self.runner.run(
+                ["uv", "--version"],
+                capture_output=True,
+                check=False
+            )
+            uv_installed = result.returncode == 0
+            results["checks"]["uv installed"] = uv_installed
+            if not uv_installed:
                 results["errors"].append("uv is not installed or not in PATH")
 
             # Check Python version
@@ -90,17 +92,27 @@ class InstallationValidator:
 
     def _check_api_keys(self, project_root: Path, results: dict):
         """Check API key configuration."""
-        APIKeyManager()
-        env_setup = EnvironmentSetup(project_root)
-        results["api_keys"] = all(
-            env_setup.check_api_key(key)
-            for key in [
-                "OPENAI_API_KEY",
-                "ANTHROPIC_API_KEY",
-                "GOOGLE_API_KEY",
-                "GOOGLE_CSE_ID",
-            ]
-        )
+        api_key_manager = APIKeyManager()
+        valid, missing = api_key_manager.validate_keys(project_root)
+
+        results["checks"]["required API keys"] = valid
+        if not valid:
+            for key in missing:
+                results["errors"].append(f"Required API key not configured: {key}")
+
+        # Check optional keys as well
+        env_setup = EnvironmentSetup()
+        env_vars = env_setup.get_env_vars(project_root)
+        optional_keys = [
+            ("OPENAI_API_KEY", "OpenAI API key"),
+            ("TICKETMASTER_API_KEY", "Ticketmaster API key"),
+            ("GOOGLE_API_KEY", "Google API key"),
+            ("GOOGLE_CSE_ID", "Google CSE ID"),
+        ]
+
+        for key, desc in optional_keys:
+            if key in env_vars and env_vars[key]:
+                results["checks"][f"{desc} (optional)"] = True
 
     def _check_import_functionality(self, project_root: Path, results: dict):
         """Test basic import functionality."""
@@ -123,8 +135,21 @@ class InstallationValidator:
     def _check_claude_desktop(self, project_root: Path, results: dict):
         """Check Claude Desktop configuration."""
         claude_config = ClaudeDesktopConfig()
-        claude_config.setup(project_root)
-        results["claude_desktop"] = claude_config.is_configured()
+
+        # Check if Claude Desktop is installed
+        if claude_config.is_claude_desktop_installed():
+            # Check if configured for this project
+            is_configured = claude_config.is_already_configured(project_root)
+            results["checks"]["Claude Desktop configured"] = is_configured
+            if not is_configured:
+                results["warnings"].append(
+                    "Claude Desktop is installed but not configured for this project"
+                )
+        else:
+            results["checks"]["Claude Desktop installed"] = False
+            results["warnings"].append(
+                "Claude Desktop not found - MCP integration unavailable"
+            )
 
     def print_report(self, results: dict):
         """Print a formatted validation report."""

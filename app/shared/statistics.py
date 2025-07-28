@@ -165,3 +165,8 @@ class StatisticsService:
             "trends": self.get_event_trends(),
             "trends_30_days": self.get_event_trends(30),
         }
+
+
+def get_statistics() -> StatisticsService:
+    """Get an instance of the statistics service"""
+    return StatisticsService()

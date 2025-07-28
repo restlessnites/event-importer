@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from rich.console import Console
+from installer.utils import Console
 
 from .environment import EnvironmentSetup
 
@@ -59,11 +57,12 @@ class APIKeyManager:
         print("-" * 50)
 
         for key_name, description, required in self.API_KEYS:
-            status = "✓" if env_vars.get(key_name) else "✗"
+            has_key = env_vars.get(key_name) and env_vars.get(key_name).strip()
+            status = "✓" if has_key else "✗"
             req_text = " (REQUIRED)" if required else " (optional)"
             color = (
                 self.console.GREEN
-                if env_vars.get(key_name)
+                if has_key
                 else (self.console.RED if required else self.console.YELLOW)
             )
             print(f"{color}{status}{self.console.RESET} {key_name}{req_text}")

@@ -136,6 +136,35 @@ class ClaudeDesktopConfig:
             self.console.print_error(f"Error saving config: {e}")
             return False
 
+    def is_already_configured(self, project_root: Path) -> bool:
+        """Check if Event Importer is already configured in Claude Desktop."""
+        config_path = self.get_config_path()
+        if not config_path or not config_path.exists():
+            return False
+
+        try:
+            config = self._load_config(config_path)
+            if "mcpServers" not in config:
+                return False
+
+            if "event-importer" not in config["mcpServers"]:
+                return False
+
+            server_config = config["mcpServers"]["event-importer"]
+
+            # Verify the configuration points to the right place
+            if "args" in server_config:
+                args = server_config["args"]
+                if "--directory" in args:
+                    idx = args.index("--directory")
+                    if idx + 1 < len(args):
+                        configured_path = Path(args[idx + 1])
+                        return configured_path == project_root
+
+            return True
+        except Exception:
+            return False
+
     def verify_configuration(self, project_root: Path) -> bool:
         """Verify that Claude Desktop is properly configured."""
         config_path = self.get_config_path()

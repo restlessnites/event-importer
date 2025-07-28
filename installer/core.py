@@ -28,7 +28,9 @@ class EventImporterInstaller:
 
     def run(self) -> bool:
         """Run the complete installation process."""
-        self.console.print_header("Event Importer Installer")
+        self.console.print_header("Event Importer Setup")
+        self.console.print_info("This installer will check and configure all required components.")
+        self.console.print_info("Already installed components will be skipped.\n")
 
         try:
             # Pre-flight checks
@@ -55,7 +57,7 @@ class EventImporterInstaller:
             if not self._validate_installation():
                 return False
 
-            self.console.print_success("\n✅ Installation completed successfully!")
+            self.console.print_success("\n✅ Event Importer is ready to use!")
             self._print_next_steps()
             return True
 
@@ -88,28 +90,32 @@ class EventImporterInstaller:
 
     def _install_dependencies(self) -> bool:
         """Install required dependencies."""
-        self.console.print_step("Installing dependencies...")
+        self.console.print_step("Checking dependencies...")
 
-        # Install Homebrew if needed
-        if not self.dependency_installer.check_homebrew():
+        # Check and install Homebrew if needed
+        if self.dependency_installer.check_homebrew():
+            self.console.print_success("✓ Homebrew is already installed")
+        else:
             if not self.console.confirm("Homebrew is required. Install it now?"):
                 self.console.print_error("Homebrew is required to continue.")
                 return False
             if not self.dependency_installer.install_homebrew():
                 return False
 
-        # Install uv if needed
-        if (
-            not self.dependency_installer.check_uv()
-            and not self.dependency_installer.install_uv()
-        ):
-            return False
+        # Check and install uv if needed
+        if self.dependency_installer.check_uv():
+            self.console.print_success("✓ uv is already installed")
+        else:
+            self.console.print_info("uv not found, installing...")
+            if not self.dependency_installer.install_uv():
+                return False
 
         # Install Python dependencies
+        self.console.print_info("Syncing Python dependencies...")
         if not self.env_setup.install_dependencies(self.project_root):
             return False
 
-        self.console.print_success("✓ Dependencies installed")
+        self.console.print_success("✓ All dependencies ready")
         return True
 
     def _setup_environment(self) -> bool:
@@ -145,7 +151,7 @@ class EventImporterInstaller:
 
     def _configure_claude_desktop(self) -> bool:
         """Configure Claude Desktop MCP integration."""
-        self.console.print_step("Configuring Claude Desktop...")
+        self.console.print_step("Checking Claude Desktop configuration...")
 
         # Check if Claude Desktop is installed
         if not self.claude_config.is_claude_desktop_installed():
@@ -157,14 +163,23 @@ class EventImporterInstaller:
             )
             return True
 
-        # Configure MCP
-        if not self.claude_config.configure(self.project_root):
-            self.console.print_error("Failed to configure Claude Desktop.")
-            return bool(
-                self.console.confirm("Continue without Claude Desktop configuration?")
-            )
+        # Check if already configured
+        if self.claude_config.is_already_configured(self.project_root):
+            self.console.print_success("✓ Claude Desktop already configured for this project")
+            if self.console.confirm("Would you like to update the configuration?") and not self.claude_config.configure(self.project_root):
+                self.console.print_error("Failed to update Claude Desktop configuration.")
+                return bool(
+                    self.console.confirm("Continue without updating Claude Desktop configuration?")
+                )
+        else:
+            # Configure MCP
+            if not self.claude_config.configure(self.project_root):
+                self.console.print_error("Failed to configure Claude Desktop.")
+                return bool(
+                    self.console.confirm("Continue without Claude Desktop configuration?")
+                )
 
-        self.console.print_success("✓ Claude Desktop configured")
+        self.console.print_success("✓ Claude Desktop ready")
         return True
 
     def _validate_installation(self) -> bool:
@@ -174,12 +189,16 @@ class EventImporterInstaller:
         results = self.validator.validate(self.project_root)
 
         if not results["success"]:
-            self.console.print_error("Installation validation failed:")
+            self.console.print_error("\nValidation found issues:")
             for error in results["errors"]:
-                self.console.print_error(f"  - {error}")
-            return False
+                self.console.print_error(f"  ✗ {error}")
+            if results.get("warnings"):
+                self.console.print_warning("\nWarnings:")
+                for warning in results["warnings"]:
+                    self.console.print_warning(f"  ⚠ {warning}")
+            return bool(self.console.confirm("\nContinue anyway?"))
 
-        self.console.print_success("✓ Installation validated")
+        self.console.print_success("✓ All components validated")
         return True
 
     def _print_next_steps(self):

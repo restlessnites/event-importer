@@ -17,7 +17,37 @@ A tool that extracts structured event data from websites, images, and APIs. Use 
 
 ## Quick Start
 
-### Installation
+Choose your installation method:
+
+### Option 1: Automated Installation (Recommended)
+
+The easiest way to get started is with our automated installer that handles everything for you:
+
+```bash
+# Clone the repository
+git clone https://github.com/restlessnites/event-importer.git
+cd event-importer
+
+# Run the installer
+python install.py
+```
+
+**What the installer does:**
+
+- ✅ Checks system requirements (macOS, Python 3.10+)
+- ✅ Installs dependencies (Homebrew, uv) if needed
+- ✅ Sets up the Python environment automatically
+- ✅ Guides you through API key configuration
+- ✅ Configures Claude Desktop integration (if installed)
+- ✅ Validates everything is working
+
+**Note:** The installer is idempotent - you can run it multiple times safely. It will detect what's already installed and skip those steps.
+
+---
+
+### Option 2: Manual Installation
+
+If you prefer to install each component yourself:
 
 1. **Install Homebrew** (if you don't have it):
 
@@ -79,6 +109,33 @@ A tool that extracts structured event data from websites, images, and APIs. Use 
    cp env.example .env
    # Edit .env with your API keys (see Getting API Keys below)
    ```
+
+That's it! Manual installation is complete. You can now use the Event Importer.
+
+---
+
+### Using Make Commands
+
+For convenience, we provide a Makefile with common commands:
+
+```bash
+# Installation & Setup
+make install       # Run the automated installer
+make setup         # Quick setup (uv sync + env file)
+
+# Testing
+make test          # Run tests with nice output
+make coverage-report # Show detailed coverage
+
+# Running
+make run-api       # Start API server
+make import URL='https://ra.co/events/1234567'  # Import an event
+
+# See all commands
+make help
+```
+
+---
 
 ### Getting API Keys
 
@@ -483,15 +540,31 @@ The Event Importer goes beyond basic extraction:
 
 ## Troubleshooting
 
+### Re-running the Installer
+
+If you need to reconfigure or validate your installation, you can safely re-run the installer:
+
+```bash
+python install.py
+```
+
+The installer will:
+- Show what's already installed (with ✓ checkmarks)
+- Skip components that are already configured
+- Offer to update configurations if needed
+- Validate your installation
+
 ### Common Issues
 
 1. **Import fails**: Check that required API keys are set in `.env`
 2. **Timeout errors**: Increase timeout with `--timeout 120`  
 3. **API server won't start**: Make sure the port isn't already in use
 4. **MCP connection issues**: Verify the working directory path in MCP client config
+5. **Missing dependencies**: Run `python install.py` to check and install missing components
 
 ### Getting Help
 
+- Run `python install.py` to validate your installation
 - Check the test scripts in `scripts/` for working examples
 - Review the [Architecture documentation](docs/ARCHITECTURE.md) for technical details
 - Examine log output for specific error messages

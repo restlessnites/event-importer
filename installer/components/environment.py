@@ -28,7 +28,7 @@ class EnvironmentSetup:
         env_example = project_root / "env.example"
 
         if env_file.exists():
-            self.console.print_info(".env file already exists")
+            self.console.print_info("✓ .env file already exists")
             return True
 
         if not env_example.exists():
