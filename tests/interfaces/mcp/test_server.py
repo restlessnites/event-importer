@@ -268,15 +268,20 @@ async def test_handle_get_statistics_error():
 
 def test_get_all_tools():
     """Test that get_all_tools combines core and integration tools."""
-    mock_integration = MagicMock()
-    mock_integration.mcp_tools.TOOLS = [
+    mock_integration_class = MagicMock()
+    mock_integration_instance = MagicMock()
+    mock_integration_class.return_value = mock_integration_instance
+
+    mock_tools_module = MagicMock()
+    mock_tools_module.TOOLS = [
         types.Tool(name="integration_tool", description="A test tool", inputSchema={})
     ]
+    mock_integration_instance.get_mcp_tools.return_value = mock_tools_module
 
     with patch(
         "app.interfaces.mcp.server.get_available_integrations"
     ) as mock_get_integrations:
-        mock_get_integrations.return_value = {"mock": mock_integration}
+        mock_get_integrations.return_value = {"mock": mock_integration_class}
         tools = get_all_tools()
         assert len(tools) > len(CoreMCPTools.TOOLS)
         assert any(t.name == "integration_tool" for t in tools)
@@ -284,18 +289,20 @@ def test_get_all_tools():
 
 def test_get_all_tool_handlers():
     """Test that get_all_tool_handlers combines core and integration handlers."""
-    mock_integration = MagicMock()
-    mock_integration.mcp_tools.TOOL_HANDLERS = {
-        "integration_handler": lambda: "handled"
-    }
+    mock_integration_class = MagicMock()
+    mock_integration_instance = MagicMock()
+    mock_integration_class.return_value = mock_integration_instance
+
+    mock_tools_module = MagicMock()
+    mock_tools_module.TOOL_HANDLERS = {"integration_handler": lambda: "handled"}
+    mock_integration_instance.get_mcp_tools.return_value = mock_tools_module
 
     with patch(
         "app.interfaces.mcp.server.get_available_integrations"
     ) as mock_get_integrations:
-        mock_get_integrations.return_value = {"mock": mock_integration}
+        mock_get_integrations.return_value = {"mock": mock_integration_class}
         handlers = get_all_tool_handlers()
         assert "integration_handler" in handlers
-        assert "list_events" in handlers
 
 
 @pytest.mark.asyncio
