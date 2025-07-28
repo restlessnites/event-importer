@@ -6,13 +6,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
+from unittest.mock import patch
 
 import pytest
 from dotenv import load_dotenv
 
 from app.config import get_config
 from app.interfaces.cli.runner import get_cli
-from app.schemas import EventData
+from app.schemas import EventData, ImageCandidate
 from app.services.image import ImageService
 
 # Load environment variables
@@ -44,19 +45,25 @@ def test_get_domain(url, expected):
 
 
 @pytest.mark.asyncio
-async def test_image_search(capsys, cli, http_service):
+@patch("app.services.image.ImageService.rate_image")
+@patch("app.services.image.ImageService._search_google_images")
+async def test_image_search(
+    mock_search_google_images, mock_rate_image, capsys, cli, http_service
+):
     """Test the image search with sample data."""
     config = get_config()
 
-    # Check if Google API is configured before proceeding
-    if not (config.api.google_api_key and config.api.google_cse_id):
-        pytest.skip(
-            "Google Search API not configured - set GOOGLE_API_KEY and GOOGLE_CSE_ID in .env file"
-        )
+    # Configure the mock to return a sample response
+    mock_search_google_images.return_value = [
+        {"link": "https://example.com/image1.jpg"},
+        {"link": "https://example.com/image2.jpg"},
+    ]
 
-    # Additional check - if the API key looks invalid, skip the test
-    if config.api.google_api_key == "test-key" or len(config.api.google_api_key) < 10:
-        pytest.skip("Google API key appears to be a test/mock key")
+    # Configure the mock for image rating to avoid actual downloads
+    async def mock_rate_side_effect(url: str, *args, **kwargs):
+        return ImageCandidate(url=url, score=80, reason="Mocked OK")
+
+    mock_rate_image.side_effect = mock_rate_side_effect
 
     cli.header("Image Search Test", "Testing Google Custom Search integration")
     image_service = ImageService(config, http_service)
