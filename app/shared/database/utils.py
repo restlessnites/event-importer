@@ -4,6 +4,7 @@ from typing import Any
 
 from .connection import get_db_session
 from .models import EventCache, Submission
+from sqlalchemy.orm import Session
 
 
 def hash_event_data(event_data: dict[str, Any]) -> str:
@@ -13,13 +14,13 @@ def hash_event_data(event_data: dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def cache_event(url: str, event_data: dict[str, Any]) -> EventCache:
+def cache_event(url: str, event_data: dict[str, Any], db: Session | None = None) -> EventCache:
     """Cache scraped event data"""
     data_hash = hash_event_data(event_data)
 
-    with get_db_session() as db:
+    def _cache(db_session: Session) -> EventCache:
         # Check if event already exists
-        existing = db.query(EventCache).filter(EventCache.source_url == url).first()
+        existing = db_session.query(EventCache).filter(EventCache.source_url == url).first()
 
         if existing:
             # Update if data has changed
@@ -34,19 +35,30 @@ def cache_event(url: str, event_data: dict[str, Any]) -> EventCache:
             scraped_data=event_data,
             data_hash=data_hash,
         )
-        db.add(cached_event)
-        db.flush()  # Get the ID
+        db_session.add(cached_event)
+        db_session.flush()  # Get the ID
         return cached_event
 
+    if db:
+        return _cache(db)
+    with get_db_session() as db_session:
+        return _cache(db_session)
 
-def get_cached_event(url: str) -> dict[str, Any] | None:
+
+def get_cached_event(url: str, db: Session | None = None) -> dict[str, Any] | None:
     """Get cached event data by URL"""
-    with get_db_session() as db:
-        event_cache = db.query(EventCache).filter(EventCache.source_url == url).first()
+
+    def _get(db_session: Session) -> dict[str, Any] | None:
+        event_cache = db_session.query(EventCache).filter(EventCache.source_url == url).first()
         if event_cache:
             # Return the scraped_data dict instead of the SQLAlchemy object
             return event_cache.scraped_data
         return None
+
+    if db:
+        return _get(db)
+    with get_db_session() as db_session:
+        return _get(db_session)
 
 
 def get_submission_status(event_id: int, service_name: str) -> Submission | None:

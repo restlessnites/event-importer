@@ -25,10 +25,10 @@ def test_cache_event_success(db_session: Session, sample_event):
     url = "https://example.com/event/123"
 
     # Cache the event - convert to dict
-    cache_event(url=url, event_data=sample_event.model_dump())
+    cache_event(url=url, event_data=sample_event.model_dump(), db=db_session)
 
     # Retrieve it using get_cached_event to verify
-    cached_data = get_cached_event(url)
+    cached_data = get_cached_event(url, db=db_session)
     assert cached_data is not None
     assert cached_data["title"] == "Test Event"
 
@@ -37,10 +37,10 @@ def test_cache_event_empty(db_session: Session):
     """Test caching an event with empty data."""
     url = "https://example.com/event/empty"
 
-    cache_event(url=url, event_data={})
+    cache_event(url=url, event_data={}, db=db_session)
 
     # Retrieve it to verify
-    cached_data = get_cached_event(url)
+    cached_data = get_cached_event(url, db=db_session)
     assert cached_data is not None
     assert cached_data == {}
 
@@ -50,20 +50,20 @@ def test_cache_event_update_existing(db_session: Session, sample_event):
     url = "https://example.com/event/123"
 
     # First cache
-    cache_event(url=url, event_data=sample_event.model_dump())
+    cache_event(url=url, event_data=sample_event.model_dump(), db=db_session)
 
     # Get the first cached data
-    first_data = get_cached_event(url)
+    first_data = get_cached_event(url, db=db_session)
     assert first_data["title"] == "Test Event"
 
     # Update with new data
     updated_event = sample_event.model_copy()
     updated_event.title = "Updated Event"
 
-    cache_event(url=url, event_data=updated_event.model_dump())
+    cache_event(url=url, event_data=updated_event.model_dump(), db=db_session)
 
     # Get the updated data
-    updated_data = get_cached_event(url)
+    updated_data = get_cached_event(url, db=db_session)
     assert updated_data["title"] == "Updated Event"
 
 
@@ -72,10 +72,10 @@ def test_get_cached_event_found(db_session: Session, sample_event):
     url = "https://example.com/event/123"
 
     # Cache an event
-    cache_event(url=url, event_data=sample_event.model_dump())
+    cache_event(url=url, event_data=sample_event.model_dump(), db=db_session)
 
     # Retrieve it
-    cached_data = get_cached_event(url)
+    cached_data = get_cached_event(url, db=db_session)
 
     assert cached_data is not None
     assert cached_data["title"] == "Test Event"
@@ -85,7 +85,7 @@ def test_get_cached_event_not_found(db_session: Session):
     """Test retrieving a non-existent cached event."""
     url = "https://example.com/nonexistent"
 
-    cached_data = get_cached_event(url)
+    cached_data = get_cached_event(url, db=db_session)
 
     assert cached_data is None
 
@@ -95,11 +95,11 @@ def test_get_cached_event_twice(db_session: Session, sample_event):
     url = "https://example.com/event/123"
 
     # Cache an event
-    cache_event(url=url, event_data=sample_event.model_dump())
+    cache_event(url=url, event_data=sample_event.model_dump(), db=db_session)
 
     # Retrieve it twice
-    first_get = get_cached_event(url)
-    second_get = get_cached_event(url)
+    first_get = get_cached_event(url, db=db_session)
+    second_get = get_cached_event(url, db=db_session)
 
     assert first_get is not None
     assert second_get is not None

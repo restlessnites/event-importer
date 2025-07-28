@@ -22,23 +22,23 @@ TEST_DATABASE_URL = "sqlite:///./test.db"
 
 
 @pytest.fixture(scope="session")
-def test_database_url() -> str:
-    """Return the test database URL."""
-    return TEST_DATABASE_URL
+def engine():
+    """Create a test database engine."""
+    return create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
 
 
-@pytest.fixture(scope="session")
-def db_session(test_database_url: str) -> Session:
-    """Create a test database session."""
-    engine = create_engine(test_database_url, connect_args={"check_same_thread": False})
-    Base.metadata.create_all(bind=engine)
-    testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    db = testing_session_local()
-    try:
-        yield db
-    finally:
-        db.close()
-        Base.metadata.drop_all(bind=engine)
+@pytest.fixture(scope="function")
+def db_session(engine):
+    """Create a test database session for each test function."""
+    connection = engine.connect()
+    transaction = connection.begin()
+    Base.metadata.create_all(bind=connection)
+    session = Session(bind=connection)
+    yield session
+    session.close()
+    transaction.rollback()
+    Base.metadata.drop_all(bind=connection)
+    connection.close()
 
 
 @pytest.fixture
