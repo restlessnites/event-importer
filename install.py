@@ -11,7 +11,7 @@ import sys
 
 # A list of dependencies that the installer itself needs to run.
 # These are not the application's dependencies.
-INSTALLER_DEPS = ["rich"]
+INSTALLER_DEPS = ["rich", "python-dotenv"]
 
 
 def check_and_install_dependencies():
