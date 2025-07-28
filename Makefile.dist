@@ -5,7 +5,14 @@
 
 ##@ Installation & Setup
 install: ## Run the interactive installer
-	@python install.py
+	@if command -v python3 >/dev/null 2>&1; then \
+		python3 install.py; \
+	elif command -v python >/dev/null 2>&1; then \
+		python install.py; \
+	else \
+		echo "Error: python3 or python command not found. Please install Python."; \
+		exit 1; \
+	fi
 
 
 ##@ Running
