@@ -363,13 +363,12 @@ def get_all_tools() -> list[types.Tool]:
 
     # Add integration tools
     integrations = get_available_integrations()
-    for name, integration in integrations.items():
-        if hasattr(integration, "mcp_tools") and hasattr(
-            integration.mcp_tools,
-            "TOOLS",
-        ):
+    for name, integration_class in integrations.items():
+        integration = integration_class()
+        mcp_tools = integration.get_mcp_tools()
+        if mcp_tools and hasattr(mcp_tools, "TOOLS"):
             logger.info(f"Adding MCP tools for integration: {name}")
-            tools.extend(integration.mcp_tools.TOOLS)
+            tools.extend(mcp_tools.TOOLS)
 
     return tools
 
@@ -381,12 +380,11 @@ def get_all_tool_handlers() -> dict:
 
     # Add integration tool handlers
     integrations = get_available_integrations()
-    for _name, integration in integrations.items():
-        if hasattr(integration, "mcp_tools") and hasattr(
-            integration.mcp_tools,
-            "TOOL_HANDLERS",
-        ):
-            handlers.update(integration.mcp_tools.TOOL_HANDLERS)
+    for _name, integration_class in integrations.items():
+        integration = integration_class()
+        mcp_tools = integration.get_mcp_tools()
+        if mcp_tools and hasattr(mcp_tools, "TOOL_HANDLERS"):
+            handlers.update(mcp_tools.TOOL_HANDLERS)
 
     return handlers
 

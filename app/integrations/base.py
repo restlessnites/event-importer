@@ -2,25 +2,36 @@
 
 from __future__ import annotations
 
+import importlib
 import logging
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, final
 
 from sqlalchemy.orm import Session
 
 from app.errors import handle_errors_async
-
-from ..shared.database.connection import get_db_session
-from ..shared.database.models import EventCache, Submission
+from app.shared.database.connection import get_db_session
+from app.shared.database.models import EventCache, Submission
 
 logger = logging.getLogger(__name__)
 
 
-class Integration:
-    """Base class for all integrations"""
+class Integration(ABC):
+    """Abstract base class for all integrations"""
 
-    name: str | None = None
-    mcp_tools: Any | None = None
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """The name of the integration (e.g., 'ticketfairy')"""
+        raise NotImplementedError
+
+    @final
+    def get_mcp_tools(self) -> Any | None:
+        """Dynamically load and return the MCP tools module, if it exists."""
+        try:
+            return importlib.import_module(f"app.integrations.{self.name}.mcp_tools")
+        except ImportError:
+            return None
 
 
 class BaseSelector(ABC):

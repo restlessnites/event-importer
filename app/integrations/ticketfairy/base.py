@@ -6,4 +6,7 @@ from app.integrations.base import Integration
 class TicketFairyIntegration(Integration):
     """TicketFairy integration"""
 
-    name = "ticketfairy"
+    @property
+    def name(self) -> str:
+        """The name of the integration"""
+        return "ticketfairy"
