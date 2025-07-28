@@ -53,6 +53,7 @@ jobs:
       uses: codecov/codecov-action@v4
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
+        slug: restlessnites/event-importer
         file: ./coverage.xml
         flags: unittests
         name: codecov-umbrella
