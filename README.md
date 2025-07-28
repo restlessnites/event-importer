@@ -29,7 +29,7 @@ git clone https://github.com/restlessnites/event-importer.git
 cd event-importer
 
 # Run the installer
-python install.py
+make install
 ```
 
 **What the installer does:**
