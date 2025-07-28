@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 from app.config import get_config
 from app.genres import MusicGenres
-from app.interfaces.cli import get_cli
+from app.interfaces.cli.runner import get_cli
 from app.schemas import EventData
 from app.services.genre import GenreService
 

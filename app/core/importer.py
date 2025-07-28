@@ -32,7 +32,7 @@ from app.services.image import ImageService
 from app.services.llm import LLMService
 from app.services.zyte import ZyteService
 from app.shared.agent import Agent
-from app.shared.database import cache_event, get_cached_event
+from app.shared.database.utils import cache_event, get_cached_event
 from app.shared.http import get_http_service
 from app.shared.url_analyzer import URLAnalyzer
 

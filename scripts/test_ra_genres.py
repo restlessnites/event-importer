@@ -8,7 +8,7 @@ import pytest
 
 from app.agents.ra_agent import ResidentAdvisorAgent
 from app.config import get_config
-from app.interfaces.cli import get_cli
+from app.interfaces.cli.runner import get_cli
 from app.shared.http import close_http_service
 
 # Set logging to reduce noise

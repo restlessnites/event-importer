@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 import pytest
 
-from app.interfaces.cli import get_cli
+from app.interfaces.cli.runner import get_cli
 
 
 def test_dateutil_directly() -> None:

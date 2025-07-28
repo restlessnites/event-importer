@@ -5,9 +5,9 @@ from argparse import ArgumentParser
 
 from app import __version__
 from app.error_messages import CommonMessages
-from app.integrations.ticketfairy.cli import run_ticketfairy_cli
+from app.integrations.ticketfairy.cli import main as run_ticketfairy_cli
 from app.interfaces.api.server import run as api_run
-from app.interfaces.cli import run_cli
+from app.interfaces.cli.runner import run_cli
 from app.interfaces.cli.events import run_events_cli
 from app.interfaces.mcp.server import run as mcp_run
 from app.startup import startup_checks

@@ -6,7 +6,7 @@ from fastapi import APIRouter
 
 from app import __version__
 from app.config import get_config
-from app.interfaces.api.models import HealthResponse
+from app.interfaces.api.models.responses import HealthResponse
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ import pytest
 from dotenv import load_dotenv
 
 from app.config import get_config
-from app.interfaces.cli import get_cli
+from app.interfaces.cli.runner import get_cli
 from app.shared.http import close_http_service
 
 # Load environment variables
