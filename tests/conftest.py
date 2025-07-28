@@ -87,3 +87,9 @@ def cli() -> CLI:
     # This is crucial for consistent coverage between local and CI environments
     console = Console(force_terminal=True, legacy_windows=False)
     return CLI(console=console)
+
+
+@pytest.fixture(autouse=True)
+def mock_get_cli(monkeypatch: pytest.MonkeyPatch, cli: CLI) -> None:
+    """Ensure all calls to get_cli() return the test CLI instance."""
+    monkeypatch.setattr("app.interfaces.cli.runner.get_cli", lambda: cli)
