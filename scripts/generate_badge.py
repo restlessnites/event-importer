@@ -61,7 +61,7 @@ def update_readme_badge(badge_url):
     # Look for the coverage badge line
     lines = content.split('\n')
     for i, line in enumerate(lines):
-        if 'Coverage' in line and 'codecov.io' in line:
+        if 'Coverage' in line and 'img.shields.io/badge/coverage' in line:
             # Replace with static badge
             lines[i] = f"[![Coverage]({badge_url})](https://github.com/restlessnites/event-importer)"
             break

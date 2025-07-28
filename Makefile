@@ -18,6 +18,7 @@ setup:
 test:
 	@echo "Running all tests..."
 	@uv run pytest --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml
+	@make badge
 
 coverage-report:
 	@python scripts/coverage_report.py

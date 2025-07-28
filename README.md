@@ -1,7 +1,7 @@
 # Event Importer
 
 [![Tests](https://github.com/restlessnites/event-importer/actions/workflows/tests.yml/badge.svg)](https://github.com/restlessnites/event-importer/actions/workflows/tests.yml)
-[![Coverage](https://img.shields.io/badge/coverage-45.5%25-orange)](https://github.com/restlessnites/event-importer)
+[![Coverage](https://img.shields.io/badge/coverage-52.2%25-orange)](https://github.com/restlessnites/event-importer)
 
 A tool that extracts structured event data from websites, images, and APIs. Use it as a **command-line tool**, **HTTP API server**, or **MCP server** for AI assistants.
 
@@ -549,6 +549,7 @@ python install.py
 ```
 
 The installer will:
+
 - Show what's already installed (with ✓ checkmarks)
 - Skip components that are already configured
 - Offer to update configurations if needed
