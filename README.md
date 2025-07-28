@@ -38,11 +38,10 @@ The installer will guide you through the following steps:
 
 1. **System Checks**: Verifies that you are on a supported OS (macOS) and have Python 3.10+ installed.
 2. **Dependency Installation**: Checks for and installs Homebrew and `uv`, then syncs all required Python packages.
-3. **Environment Setup**: Creates a `.env` file for your API keys and configuration.
+3. **Environment Setup**: Creates a `.env` file for your API keys and configuration, and prompts you to enter your API keys for services like OpenAI, Anthropic, and Google.
 4. **Data Directory**: Creates a `data` directory to store the local database.
-5. **API Key Configuration**: Prompts you to enter your API keys for services like OpenAI, Anthropic, and Google.
-6. **Claude Desktop Integration**: (Optional) Configures the project to be used as a tool with Claude Desktop.
-7. **Validation**: Verifies that all components are correctly set up.
+5. **Claude Desktop Integration**: (Optional) Configures the project to be used as a tool with Claude Desktop.
+6. **Validation**: Verifies that all components are correctly set up.
 
 **Note:** The installer is idempotent - you can run it multiple times safely. It will detect what's already installed and skip those steps.
 
@@ -125,32 +124,56 @@ That's it! Manual installation is complete. You can now use the Event Importer.
 
 ---
 
-### Using Make Commands
+## Makefile Commands
 
-For convenience, we provide a Makefile with common commands:
+A brief overview of the available `make` commands.
 
-```bash
-# Installation & Setup
-make install       # Run the automated installer
-make setup         # Quick setup (uv sync + env file)
+### Installation & Setup
 
-# Testing
-make test          # Run tests with nice output
-make coverage-report # Show detailed coverage
+- `make install`: Run the automated installer.
+- `make setup`: Quick setup (uv sync + env file).
+- `make dev-setup`: Setup for development (includes pre-commit).
 
-# Running
-make run-api       # Start API server
-make import URL='https://ra.co/events/1234567'  # Import an event
+### Testing
 
-# See all commands
-make help
+- `make test`: Run tests with nice formatted output.
+- `make test-verbose`: Run tests with verbose output.
+- `make coverage-report`: Show detailed coverage report.
+- `make test-all`: Run all tests (scripts + app).
+- `make quick`: Quick test run without coverage.
+- `make badge`: Update coverage badge in README.
+
+### Code Quality
+
+- `make lint`: Run linters.
+- `make format`: Auto-format code.
+- `make check`: Run lint + tests.
+
+### Running
+
+- `make run-cli ARGS='--help'`: Run CLI with arguments.
+- `make run-api`: Start HTTP API server.
+- `make run-mcp`: Start MCP server.
+- `make import URL=<url>`: Import an event from URL.
+- `make db-stats`: Show database statistics.
+
+### Cleanup
+
+- `make clean`: Clean test/cache artifacts.
+- `make clean-all`: Deep clean (including venv).
+
+### Examples
+
+```sh
+make import URL='https://ra.co/events/1234567'
+make run-cli ARGS='list --format table'
 ```
 
 ---
 
 ### Getting API Keys
 
-You need API keys for the core functionality.
+You need API keys for the core functionality. Send a message in the Restless Slack `curation-and-import` channel to get them.
 
 **Required (at least one of):**
 
@@ -423,27 +446,33 @@ The importer returns structured JSON with enhanced data:
 - **Any event website** - Smart web scraping
 - **Image URLs** - AI extracts text from flyers/posters
 
-## Testing
+## Unit & Integration Tests
 
-Test the system with example scripts:
+The project uses `pytest` for testing. You can run the full test suite, including coverage reports, using the following command:
 
-```bash
-# Test basic functionality
-uv run python scripts/test_importer.py
-
-# Test with a specific URL
-uv run python scripts/test_importer.py "https://ra.co/events/1234567"
-uv run python scripts/test_importer.py "https://dice.fm/event/carl-cox-presents-excel-o2zx"
-
-# Test AI enhancements (requires Google API keys)
-uv run python scripts/test_genre_enhancer.py
-uv run python scripts/test_image_enhancer.py
-
-# Test API integration
-uv run python scripts/api_example.py
+```sh
+make test
 ```
 
-Check the `scripts/` folder for more examples.
+This will run all tests, check for code coverage, and generate an HTML report in the `htmlcov/` directory.
+
+For a quicker run without coverage, you can use:
+
+```sh
+make quick
+```
+
+You can also run individual integration tests with the following commands:
+
+- `make test-genre-enhancer`
+- `make test-url-analyzer`
+- `make test-date-parser`
+- `make test-ra-genres`
+- `make test-google-custom-search-api`
+- `make test-image-enhancer`
+- `make test-importer`
+- `make test-error-capture`
+- `make test-dice-api`
 
 ## Configuration
 
