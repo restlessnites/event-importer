@@ -46,13 +46,18 @@ def test_get_domain(url, expected):
 @pytest.mark.asyncio
 async def test_image_search(capsys, cli, http_service):
     """Test the image search with sample data."""
-    cli.header("Image Search Test", "Testing Google Custom Search integration")
-
     config = get_config()
-    image_service = ImageService(config, http_service)
 
-    if not image_service.google_enabled:
+    # Check if Google API is configured before proceeding
+    if not (config.api.google_api_key and config.api.google_cse_id):
         pytest.skip("Google Search API not configured - set GOOGLE_API_KEY and GOOGLE_CSE_ID in .env file")
+
+    # Additional check - if the API key looks invalid, skip the test
+    if config.api.google_api_key == "test-key" or len(config.api.google_api_key) < 10:
+        pytest.skip("Google API key appears to be a test/mock key")
+
+    cli.header("Image Search Test", "Testing Google Custom Search integration")
+    image_service = ImageService(config, http_service)
 
     # Test case 1: Cursive event
     cli.section("Test 1: Artist with lineup")

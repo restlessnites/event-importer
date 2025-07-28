@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 
 from app.config import get_config
 from app.interfaces.cli.runner import get_cli
-from app.shared.http import close_http_service
 
 # Load environment variables
 load_dotenv()
@@ -122,8 +121,6 @@ async def test_google_api(cli, http_service) -> None:
     if cli.error_capture.has_errors() or cli.error_capture.has_warnings():
         cli.show_captured_errors("Issues During Test")
 
-    await close_http_service()
-    cli.console.print()
     cli.success("Google API test completed")
 
 
