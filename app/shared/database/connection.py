@@ -34,13 +34,6 @@ def init_db(engine_to_bind=None) -> None:
     # Use the provided engine or the default one
     db_engine = engine_to_bind or engine
 
-    # Ensure data directory exists (not nested)
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-
-    # Log the actual database path for debugging
-    logger = logging.getLogger(__name__)
-    logger.info(f"Database path: {DB_PATH.absolute()}")
-
     # Create all tables
     Base.metadata.create_all(bind=db_engine)
 

@@ -6,6 +6,13 @@ from sqlalchemy.orm import sessionmaker
 
 from app.shared.database.connection import init_db
 from app.shared.database.models import Base
+from app.startup import startup_checks
+
+
+@pytest.fixture(scope="session", autouse=True)
+def run_startup_checks():
+    """Ensure startup checks are run once per session."""
+    startup_checks()
 
 
 @pytest.fixture(scope="session")
@@ -36,10 +43,13 @@ def db_session(test_database_url):
 @pytest.fixture(autouse=True)
 def mock_db_session(monkeypatch, db_session):
     """Automatically mock get_db_session for all tests."""
+
     def mock_get_db_session():
         return db_session
 
-    monkeypatch.setattr("app.shared.database.connection.get_db_session", mock_get_db_session)
+    monkeypatch.setattr(
+        "app.shared.database.connection.get_db_session", mock_get_db_session
+    )
 
 
 @pytest.fixture(autouse=True)
