@@ -5,9 +5,9 @@ from __future__ import annotations
 import logging
 import re
 import uuid
-from datetime import datetime, date, time, timedelta
+from datetime import date, datetime, time, timedelta
 from enum import StrEnum
-from typing import Any, Optional
+from typing import Any
 
 import nh3
 from dateutil import parser as date_parser
@@ -15,11 +15,9 @@ from pydantic import (
     BaseModel,
     Field,
     HttpUrl,
+    field_serializer,
     field_validator,
     model_validator,
-    ValidationInfo,
-    field_serializer,
-    ConfigDict,
 )
 
 

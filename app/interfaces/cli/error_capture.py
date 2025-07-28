@@ -6,7 +6,7 @@ import logging
 import re
 import traceback
 from collections.abc import Iterator
-from contextlib import contextmanager, asynccontextmanager
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING

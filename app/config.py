@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import logging
 import os
 from dataclasses import dataclass, field
-from pathlib import Path
 from functools import cache
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -75,7 +74,7 @@ class Config:
     log_level: str = "INFO"
 
     @classmethod
-    def from_env(cls) -> "Config":
+    def from_env(cls) -> Config:
         """Load configuration from environment variables."""
         load_dotenv()
 
@@ -130,7 +129,7 @@ _config: Config | None = None
 def get_config() -> Config:
     """Get the global configuration instance."""
     # Ensure .env is loaded
-    env_path = Path(".") / ".env"
+    env_path = Path(".env")
     load_dotenv(dotenv_path=env_path)
     return Config.from_env()
 

@@ -4,17 +4,17 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    JSON,
     Column,
     DateTime,
     ForeignKey,
     Index,
     Integer,
-    JSON,
     String,
     Text,
     func,
 )
-from sqlalchemy.orm import declarative_base, relationship, Mapped
+from sqlalchemy.orm import Mapped, declarative_base, relationship
 
 Base = declarative_base()
 

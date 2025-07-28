@@ -37,6 +37,7 @@ class MusicGenres:
         "acid house",
         "hardstyle",
         "gabber",
+        "idm",
     }
 
     ROCK = {
@@ -325,7 +326,11 @@ class MusicGenres:
 
         # Try to find a close match
         for valid_genre in cls.ALL_GENRES:
-            if normalized == valid_genre or normalized in valid_genre or valid_genre in normalized:
+            if (
+                normalized == valid_genre
+                or normalized in valid_genre
+                or valid_genre in normalized
+            ):
                 return valid_genre
 
         # If no match found, return the original (normalized)

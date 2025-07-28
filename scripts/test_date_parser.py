@@ -19,9 +19,9 @@ from app.schemas import EventData
 if TYPE_CHECKING:
     pass
 
-from app.interfaces.cli import get_cli
 import pytest
-from app.interfaces.cli.formatters import format_event_time
+
+from app.interfaces.cli import get_cli
 
 
 def test_dateutil_directly() -> None:

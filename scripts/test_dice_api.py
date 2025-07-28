@@ -3,11 +3,10 @@
 
 import asyncio
 import logging
+
 import pytest
 
-from app.agents.dice_agent import DiceAgent
-from app.config import get_config
-from app.shared.http import close_http_service, get_http_service, HTTPService
+from app.shared.http import HTTPService
 
 
 @pytest.mark.parametrize(
@@ -19,20 +18,9 @@ async def test_dice_search_clean(query, expected_artist_id, http_service: HTTPSe
     """Test that Dice search returns the correct artist ID."""
     http = http_service
 
-    url = "https://dice.fm/event/l86kmr-framework-presents-paradise-los-angeles-25th-oct-the-dock-at-the-historic-sears-building-los-angeles-tickets"
-
-    print("🔍 Testing Dice unified search API")
-    print(f"URL: {url}")
-    print()
+    print(f"🔍 Testing Dice unified search for query: '{query}'")
 
     try:
-        # Extract search query
-        slug = url.split("/event/")[-1]
-        words = slug.split("-")[1:]  # Skip first word (l86kmr)
-        query = " ".join(words[:4])  # First 4 words only
-
-        print(f"Search query: '{query}'")
-
         # Call search API
         search_url = "https://api.dice.fm/unified_search"
         headers = {
@@ -40,34 +28,33 @@ async def test_dice_search_clean(query, expected_artist_id, http_service: HTTPSe
             "Content-Type": "application/json",
             "Origin": "https://dice.fm",
             "Referer": "https://dice.fm/",
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
         }
+        payload = {"page": 1, "per_page": 5, "query": query, "types": "artist"}
 
         response = await http.post_json(
-            search_url, service="Dice Search", headers=headers, json={"q": query}
+            search_url,
+            json=payload,
+            headers=headers,
+            service="Dice",
         )
 
-        # Find matching event
-        for section in response.get("sections", []):
-            for item in section.get("items", []):
-                if "event" in item:
-                    event = item["event"]
-                    perm_name = event.get("perm_name", "")
-                    if "l86kmr" in perm_name:  # Our event
-                        event_id = event.get("id")
-                        print(f"✅ Found event: {event.get('name')}")
-                        print(f"🆔 Event ID: {event_id}")
+        data = response.get("results", {}).get("data", [])
+        assert data, f"No results returned from Dice API for query '{query}'"
 
-                        # Test API call
-                        api_url = f"https://api.dice.fm/events/{event_id}/ticket_types"
-                        api_response = await http.get_json(api_url, service="Dice API")
-                        print(f"🎯 API successful: {api_response.get('name')}")
-                        return
+        # Check if the expected artist is in the results
+        found_ids = [artist.get("id") for artist in data]
+        assert expected_artist_id in found_ids, (
+            f"Artist ID {expected_artist_id} not in results {found_ids} for query '{query}'"
+        )
 
-        print("❌ Event not found")
+        print(
+            f"  - Successfully found artist ID {expected_artist_id} for query '{query}'"
+        )
 
     except Exception as e:
-        print(f"❌ Failed: {e}")
+        print(f"Error testing Dice API for query '{query}': {e}")
+
+    print("-" * 40)
 
 
 if __name__ == "__main__":

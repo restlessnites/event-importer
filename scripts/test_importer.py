@@ -6,13 +6,14 @@ import sys
 import traceback
 from datetime import datetime
 
+import pytest
+
 from app import EventImporter
 from app.config import get_config
 from app.interfaces.cli import get_cli
 from app.interfaces.cli.core import CLI
 from app.schemas import ImportProgress, ImportRequest
 from app.shared.http import close_http_service
-import pytest
 
 
 @pytest.mark.parametrize(

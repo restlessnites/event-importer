@@ -4,13 +4,12 @@
 import asyncio
 import traceback
 
+import pytest
 from dotenv import load_dotenv
 
 from app.config import get_config
 from app.interfaces.cli import get_cli
-from app.shared.http import close_http_service, get_http_service
-import pytest
-from app.services.zyte import ZyteService
+from app.shared.http import close_http_service
 
 # Load environment variables
 load_dotenv()

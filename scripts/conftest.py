@@ -1,9 +1,10 @@
 import pytest
 import pytest_asyncio
+
+from app.config import Config, get_config
 from app.interfaces.cli import get_cli
-from app.shared.http import HTTPService
 from app.services.claude import ClaudeService
-from app.config import get_config, Config
+from app.shared.http import HTTPService
 
 
 @pytest.fixture(scope="session")

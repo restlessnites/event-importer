@@ -1,8 +1,8 @@
 """Enhanced image search service with better query building and candidate selection."""
 
+import html
 import logging
 import re
-import html
 from collections.abc import Awaitable, Callable
 from io import BytesIO
 from typing import Any
