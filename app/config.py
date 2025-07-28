@@ -73,6 +73,33 @@ class Config:
     debug: bool = False
     log_level: str = "INFO"
 
+    def get_enabled_features(self) -> list[str]:
+        """Get list of enabled features based on configured API keys."""
+        features = []
+
+        # Always available (no API key required)
+        features.extend(["dice", "ra"])
+
+        # API key dependent features
+        if self.api.ticketmaster_key:
+            features.append("ticketmaster")
+
+        if self.api.zyte_key:
+            features.append("web")
+            features.append("image")
+
+        if self.api.google_api_key and self.api.google_cse_id:
+            features.append("genre_enhancement")
+            features.append("image_enhancement")
+
+        if self.api.ticketfairy_api_key:
+            features.append("ticketfairy")
+
+        if self.api.anthropic_key or self.api.openai_key:
+            features.append("ai_extraction")
+
+        return sorted(features)
+
     @classmethod
     def from_env(cls) -> Config:
         """Load configuration from environment variables."""

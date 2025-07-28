@@ -1,5 +1,8 @@
 # Event Importer
 
+[![Tests](https://github.com/yourusername/event-importer/actions/workflows/tests.yml/badge.svg)](https://github.com/yourusername/event-importer/actions/workflows/tests.yml)
+[![Coverage](https://codecov.io/gh/yourusername/event-importer/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/event-importer)
+
 A tool that extracts structured event data from websites, images, and APIs. Use it as a **command-line tool**, **HTTP API server**, or **MCP server** for AI assistants.
 
 ## What It Does
@@ -453,6 +456,20 @@ app/
 ```
 
 For detailed architecture information, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+### Pytest
+
+```bash
+# Run all tests with coverage
+uv run pytest --cov=app
+
+# Run specific test file
+uv run pytest scripts/test_importer.py
+
+# Generate HTML coverage report
+uv run pytest --cov=app --cov-report=html
+open htmlcov/index.html
+```
 
 ## AI Enhancement Features
 

@@ -52,9 +52,7 @@ async def test_image_search(capsys, cli, http_service):
     image_service = ImageService(config, http_service)
 
     if not image_service.google_enabled:
-        cli.error("Google Search API not configured!")
-        cli.info("Set GOOGLE_API_KEY and GOOGLE_CSE_ID in .env file")
-        return
+        pytest.skip("Google Search API not configured - set GOOGLE_API_KEY and GOOGLE_CSE_ID in .env file")
 
     # Test case 1: Cursive event
     cli.section("Test 1: Artist with lineup")

@@ -84,7 +84,4 @@ class TicketFairyClient(BaseClient):
                 elif "error" in response_data:
                     error_msg = response_data["error"]
 
-            # Store error for use in exception
-            await self._store_error(error_msg, response.status, response_data)
-
         return response_data

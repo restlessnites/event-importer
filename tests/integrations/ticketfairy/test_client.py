@@ -1,93 +1,96 @@
 """Tests for TicketFairy client."""
 
-from unittest.mock import AsyncMock, patch
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.integrations.ticketfairy.client import TicketFairyClient
-from app.schemas import EventData
 
 
 @pytest.fixture
 def tf_client():
     """Create a TicketFairy client."""
-    return TicketFairyClient()
+    with patch("app.integrations.ticketfairy.client.get_ticketfairy_config") as mock_config:
+        config = MagicMock()
+        config.api_key = "test-api-key"
+        config.api_base_url = "https://api.ticketfairy.com"
+        config.draft_events_endpoint = "/draft-events"
+        config.origin = "https://example.com"
+        config.timeout = 30
+        mock_config.return_value = config
+
+        return TicketFairyClient()
 
 
 @pytest.fixture
 def sample_event_data():
     """Create sample event data."""
-    return EventData(
-        title="Test Event",
-        venue="Test Venue",
-        date="2025-02-01",
-        lineup=["Artist 1", "Artist 2"],
-        genres=["house", "techno"],
-        source_url="https://example.com/event"
-    )
+    return {
+        "title": "Test Event",
+        "venue": "Test Venue",
+        "date": "2025-02-01",
+        "lineup": ["Artist 1", "Artist 2"],
+        "genres": ["house", "techno"],
+        "source_url": "https://example.com/event"
+    }
 
 
 @pytest.mark.asyncio
-async def test_submit_event_success(tf_client, sample_event_data):
+async def test_submit_success(tf_client, sample_event_data):
     """Test successful event submission."""
-    with patch.object(tf_client.client, 'post', new_callable=AsyncMock) as mock_post:
-        mock_response = AsyncMock()
-        mock_response.status_code = 200
-        mock_response.json = AsyncMock(return_value={
+    with patch.object(tf_client.http, 'post', new_callable=AsyncMock) as mock_post:
+        # Create a mock response
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.text = AsyncMock(return_value=json.dumps({
             "id": "123",
             "status": "accepted",
             "message": "Event submitted successfully"
-        })
+        }))
         mock_post.return_value = mock_response
 
-        result = await tf_client.submit_event(sample_event_data)
+        result = await tf_client.submit(sample_event_data)
 
-        assert result["success"] is True
-        assert result["submission_id"] == "123"
+        assert result["id"] == "123"
         assert result["status"] == "accepted"
+        assert result["message"] == "Event submitted successfully"
 
         # Verify the request was made correctly
         mock_post.assert_called_once()
         call_args = mock_post.call_args
-        assert call_args[0][0] == "/events/submit"
-        assert "json" in call_args[1]
+        assert call_args[0][0] == "https://api.ticketfairy.com/draft-events"
+        assert call_args[1]["headers"]["Authorization"] == "Bearer test-api-key"
+        assert call_args[1]["json"] == sample_event_data
 
 
 @pytest.mark.asyncio
-async def test_submit_event_failure(tf_client, sample_event_data):
-    """Test failed event submission."""
-    with patch.object(tf_client.client, 'post', new_callable=AsyncMock) as mock_post:
-        mock_response = AsyncMock()
-        mock_response.status_code = 400
-        mock_response.json = AsyncMock(return_value={
-            "error": "Invalid event data",
-            "details": "Missing required field: location"
-        })
+async def test_submit_api_error(tf_client, sample_event_data):
+    """Test API error during submission."""
+    with patch.object(tf_client.http, 'post', new_callable=AsyncMock) as mock_post:
+        # Create a mock error response
+        mock_response = MagicMock()
+        mock_response.status = 400
+        mock_response.text = AsyncMock(return_value=json.dumps({
+            "message": "Invalid event data"
+        }))
         mock_post.return_value = mock_response
 
-        result = await tf_client.submit_event(sample_event_data)
+        result = await tf_client.submit(sample_event_data)
 
-        assert result["success"] is False
-        assert "error" in result
-        assert "Invalid event data" in result["error"]
+        # The submit method returns the response data even on error
+        assert result["message"] == "Invalid event data"
 
 
 @pytest.mark.asyncio
-async def test_get_submission_status(tf_client):
-    """Test getting submission status."""
-    with patch.object(tf_client.client, 'get', new_callable=AsyncMock) as mock_get:
-        mock_response = AsyncMock()
-        mock_response.status_code = 200
-        mock_response.json = AsyncMock(return_value={
-            "id": "123",
-            "status": "published",
-            "event_url": "https://ticketfairy.com/event/123"
-        })
-        mock_get.return_value = mock_response
+async def test_submit_no_api_key(sample_event_data):
+    """Test submission without API key."""
+    with patch("app.integrations.ticketfairy.client.get_ticketfairy_config") as mock_config:
+        config = MagicMock()
+        config.api_key = None  # No API key
+        mock_config.return_value = config
 
-        result = await tf_client.get_submission_status("123")
+        client = TicketFairyClient()
 
-        assert result["status"] == "published"
-        assert result["event_url"] == "https://ticketfairy.com/event/123"
-
-        mock_get.assert_called_once_with("/submissions/123")
+        with pytest.raises(ValueError, match="TicketFairy API key not configured"):
+            await client.submit(sample_event_data)
