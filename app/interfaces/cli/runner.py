@@ -223,7 +223,7 @@ def run_validation_cli() -> None:
 
     # Print final status
     if not results["success"]:
-        cli.console.print("\n[bold red]Validation Failed.[/bold red]")
+        cli.console.print("\n[bold red]✗ Validation Failed.[/bold red]")
         sys.exit(1)
     else:
-        cli.console.print("\n[bold green]✅ Validation Succeeded.[/bold green]")
+        cli.console.print("\n[bold green]✓ Validation complete.[/bold green]")
