@@ -40,17 +40,6 @@ class EnvironmentSetup:
             self.console.error(f"Failed to create .env file: {e}")
             return False
 
-    def install_dependencies(self, project_root: Path) -> bool:
-        """Install Python dependencies using uv."""
-        try:
-            # Run uv sync in the project directory
-            subprocess.run(
-                ["uv", "sync"], cwd=str(project_root), check=True, capture_output=True
-            )
-            return True
-        except subprocess.CalledProcessError:
-            return False
-
     def get_env_vars(self, project_root: Path) -> dict[str, str]:
         """Read environment variables from .env file."""
         env_file = project_root / ".env"
@@ -102,6 +91,17 @@ class EnvironmentSetup:
 
             return True
         except Exception:
+            return False
+
+    def install_dependencies(self, project_root: Path) -> bool:
+        """Install Python dependencies using uv."""
+        try:
+            # Run uv sync in the project directory
+            subprocess.run(
+                ["uv", "sync"], cwd=str(project_root), check=True, capture_output=True
+            )
+            return True
+        except subprocess.CalledProcessError:
             return False
 
     def validate_environment(self, project_root: Path) -> dict[str, bool]:

@@ -8,12 +8,15 @@ from pathlib import Path
 from rich.padding import Padding
 from rich.panel import Panel
 
+from app.config import clear_config_cache
 from app.validators import InstallationValidator
 from installer.components.api_keys import APIKeyManager
 from installer.components.claude_desktop import ClaudeDesktopConfig
 from installer.components.dependencies import DependencyInstaller
 from installer.components.environment import EnvironmentSetup
 from installer.components.migration import MigrationManager
+from installer.components.updater import UpdateManager
+from installer.components.updater_config import UpdaterConfig
 from installer.utils import Console, SystemCheck
 
 
@@ -32,6 +35,8 @@ class EventImporterInstaller:
         self.api_key_manager = APIKeyManager(self.console)
         self.validator = InstallationValidator()
         self.migration_manager = MigrationManager(self.console, self.project_root)
+        self.update_manager = UpdateManager(self.console, self.project_root)
+        self.updater_config = UpdaterConfig(self.console)
 
     def _handle_upgrade_or_new_install(self) -> bool:
         """Handle the initial user interaction for upgrades or new installs."""
@@ -67,6 +72,23 @@ class EventImporterInstaller:
             self.migration_manager.check_and_run()
         return True
 
+    def _handle_update_or_new_install(self) -> bool:
+        """Determine whether to run an update or a new installation."""
+        current_version = self._get_current_version()
+        if current_version:
+            self.console.header(
+                f"Event Importer v{current_version} is already installed."
+            )
+            is_available, _ = self.update_manager.is_update_available(current_version)
+            if is_available:
+                if self.console.confirm("Do you want to update?", default=True):
+                    return self.update_manager.run_update()
+                return False  # User chose not to update
+            return True  # Already up to date
+
+        self.console.header(f"Installing Event Importer v{self.new_version}")
+        return True
+
     def _run_installation_steps(self) -> bool:
         """Run the core installation steps in sequence."""
         return all(
@@ -76,10 +98,25 @@ class EventImporterInstaller:
                 self._setup_environment(),
                 self._create_data_directory(),
                 self._configure_api_keys(),
+                self._configure_updater(),
                 self._configure_claude_desktop(),
                 self._validate_installation(),
             ]
         )
+
+    def _validate_installation(self) -> bool:
+        """Run post-installation validation checks."""
+        self.console.step("Validating installation...")
+        clear_config_cache()
+        is_valid, messages = self.validator.validate(self.project_root)
+        if is_valid:
+            self.console.success("Validation passed")
+            return True
+
+        self.console.error("Validation failed:")
+        for message in messages:
+            self.console.error(f"  - {message}")
+        return False
 
     def run(self) -> bool:
         """Run the complete installation process."""
@@ -105,6 +142,24 @@ class EventImporterInstaller:
             self.console.error(f"Installation failed: {e}")
             return False
 
+    def run_update(self) -> bool:
+        """Run the update process."""
+        current_version = self._get_current_version()
+        if not current_version:
+            self.console.error("No existing installation found to update.")
+            return False
+
+        is_available, _ = self.update_manager.is_update_available(current_version)
+        if not is_available:
+            return True  # Already up to date
+
+        return self.update_manager.run_update()
+
+    def _configure_updater(self) -> bool:
+        """Configure the updater."""
+        self.console.step("Configuring updater...")
+        return self.updater_config.configure_update_url(self.project_root)
+
     def _get_current_version(self) -> str | None:
         """Reads the version from the .version file."""
         if not self.version_file.exists():
@@ -112,7 +167,7 @@ class EventImporterInstaller:
         return self.version_file.read_text().strip()
 
     def _get_new_version(self) -> str:
-        """Reads the version from pyproject.toml."""
+        """Get the version from pyproject.toml."""
         pyproject_path = self.project_root / "pyproject.toml"
         if not pyproject_path.exists():
             return "N/A"
@@ -268,24 +323,6 @@ class EventImporterInstaller:
                 )
 
         self.console.success("Claude Desktop ready")
-        return True
-
-    def _validate_installation(self) -> bool:
-        """Validate the installation."""
-        self.console.step("Validating installation...")
-
-        results = self.validator.validate(self.project_root)
-
-        if not results["success"]:
-            self.console.error("\nValidation found issues:")
-            for error in results["errors"]:
-                self.console.error(f"  {error}")
-            if results.get("warnings"):
-                self.console.warning("\nWarnings:")
-                for warning in results["warnings"]:
-                    self.console.warning(f"  {warning}")
-            return bool(self.console.confirm("\nContinue anyway?"))
-        self.console.success("All components validated")
         return True
 
     def _print_next_steps(self):

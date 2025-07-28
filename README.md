@@ -1,7 +1,7 @@
 # Event Importer
 
 [![Tests](https://github.com/restlessnites/event-importer/actions/workflows/tests.yml/badge.svg)](https://github.com/restlessnites/event-importer/actions/workflows/tests.yml)
-[![Coverage](https://img.shields.io/badge/coverage-54.0%25-orange)](https://github.com/restlessnites/event-importer)
+[![Coverage](https://img.shields.io/badge/coverage-54.5%25-orange)](https://github.com/restlessnites/event-importer)
 
 A tool that extracts structured event data from websites, images, and APIs. Use it as a **command-line tool**, **HTTP API server**, or **MCP server** for AI assistants.
 
@@ -39,9 +39,10 @@ The installer will guide you through the following steps:
 1. **System Checks**: Verifies that you are on a supported OS (macOS) and have Python 3.10+ installed.
 2. **Dependency Installation**: Checks for and installs Homebrew and `uv`, then syncs all required Python packages.
 3. **Environment Setup**: Creates a `.env` file for your API keys and configuration, and prompts you to enter your API keys for services like OpenAI, Anthropic, and Google.
-4. **Data Directory**: Creates a `data` directory to store the local database.
-5. **Claude Desktop Integration**: (Optional) Configures the project to be used as a tool with Claude Desktop.
-6. **Validation**: Verifies that all components are correctly set up.
+4. **Update Configuration**: Prompts for a URL to a JSON file for application updates.
+5. **Data Directory**: Creates a `data` directory to store the local database.
+6. **Claude Desktop Integration**: (Optional) Configures the project to be used as a tool with Claude Desktop.
+7. **Validation**: Verifies that all components are correctly set up.
 
 **Note:** The installer is idempotent - you can run it multiple times safely. It will detect what's already installed and skip those steps.
 
@@ -237,6 +238,13 @@ uv run event-importer list --details
 
 # Show specific event by ID
 uv run event-importer show 123
+```
+
+### Update the Application
+
+```bash
+# Check for updates and install the latest version
+uv run event-importer update
 ```
 
 ### Integrations Framework

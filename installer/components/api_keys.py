@@ -155,12 +155,14 @@ class APIKeyManager:
                 )
 
     def validate_keys(self, project_root: Path) -> tuple[bool, list[str]]:
-        """Validate that all required keys are present."""
+        """Validate that all required keys are present and not empty."""
         env_vars = self.env_setup.get_env_vars(project_root)
         missing = []
 
         for key_name, _, required in self.API_KEYS:
-            if required and not env_vars.get(key_name):
+            if required and (
+                not env_vars.get(key_name) or not env_vars[key_name].strip()
+            ):
                 missing.append(key_name)
 
         return len(missing) == 0, missing

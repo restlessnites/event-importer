@@ -12,6 +12,7 @@ from app.interfaces.cli.events import run_events_cli
 from app.interfaces.cli.runner import run_cli, run_validation_cli
 from app.interfaces.mcp.server import run as mcp_run
 from app.startup import startup_checks
+from installer.core import EventImporterInstaller
 
 
 def configure_logging(verbose: bool = False) -> None:
@@ -111,6 +112,9 @@ def create_parser() -> ArgumentParser:
     # Validate command
     subparsers.add_parser("validate", help="Validate the installation")
 
+    # Update command
+    subparsers.add_parser("update", help="Update to the latest version")
+
     # MCP interface
     subparsers.add_parser("mcp", help="Run MCP server")
 
@@ -132,6 +136,9 @@ def route_command(parser: ArgumentParser, args: Namespace) -> None:
         run_cli(args)
     elif args.command in ["list", "show", "stats", "rebuild-descriptions"]:
         asyncio.run(run_events_cli(args))
+    elif args.command == "update":
+        installer = EventImporterInstaller()
+        installer.run_update()
     elif args.command == "mcp":
         mcp_run()
     elif args.command == "api":

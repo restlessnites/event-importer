@@ -14,6 +14,9 @@ setup: ## Set up the development environment
 dev-setup: setup ## Set up for development (includes pre-commit hooks)
 	@. .venv/bin/activate && pre-commit install || true
 
+update: ## Check for updates and install the latest version
+	@uv run --active event-importer update
+
 
 ##@ Testing
 test: ## Run all tests with coverage

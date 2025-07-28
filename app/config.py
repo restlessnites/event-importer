@@ -54,6 +54,13 @@ class ZyteConfig:
 
 
 @dataclass
+class UpdateConfig:
+    """Update-related settings."""
+
+    file_url: str | None = None
+
+
+@dataclass
 class Config:
     """Main configuration container."""
 
@@ -68,6 +75,9 @@ class Config:
 
     # Zyte-specific settings
     zyte: ZyteConfig = field(default_factory=ZyteConfig)
+
+    # Update settings
+    update: UpdateConfig = field(default_factory=UpdateConfig)
 
     # Runtime settings
     debug: bool = False
@@ -115,6 +125,9 @@ class Config:
         config.api.google_api_key = os.getenv("GOOGLE_API_KEY")
         config.api.google_cse_id = os.getenv("GOOGLE_CSE_ID")
         config.api.ticketfairy_api_key = os.getenv("TICKETFAIRY_API_KEY")
+
+        # Load update settings
+        config.update.file_url = os.getenv("UPDATE_FILE_URL")
 
         # Load optional overrides
         if timeout := os.getenv("HTTP_TIMEOUT"):
@@ -165,6 +178,11 @@ def set_config(config: Config) -> None:
     """Set the global configuration instance (mainly for testing)."""
     global _config
     _config = config
+
+
+def clear_config_cache() -> None:
+    """Clear the cached configuration."""
+    get_config.cache_clear()
 
 
 if __name__ == "__main__":

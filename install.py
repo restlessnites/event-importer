@@ -9,6 +9,11 @@ This separation avoids import errors on a clean machine.
 import ensurepip
 import subprocess  # noqa: S404
 import sys
+from pathlib import Path
+
+# Add the project root to the Python path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
 
 # A list of dependencies that the installer itself needs to run.
 INSTALLER_DEPS = [
@@ -20,6 +25,7 @@ INSTALLER_DEPS = [
     "aiohttp",
     "certifi",
     "tenacity",
+    "requests",
 ]
 
 
@@ -53,14 +59,15 @@ def ensure_pip_is_available():
             return False
 
 
-def check_and_install_dependencies():
-    """Check and install the installer's own dependencies."""
+def _bootstrap_installer_dependencies() -> bool:
+    """Check for and install the installer's own dependencies if needed."""
     try:
-        for dependency in INSTALLER_DEPS:
-            __import__(dependency)
+        # Check if all dependencies can be imported
+        for dep in INSTALLER_DEPS:
+            __import__(dep)
         return True
     except ImportError:
-        print("Installer dependencies (e.g., rich) not found. Attempting to install...")
+        print("Installer dependencies not found. Attempting to install...")
         try:
             subprocess.check_call(
                 [sys.executable, "-m", "pip", "install", *INSTALLER_DEPS]
@@ -68,7 +75,11 @@ def check_and_install_dependencies():
             print("Installer dependencies installed successfully.")
             return True
         except subprocess.CalledProcessError:
-            print("Error: Could not install installer dependencies.", file=sys.stderr)
+            print(
+                "ERROR: Failed to install installer dependencies.",
+                "Please install 'rich', 'certifi', 'tenacity', and 'requests' manually and rerun.",
+                file=sys.stderr,
+            )
             return False
 
 
@@ -80,7 +91,7 @@ def run_main_installer():
 
 
 if __name__ == "__main__":
-    if ensure_pip_is_available() and check_and_install_dependencies():
+    if ensure_pip_is_available() and _bootstrap_installer_dependencies():
         run_main_installer()
     else:
         print("\nInstallation aborted due to setup errors.", file=sys.stderr)

@@ -6,8 +6,10 @@ import platform
 import shutil
 import subprocess  # noqa S404
 import sys
+import zipfile
 from pathlib import Path
 
+import requests
 from rich.console import Console as RichConsole
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
@@ -108,6 +110,56 @@ class SystemCheck:
             return None
 
 
+class Downloader:
+    """Handles file downloads with progress."""
+
+    def __init__(self, console: Console):
+        """Initialize the downloader."""
+        self.console = console
+
+    def get_latest_version(self, version_url: str) -> str | None:
+        """Get the latest version from a URL."""
+        try:
+            response = requests.get(version_url, timeout=10)
+            response.raise_for_status()
+            return response.text.strip()
+        except requests.RequestException as e:
+            self.console.error(f"Failed to check for new version: {e}")
+            return None
+
+    def get_json(self, url: str) -> dict | None:
+        """Fetch and parse JSON from a URL."""
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            self.console.error(f"Failed to fetch JSON from {url}: {e}")
+            return None
+        except ValueError:
+            self.console.error(f"Invalid JSON response from {url}")
+            return None
+
+    def download_file(self, url: str, dest: Path) -> bool:
+        """Download a file with a progress bar."""
+        self.console.info(f"Downloading {url}...")
+        try:
+            response = requests.get(url, stream=True, timeout=30)
+            response.raise_for_status()
+            total_size = int(response.headers.get("content-length", 0))
+
+            with dest.open("wb") as f, self.console.rich_console.progress() as progress:
+                task = progress.add_task("Downloading...", total=total_size)
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+                    progress.update(task, advance=len(chunk))
+            self.console.success(f"Downloaded successfully to {dest}")
+            return True
+        except requests.RequestException as e:
+            self.console.error(f"Download failed: {e}")
+            return False
+
+
 class FileUtils:
     """File system utilities."""
 
@@ -121,6 +173,21 @@ class FileUtils:
                 return file_path
             current = current.parent
         return None
+
+    def unzip_file(self, zip_path: Path, extract_to: Path) -> bool:
+        """Unzip a file."""
+        self.console.info(f"Unzipping {zip_path}...")
+        try:
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                zip_ref.extractall(extract_to)
+            self.console.success(f"Unzipped successfully to {extract_to}")
+            return True
+        except zipfile.BadZipFile:
+            self.console.error("Invalid zip file.")
+            return False
+        except Exception as e:
+            self.console.error(f"Unzip failed: {e}")
+            return False
 
     @staticmethod
     def ensure_directory(path: Path) -> bool:

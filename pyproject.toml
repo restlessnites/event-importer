@@ -7,6 +7,7 @@ requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [{ name = "Event Importer Contributors" }]
 dependencies = [
+    "requests>=2.32.4",
     "mcp>=0.1.0",
     "anthropic>=0.54.0",
     "openai>=1.12.0",

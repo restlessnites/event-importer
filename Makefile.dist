@@ -82,6 +82,9 @@ import: ## Import an event from a URL (pass url with URL="...")
 db-stats: ## Show database statistics
 	@uv run --active event-importer stats
 
+##@Updating
+update: ## Check for updates and install the latest version
+	@uv run --active event-importer update
 
 ##@ Validation
 validate: ## Validate the installation
