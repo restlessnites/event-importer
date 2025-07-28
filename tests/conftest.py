@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.shared.database.connection import init_db
 from app.shared.database.models import Base
 
 
@@ -19,7 +20,7 @@ def db_session(test_database_url):
     """Create a test database session."""
     # Create engine and tables
     engine = create_engine(test_database_url)
-    Base.metadata.create_all(engine)
+    init_db(engine)
 
     # Create session
     test_session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)

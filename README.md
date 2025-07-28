@@ -34,12 +34,15 @@ python install.py
 
 **What the installer does:**
 
-- ✅ Checks system requirements (macOS, Python 3.10+)
-- ✅ Installs dependencies (Homebrew, uv) if needed
-- ✅ Sets up the Python environment automatically
-- ✅ Guides you through API key configuration
-- ✅ Configures Claude Desktop integration (if installed)
-- ✅ Validates everything is working
+The installer will guide you through the following steps:
+
+1. **System Checks**: Verifies that you are on a supported OS (macOS) and have Python 3.10+ installed.
+2. **Dependency Installation**: Checks for and installs Homebrew and `uv`, then syncs all required Python packages.
+3. **Environment Setup**: Creates a `.env` file for your API keys and configuration.
+4. **Data Directory**: Creates a `data` directory to store the local database.
+5. **API Key Configuration**: Prompts you to enter your API keys for services like OpenAI, Anthropic, and Google.
+6. **Claude Desktop Integration**: (Optional) Configures the project to be used as a tool with Claude Desktop.
+7. **Validation**: Verifies that all components are correctly set up.
 
 **Note:** The installer is idempotent - you can run it multiple times safely. It will detect what's already installed and skip those steps.
 
@@ -108,6 +111,14 @@ If you prefer to install each component yourself:
    ```bash
    cp env.example .env
    # Edit .env with your API keys (see Getting API Keys below)
+   ```
+
+6. **Create Data Directory**:
+
+   The application requires a `data` directory to store its local database.
+
+   ```bash
+   mkdir data
    ```
 
 That's it! Manual installation is complete. You can now use the Event Importer.

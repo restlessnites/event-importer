@@ -29,7 +29,9 @@ class EventImporterInstaller:
     def run(self) -> bool:
         """Run the complete installation process."""
         self.console.print_header("Event Importer Setup")
-        self.console.print_info("This installer will check and configure all required components.")
+        self.console.print_info(
+            "This installer will check and configure all required components."
+        )
         self.console.print_info("Already installed components will be skipped.\n")
 
         try:
@@ -43,6 +45,10 @@ class EventImporterInstaller:
 
             # Setup environment
             if not self._setup_environment():
+                return False
+
+            # Create data directory
+            if not self._create_data_directory():
                 return False
 
             # Configure API keys
@@ -129,6 +135,17 @@ class EventImporterInstaller:
         self.console.print_success("✓ Environment configured")
         return True
 
+    def _create_data_directory(self) -> bool:
+        """Create the data directory if it doesn't exist."""
+        self.console.print_step("Creating data directory...")
+        try:
+            (self.project_root / "data").mkdir(exist_ok=True)
+            self.console.print_success("✓ Data directory ready")
+            return True
+        except Exception as e:
+            self.console.print_error(f"Failed to create data directory: {e}")
+            return False
+
     def _configure_api_keys(self) -> bool:
         """Configure API keys interactively."""
         self.console.print_step("Configuring API keys...")
@@ -165,18 +182,28 @@ class EventImporterInstaller:
 
         # Check if already configured
         if self.claude_config.is_already_configured(self.project_root):
-            self.console.print_success("✓ Claude Desktop already configured for this project")
-            if self.console.confirm("Would you like to update the configuration?") and not self.claude_config.configure(self.project_root):
-                self.console.print_error("Failed to update Claude Desktop configuration.")
+            self.console.print_success(
+                "✓ Claude Desktop already configured for this project"
+            )
+            if self.console.confirm(
+                "Would you like to update the configuration?"
+            ) and not self.claude_config.configure(self.project_root):
+                self.console.print_error(
+                    "Failed to update Claude Desktop configuration."
+                )
                 return bool(
-                    self.console.confirm("Continue without updating Claude Desktop configuration?")
+                    self.console.confirm(
+                        "Continue without updating Claude Desktop configuration?"
+                    )
                 )
         else:
             # Configure MCP
             if not self.claude_config.configure(self.project_root):
                 self.console.print_error("Failed to configure Claude Desktop.")
                 return bool(
-                    self.console.confirm("Continue without Claude Desktop configuration?")
+                    self.console.confirm(
+                        "Continue without Claude Desktop configuration?"
+                    )
                 )
 
         self.console.print_success("✓ Claude Desktop ready")
