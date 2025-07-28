@@ -16,20 +16,14 @@ setup:
 
 # Testing
 test:
-	@python scripts/test_runner.py
-
-test-verbose:
-	@python scripts/test_runner.py -v
+	@echo "Running all tests..."
+	@uv run pytest --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml
 
 coverage-report:
 	@python scripts/coverage_report.py
 
-test-all:
-	@echo "Running all tests..."
-	@pytest --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml
-
 quick:
-	@pytest scripts -v --tb=short
+	@pytest tests -v --tb=short
 
 badge:
 	@echo "🎨 Generating coverage badge..."

@@ -147,9 +147,13 @@ class EventLocation(BaseModel):
     @classmethod
     def validate_coordinates(
         cls: type[EventLocation],
-        v: dict[str, Any] | None,
-    ) -> dict | None:
+        v: dict[str, Any] | Coordinates | None,
+    ) -> dict | Coordinates | None:
         """Ensure coordinates are a valid dict or None."""
+        if v is None:
+            return None
+        if isinstance(v, Coordinates):
+            return v
         if not isinstance(v, dict):
             return None
         # If lat or lng are missing or None, the whole object is invalid
