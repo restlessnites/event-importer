@@ -5,10 +5,10 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from mcp.types import Tool
 from sqlalchemy import func
 
 from app.integrations.ticketfairy.submitter import TicketFairySubmitter
+from app.interfaces.mcp.server import Tool
 from app.shared.database.connection import get_db_session
 from app.shared.database.models import EventCache, Submission
 

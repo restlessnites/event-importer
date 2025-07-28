@@ -391,6 +391,41 @@ def get_all_tool_handlers() -> dict:
     return handlers
 
 
+async def handle_call_tool(
+    name: str,
+    arguments: dict[str, Any],
+    router: Router,
+    all_handlers: dict[str, Any],
+) -> list[types.TextContent]:
+    """Handle tool calls."""
+    try:
+        # Special case for import_event (needs router)
+        if name == "import_event":
+            result = await CoreMCPTools.handle_import_event(arguments, router)
+        # Handle rebuild separately as it needs the router instance
+        elif name == "rebuild_event_descriptions":
+            result = await CoreMCPTools.handle_rebuild_event_descriptions(
+                arguments, router
+            )
+        # Check if it's in our handlers (core + integration)
+        elif name in all_handlers:
+            result = await all_handlers[name](arguments)
+        else:
+            error_msg = f"Unknown tool: {name}"
+            raise ValueError(error_msg)
+
+        return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+
+    except (ValueError, TypeError, KeyError) as e:
+        logger.exception(InterfaceMessages.TOOL_CALL_ERROR)
+        return [
+            types.TextContent(
+                type="text",
+                text=json.dumps({"success": False, "error": str(e)}, indent=2),
+            ),
+        ]
+
+
 async def main() -> None:
     """Main entry point for the MCP server."""
     logger.info(f"Starting Event Importer MCP Server v{__version__}")
@@ -421,37 +456,12 @@ async def main() -> None:
         return all_tools
 
     @server.call_tool()
-    async def handle_call_tool(
+    async def call_tool_wrapper(
         name: str,
         arguments: dict[str, Any],
     ) -> list[types.TextContent]:
-        """Handle tool calls."""
-        try:
-            # Special case for import_event (needs router)
-            if name == "import_event":
-                result = await CoreMCPTools.handle_import_event(arguments, router)
-            # Handle rebuild separately as it needs the router instance
-            elif name == "rebuild_event_descriptions":
-                result = await CoreMCPTools.handle_rebuild_event_descriptions(
-                    arguments, router
-                )
-            # Check if it's in our handlers (core + integration)
-            elif name in all_handlers:
-                result = await all_handlers[name](arguments)
-            else:
-                error_msg = f"Unknown tool: {name}"
-                raise ValueError(error_msg)
-
-            return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
-
-        except (ValueError, TypeError, KeyError) as e:
-            logger.exception(InterfaceMessages.TOOL_CALL_ERROR)
-            return [
-                types.TextContent(
-                    type="text",
-                    text=json.dumps({"success": False, "error": str(e)}, indent=2),
-                ),
-            ]
+        """Wrapper to call the tool handler with necessary context."""
+        return await handle_call_tool(name, arguments, router, all_handlers)
 
     # Run the server
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
