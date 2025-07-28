@@ -5,6 +5,8 @@ import logging
 import subprocess  # noqa S404
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from app.config import get_config
 from app.integrations.ticketfairy.config import get_ticketfairy_config
 from app.shared.database.connection import init_db
@@ -33,7 +35,7 @@ class InstallationValidator:
         # Run checks and populate sections
         self._check_system(results["checks"]["System"])
         self._check_environment(project_root, results)
-        self._check_api_keys(results)
+        self._check_api_keys(project_root, results)
         self._check_core_components(project_root, results)
 
         # Determine overall success
@@ -71,6 +73,9 @@ class InstallationValidator:
         checks[".env file"] = env_file.exists()
         if not env_file.exists():
             results["errors"].append(".env file not found")
+        else:
+            # Load from the specified .env file for validation
+            load_dotenv(dotenv_path=env_file, override=True)
 
         # Check virtual environment
         venv_path = project_root / ".venv"
@@ -87,11 +92,11 @@ class InstallationValidator:
             if not dir_path.exists():
                 results["errors"].append(f"Required directory '{dir_name}' not found")
 
-    def _check_api_keys(self, results: dict):
+    def _check_api_keys(self, project_root: Path, results: dict):
         """Check API key configuration with detailed reporting."""
         checks = results["checks"]["API Keys"]
         config = get_config()
-        tf_config = get_ticketfairy_config()
+        tf_config = get_ticketfairy_config(project_root)
 
         key_definitions = {
             "ANTHROPIC_API_KEY": (config.api, "anthropic_key", True),

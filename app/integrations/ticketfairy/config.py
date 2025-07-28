@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -29,8 +30,16 @@ class TicketFairyConfig:
     retry_delay: float = 1.0  # seconds
 
     @classmethod
-    def from_env(cls: type[TicketFairyConfig]) -> TicketFairyConfig:
+    def from_env(
+        cls: type[TicketFairyConfig], project_root: Path | None = None
+    ) -> TicketFairyConfig:
         """Create configuration from environment variables."""
+        # Load .env file from the specified project root if provided
+        if project_root:
+            load_dotenv(dotenv_path=project_root / ".env", override=True)
+        else:
+            load_dotenv()
+
         config = cls()
 
         # Load from environment
@@ -63,9 +72,11 @@ class TicketFairyConfig:
 _config: TicketFairyConfig | None = None
 
 
-def get_ticketfairy_config() -> TicketFairyConfig:
+def get_ticketfairy_config(
+    project_root: Path | None = None,
+) -> TicketFairyConfig:
     """Get the TicketFairy configuration instance."""
     global _config
     if _config is None:
-        _config = TicketFairyConfig.from_env()
+        _config = TicketFairyConfig.from_env(project_root)
     return _config

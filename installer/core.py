@@ -8,7 +8,6 @@ from pathlib import Path
 from rich.padding import Padding
 from rich.panel import Panel
 
-from app import __version__ as new_version
 from app.validators import InstallationValidator
 from installer.components.api_keys import APIKeyManager
 from installer.components.claude_desktop import ClaudeDesktopConfig
@@ -25,6 +24,7 @@ class EventImporterInstaller:
         self.console = Console()
         self.project_root = Path(__file__).parent.parent
         self.version_file = self.project_root / ".version"
+        self.new_version = self._get_new_version()
         self.system_check = SystemCheck()
         self.dependency_installer = DependencyInstaller(self.console)
         self.env_setup = EnvironmentSetup(self.console)
@@ -38,19 +38,19 @@ class EventImporterInstaller:
         is_upgrade = self.version_file.exists()
         current_version = self._get_current_version()
 
-        self.console.header(f"RESTLESS / EVENT IMPORTER v{new_version}")
+        self.console.header(f"RESTLESS / EVENT IMPORTER v{self.new_version}")
 
         if is_upgrade:
             self.console.info("An existing installation was found.")
             self.console.print()
-            if current_version == new_version:
+            if current_version == self.new_version:
                 self.console.info(
-                    f"Version [bold green]{new_version}[/bold green] is already installed."
+                    f"Version [bold green]{self.new_version}[/bold green] is already installed."
                 )
                 prompt = "Do you want to re-check dependencies and configurations?"
             else:
                 version_info = f" from v{current_version}" if current_version else ""
-                self.console.info(f"Upgrading{version_info} to v{new_version}.")
+                self.console.info(f"Upgrading{version_info} to v{self.new_version}.")
                 prompt = "Do you want to proceed with the upgrade?"
 
             self.console.print()
@@ -111,9 +111,22 @@ class EventImporterInstaller:
             return None
         return self.version_file.read_text().strip()
 
+    def _get_new_version(self) -> str:
+        """Reads the version from pyproject.toml."""
+        pyproject_path = self.project_root / "pyproject.toml"
+        if not pyproject_path.exists():
+            return "N/A"
+
+        # Simple parser to avoid heavy dependencies
+        with pyproject_path.open() as f:
+            for line in f:
+                if line.strip().startswith("version"):
+                    return line.split("=")[1].strip().replace('"', "")
+        return "N/A"
+
     def _write_version_file(self) -> None:
         """Writes the current app version to the .version file."""
-        self.version_file.write_text(new_version)
+        self.version_file.write_text(self.new_version)
 
     def _pre_flight_checks(self) -> bool:
         """Perform pre-installation checks."""
