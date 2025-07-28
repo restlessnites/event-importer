@@ -1,15 +1,13 @@
 """Environment setup component."""
 
+from __future__ import annotations
+
 import logging
 import shutil
 import subprocess  # noqa S404
 from pathlib import Path
 
-from installer.utils import (
-    Console,
-    FileUtils,
-    ProcessRunner,
-)
+from installer.utils import Console, FileUtils
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +15,8 @@ logger = logging.getLogger(__name__)
 class EnvironmentSetup:
     """Handle environment configuration."""
 
-    def __init__(self):
-        self.console = Console()
-        self.runner = ProcessRunner()
+    def __init__(self, console: Console):
+        self.console = console
         self.file_utils = FileUtils()
 
     def create_env_file(self, project_root: Path) -> bool:
@@ -28,32 +25,30 @@ class EnvironmentSetup:
         env_example = project_root / "env.example"
 
         if env_file.exists():
-            self.console.print_info("✓ .env file already exists")
+            self.console.success(".env file already exists")
             return True
 
         if not env_example.exists():
-            self.console.print_error("env.example file not found")
+            self.console.error("env.example file not found")
             return False
 
         try:
             shutil.copy(env_example, env_file)
-            self.console.print_success("✓ Created .env file from template")
+            self.console.success("Created .env file from template")
             return True
         except Exception as e:
-            self.console.print_error(f"Failed to create .env file: {e}")
+            self.console.error(f"Failed to create .env file: {e}")
             return False
 
     def install_dependencies(self, project_root: Path) -> bool:
         """Install Python dependencies using uv."""
-        self.console.print_info("Installing Python dependencies...")
-
         try:
             # Run uv sync in the project directory
-            self.runner.run(["uv", "sync"], cwd=str(project_root), check=True)
-            self.console.print_success("✓ Python dependencies installed")
+            subprocess.run(
+                ["uv", "sync"], cwd=str(project_root), check=True, capture_output=True
+            )
             return True
         except subprocess.CalledProcessError:
-            self.console.print_error("Failed to install Python dependencies")
             return False
 
     def get_env_vars(self, project_root: Path) -> dict[str, str]:

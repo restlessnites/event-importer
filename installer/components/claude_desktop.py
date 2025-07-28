@@ -13,8 +13,8 @@ from installer.utils import (
 class ClaudeDesktopConfig:
     """Manages Claude Desktop configuration."""
 
-    def __init__(self):
-        self.console = Console()
+    def __init__(self, console: Console):
+        self.console = console
         self.file_utils = FileUtils()
         self.system_check = SystemCheck()
 

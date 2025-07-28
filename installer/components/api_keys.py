@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from installer.utils import Console
+from rich.table import Table
 
 from .environment import EnvironmentSetup
+from installer.utils import Console
 
 
 class APIKeyManager:
@@ -45,29 +46,34 @@ class APIKeyManager:
         "TICKETFAIRY_API_KEY": ["Enables event submission to TicketFairy"],
     }
 
-    def __init__(self):
-        self.console = Console()
-        self.env_setup = EnvironmentSetup()
+    def __init__(self, console: Console):
+        self.console = console
+        self.env_setup = EnvironmentSetup(console)
 
     def show_key_status(self, project_root: Path):
         """Show current API key configuration status."""
         env_vars = self.env_setup.get_env_vars(project_root)
 
-        self.console.print_info("\nCurrent API key status:")
-        print("-" * 50)
+        self.console.info("\nCurrent API key status:")
+        table = Table(box=None, show_header=False, pad_edge=False)
+        table.add_column(no_wrap=True)
+        table.add_column(style="dim")
 
         for key_name, description, required in self.API_KEYS:
             has_key = env_vars.get(key_name) and env_vars.get(key_name).strip()
-            status = "✓" if has_key else "✗"
+            status = "[green]✓[/green]" if has_key else "[red]✗[/red]"
             req_text = " (REQUIRED)" if required else " (optional)"
-            color = (
-                self.console.GREEN
-                if has_key
-                else (self.console.RED if required else self.console.YELLOW)
-            )
-            print(f"{color}{status}{self.console.RESET} {key_name}{req_text}")
-            print(f"  {description}")
-        print("-" * 50)
+            key_text = f"{status} {key_name}{req_text}"
+            table.add_row(key_text, description)
+
+        self.console.print(table)
+
+    def has_missing_optional_keys(self, project_root: Path) -> bool:
+        """Check if there are any optional keys that are not configured."""
+        env_vars = self.env_setup.get_env_vars(project_root)
+        optional_keys = [k for k, _, r in self.API_KEYS if not r]
+        missing_optional = [k for k in optional_keys if not env_vars.get(k)]
+        return len(missing_optional) > 0
 
     def configure_required_keys(self, project_root: Path) -> bool:
         """Configure required API keys."""
@@ -77,10 +83,10 @@ class APIKeyManager:
         missing_required = [k for k, _, _ in required_keys if not env_vars.get(k)]
 
         if not missing_required:
-            self.console.print_success("All required API keys are configured!")
+            self.console.success("All required API keys present")
             return True
 
-        self.console.print_warning(
+        self.console.warning(
             f"\nYou need to configure {len(missing_required)} required API key(s)."
         )
 
@@ -88,24 +94,24 @@ class APIKeyManager:
             if key_name not in missing_required:
                 continue
 
-            print(f"\n{description}")
+            self.console.info(f"\n{description}")
 
             # Provide specific instructions for each key
             if key_name == "ANTHROPIC_API_KEY":
-                print("Get your key at: https://console.anthropic.com")
+                self.console.info("Get your key at: https://console.anthropic.com")
             elif key_name == "ZYTE_API_KEY":
-                print("Get your key at: https://www.zyte.com")
+                self.console.info("Get your key at: https://www.zyte.com")
 
-            value = self.console.get_input(f"Enter {key_name}", hide_input=True)
+            value = self.console.prompt(f"Enter {key_name}", secret=True)
 
             if value:
                 if self.env_setup.update_env_var(project_root, key_name, value):
-                    self.console.print_success(f"✓ {key_name} saved")
+                    self.console.success(f"{key_name} saved")
                 else:
-                    self.console.print_error(f"Failed to save {key_name}")
+                    self.console.error(f"Failed to save {key_name}")
                     return False
             else:
-                self.console.print_error(f"{key_name} is required to continue")
+                self.console.error(f"{key_name} is required to continue")
                 return False
 
         return True
@@ -117,27 +123,27 @@ class APIKeyManager:
         description: str,
     ):
         """Prompt user for a single optional key and save it."""
-        print(f"\n{description}")
+        self.console.info(f"\n{description}")
 
         if instructions := self._OPTIONAL_KEY_INSTRUCTIONS.get(key_name):
             for line in instructions:
-                print(line)
+                self.console.info(line)
 
         if self.console.confirm(f"Configure {key_name}?", default=False):
-            value = self.console.get_input(f"Enter {key_name}", hide_input=True)
+            value = self.console.prompt(f"Enter {key_name}", secret=True)
 
             if value:
                 if self.env_setup.update_env_var(project_root, key_name, value):
-                    self.console.print_success(f"✓ {key_name} saved")
+                    self.console.success(f"{key_name} saved")
                 else:
-                    self.console.print_error(f"Failed to save {key_name}")
+                    self.console.error(f"Failed to save {key_name}")
 
     def configure_optional_keys(self, project_root: Path):
         """Configure optional API keys."""
         env_vars = self.env_setup.get_env_vars(project_root)
         optional_keys = [(k, d, r) for k, d, r in self.API_KEYS if not r]
 
-        self.console.print_info("\nOptional API keys enable additional features:")
+        self.console.info("\nOptional API keys enable additional features:")
 
         for key_name, description, _ in optional_keys:
             if not env_vars.get(key_name):

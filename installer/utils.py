@@ -1,5 +1,7 @@
 """Installer utility functions."""
 
+from __future__ import annotations
+
 import getpass
 import platform
 import shutil
@@ -7,79 +9,67 @@ import subprocess  # noqa S404
 import sys
 from pathlib import Path
 
-from rich.console import Console
-
-_console: Console | None = None
-
-
-def get_rich_console() -> Console:
-    """Get a rich console instance."""
-    global _console
-    if _console is None:
-        _console = Console()
-    return _console
+from rich.console import Console as RichConsole
+from rich.panel import Panel
+from rich.prompt import Confirm, Prompt
 
 
 class Console:
-    """Console output utilities with consistent formatting."""
+    """A styled console wrapper for consistent output."""
 
-    # ANSI color codes
-    RESET = "\033[0m"
-    BOLD = "\033[1m"
-    RED = "\033[91m"
-    GREEN = "\033[92m"
-    YELLOW = "\033[93m"
-    BLUE = "\033[94m"
-    CYAN = "\033[96m"
+    def __init__(self):
+        self._rich_console = RichConsole()
+        self._error_console = RichConsole(stderr=True)
 
-    def print_header(self, text: str):
-        """Print a header."""
-        print(f"\n{self.BOLD}{self.BLUE}{'=' * 50}{self.RESET}")
-        print(f"{self.BOLD}{self.BLUE}{text.center(50)}{self.RESET}")
-        print(f"{self.BOLD}{self.BLUE}{'=' * 50}{self.RESET}\n")
+    def header(self, text: str):
+        """Prints a stylized header."""
+        self._rich_console.print()
+        self._rich_console.print(Panel(text, style="bold blue", expand=False))
+        self._rich_console.print()
 
-    def print_step(self, text: str):
-        """Print a step message."""
-        print(f"\n{self.BOLD}{self.CYAN}→ {text}{self.RESET}")
+    def step(self, text: str):
+        """Prints a step message."""
+        self._rich_console.print(f"\n[bold cyan]→ {text}[/bold cyan]")
 
-    def print_success(self, text: str):
-        """Print a success message."""
-        print(f"{self.GREEN}{text}{self.RESET}")
+    def success(self, text: str):
+        """Prints a success message."""
+        self._rich_console.print(f"[green]✓ {text}[/green]")
 
-    def print_error(self, text: str):
-        """Print an error message."""
-        print(f"{self.RED}{text}{self.RESET}", file=sys.stderr)
+    def error(self, text: str):
+        """Prints an error message."""
+        self._error_console.print(f"[bold red]✗ {text}[/bold red]")
 
-    def print_warning(self, text: str):
-        """Print a warning message."""
-        print(f"{self.YELLOW}{text}{self.RESET}")
+    def warning(self, text: str):
+        """Prints a warning message."""
+        self._rich_console.print(f"[yellow]⚠ {text}[/yellow]")
 
-    def print_info(self, text: str):
-        """Print an info message."""
-        print(f"{text}")
+    def info(self, text: str):
+        """Prints an informational message."""
+        self._rich_console.print(text)
 
-    def confirm(self, prompt: str, default: bool = True) -> bool:
-        """Ask for user confirmation."""
-        default_str = "Y/n" if default else "y/N"
-        while True:
-            response = input(f"{prompt} [{default_str}]: ").strip().lower()
-            if not response:
-                return default
-            if response in ["y", "yes"]:
-                return True
-            if response in ["n", "no"]:
-                return False
-            print("Please enter 'y' or 'n'")
+    def confirm(self, prompt: str, default: bool = False) -> bool:
+        """Asks for user confirmation."""
+        return Confirm.ask(prompt, console=self._rich_console, default=default)
 
-    def get_input(
-        self, prompt: str, default: str | None = None, hide_input: bool = False
+    def prompt(
+        self, prompt: str, default: str | None = None, secret: bool = False
     ) -> str:
-        """Get user input with optional default."""
-        prompt = f"{prompt} [{default}]: " if default else f"{prompt}: "
+        """Gets user input."""
+        return Prompt.ask(
+            prompt,
+            console=self._rich_console,
+            default=default,
+            password=secret,
+        )
 
-        value = getpass.getpass(prompt) if hide_input else input(prompt).strip()
+    def print(self, *args, **kwargs):
+        """Prints to the console using rich."""
+        self._rich_console.print(*args, **kwargs)
 
-        return value or default or ""
+    @property
+    def rich_console(self) -> RichConsole:
+        """Returns the underlying rich console instance."""
+        return self._rich_console
 
 
 class SystemCheck:
@@ -119,37 +109,6 @@ class SystemCheck:
             return None
 
 
-class ProcessRunner:
-    """Run external processes with proper error handling."""
-
-    def __init__(self):
-        self.console = Console()
-
-    def run(
-        self,
-        command: list[str],
-        check: bool = True,
-        capture_output: bool = True,
-        **kwargs,
-    ) -> subprocess.CompletedProcess:
-        """Run a command with error handling."""
-        try:
-            return subprocess.run(  # noqa: S603 - commands are validated by callers
-                command, check=check, capture_output=capture_output, text=True, **kwargs
-            )
-        except subprocess.CalledProcessError as e:
-            self.console.print_error(f"Command failed: {' '.join(command)}")
-            self.console.print_error(f"  Exit code: {e.returncode}")
-            if e.stdout:
-                self.console.print_error(f"  Stdout: {e.stdout.strip()}")
-            if e.stderr:
-                self.console.print_error(f"  Stderr: {e.stderr.strip()}")
-            raise
-        except FileNotFoundError:
-            self.console.print_error(f"Command not found: {command[0]}")
-            raise
-
-
 class FileUtils:
     """File system utilities."""
 
@@ -182,26 +141,6 @@ class FileUtils:
                 shutil.copy2(file_path, backup_path)
                 return backup_path
             except Exception as e:
-                console = get_rich_console()
-                console.print(
-                    f"Failed to create backup for {file_path}: {e}", style="bold red"
-                )
+                console = Console()
+                console.error(f"Failed to create backup for {file_path}: {e}")
         return None
-
-
-def get_user_input(
-    prompt: str,
-    default: str | None = None,
-    hide_input: bool = False,
-) -> str:
-    """Get user input with a prompt and optional default."""
-    console = get_rich_console()
-    while True:
-        value = getpass.getpass(prompt) if hide_input else input(prompt).strip()
-
-        if not value and default is not None:
-            return default
-        if value:
-            return value
-        if not value and not default:
-            console.print("Please enter a value.", style="bold red")

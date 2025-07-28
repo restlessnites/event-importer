@@ -4,21 +4,16 @@ import os
 import subprocess  # noqa S404
 from pathlib import Path
 
-from installer.utils import (
-    ProcessRunner,
-    SystemCheck,
-    get_rich_console,
-)
+from installer.utils import Console, SystemCheck
 
 
 class DependencyInstaller:
     """Manages the installation of dependencies."""
 
-    def __init__(self: "DependencyInstaller") -> None:
+    def __init__(self: "DependencyInstaller", console: Console) -> None:
         """Initialize the dependency manager."""
-        self.console = get_rich_console()
+        self.console = console
         self.system_check = SystemCheck()
-        self.runner = ProcessRunner()
 
     def check_homebrew(self) -> bool:
         """Check if Homebrew is installed."""
@@ -26,7 +21,7 @@ class DependencyInstaller:
 
     def install_homebrew(self) -> bool:
         """Install Homebrew."""
-        self.console.print_info("Installing Homebrew...")
+        self.console.info("Installing Homebrew...")
 
         install_script = '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
 
@@ -37,10 +32,10 @@ class DependencyInstaller:
             # Add Homebrew to PATH for the current session
             self._setup_homebrew_path()
 
-            self.console.print_success("✓ Homebrew installed successfully")
+            self.console.success("Homebrew installed successfully")
             return True
         except subprocess.CalledProcessError as e:
-            self.console.print_error(f"Failed to install Homebrew: {e}")
+            self.console.error(f"Failed to install Homebrew: {e}")
             return False
 
     def _setup_homebrew_path(self):
@@ -63,19 +58,19 @@ class DependencyInstaller:
 
     def install_uv(self) -> bool:
         """Install uv using Homebrew."""
-        self.console.print_info("Installing uv...")
+        self.console.info("Installing uv...")
 
         try:
-            self.runner.run(["brew", "install", "uv"])
-            self.console.print_success("✓ uv installed successfully")
+            subprocess.run(["brew", "install", "uv"], check=True)  # noqa S404
+            self.console.success("uv installed successfully")
             return True
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, FileNotFoundError):
             # Try alternative installation method
             return self._install_uv_alternative()
 
     def _install_uv_alternative(self) -> bool:
         """Install uv using the official installer."""
-        self.console.print_info("Trying alternative uv installation method...")
+        self.console.info("Trying alternative uv installation method...")
 
         try:
             install_cmd = "curl -LsSf https://astral.sh/uv/install.sh | sh"
@@ -87,10 +82,10 @@ class DependencyInstaller:
             if uv_path.exists():
                 os.environ["PATH"] = f"{uv_path}:{os.environ.get('PATH', '')}"
 
-            self.console.print_success("✓ uv installed successfully")
+            self.console.success("uv installed successfully")
             return True
         except subprocess.CalledProcessError:
-            self.console.print_error("Failed to install uv")
+            self.console.error("Failed to install uv")
             return False
 
     def check_git(self) -> bool:
