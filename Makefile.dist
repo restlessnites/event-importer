@@ -1,0 +1,53 @@
+.PHONY: install run-cli run-api run-mcp help import db-stats validate clean
+
+# Default target
+.DEFAULT_GOAL := help
+
+##@ Installation & Setup
+install: ## Run the interactive installer
+	@python install.py
+
+
+##@ Running
+run-cli: ## Run the CLI interface (pass args with ARGS="...")
+	@uv run event-importer $(ARGS)
+
+run-api: ## Start the HTTP API server
+	@uv run event-importer api
+
+run-mcp: ## Start the MCP server
+	@uv run event-importer mcp
+
+import: ## Import an event from a URL (pass url with URL="...")
+	@uv run event-importer import $(URL)
+
+db-stats: ## Show database statistics
+	@uv run event-importer stats
+
+
+##@ Validation
+validate: ## Validate the installation
+	@uv run event-importer validate
+
+
+##@ Cleanup
+clean: ## Clean up cache artifacts
+	@rm -rf .ruff_cache
+	@rm -rf .mypy_cache
+	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	@echo "✅ Cleaned!"
+
+
+##@ Help
+help: ## Show this help message
+	@echo "RESTLESS / EVENT IMPORTER"
+	@echo ""
+	@echo "Usage: make [target]"
+	@awk 'BEGIN {FS = ":.*?## |^##@ "} \
+		/^(##@|([a-zA-Z0-9_-]+:.*?##))/ { \
+			if ($$1 == "") { \
+				printf "\n\033[1;33m%s\033[0m\n", $$2; \
+			} else { \
+				printf "  \033[36m%-29s\033[0m %s\n", $$1, $$2; \
+			} \
+		}' $(MAKEFILE_LIST) 

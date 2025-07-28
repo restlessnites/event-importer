@@ -1,71 +1,84 @@
-"""Global test configuration and fixtures."""
+"""Pytest configuration for the test suite."""
+
+from __future__ import annotations
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
-from app.shared.database.connection import init_db
+from app.config import get_config
+from app.interfaces.cli.core import CLI
+from app.services.claude import ClaudeService
+from app.services.llm import LLMService
+from app.services.openai import OpenAIService
+from app.shared.database.connection import (
+    get_db_session,
+    init_db,
+)
 from app.shared.database.models import Base
-from app.startup import startup_checks
+from app.shared.http import HTTPService
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
 
-
-@pytest.fixture(scope="session", autouse=True)
-def run_startup_checks():
-    """Ensure startup checks are run once per session."""
-    startup_checks()
+TEST_DATABASE_URL = "sqlite:///./test.db"
 
 
 @pytest.fixture(scope="session")
-def test_database_url():
-    """Use a separate test database."""
-    # Use an in-memory SQLite database for tests
-    return "sqlite:///:memory:"
+def test_database_url() -> str:
+    """Return the test database URL."""
+    return TEST_DATABASE_URL
 
 
-@pytest.fixture(scope="function")
-def db_session(test_database_url):
+@pytest.fixture(scope="session")
+def db_session(test_database_url: str) -> Session:
     """Create a test database session."""
-    # Create engine and tables
-    engine = create_engine(test_database_url)
-    init_db(engine)
-
-    # Create session
-    test_session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    session = test_session_local()
-
-    yield session
-
-    # Cleanup
-    session.close()
-    Base.metadata.drop_all(engine)
+    engine = create_engine(test_database_url, connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine)
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        Base.metadata.drop_all(bind=engine)
 
 
-@pytest.fixture(autouse=True)
-def mock_db_session(monkeypatch, db_session):
-    """Automatically mock get_db_session for all tests."""
-
-    def mock_get_db_session():
-        return db_session
-
-    monkeypatch.setattr(
-        "app.shared.database.connection.get_db_session", mock_get_db_session
-    )
+@pytest.fixture
+def http_service() -> HTTPService:
+    """Return an HTTPService instance."""
+    return HTTPService(get_config())
 
 
-@pytest.fixture(autouse=True)
-def test_environment(monkeypatch):
-    """Set up test environment variables."""
-    # Ensure we're in test mode
-    monkeypatch.setenv("ENVIRONMENT", "test")
-    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+@pytest.fixture(scope="session")
+def claude_service() -> ClaudeService:
+    """Return a ClaudeService instance."""
+    return ClaudeService(get_config())
 
-    # Mock API keys to prevent accidental API calls
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    monkeypatch.setenv("GOOGLE_API_KEY", "test-key")
-    monkeypatch.setenv("GOOGLE_CSE_ID", "test-id")
-    monkeypatch.setenv("ZYTE_API_KEY", "test-key")
 
-    # Mock TicketFairy config
-    monkeypatch.setenv("TICKETFAIRY_API_URL", "http://test.local")
-    monkeypatch.setenv("TICKETFAIRY_API_KEY", "test-key")
+@pytest.fixture(scope="session")
+def openai_service(http_service: HTTPService) -> OpenAIService:
+    """Return an OpenAIService instance."""
+    return OpenAIService(get_config(), http_service)
+
+
+@pytest.fixture(scope="session")
+def llm_service(
+    claude_service: ClaudeService, openai_service: OpenAIService
+) -> LLMService:
+    """Return an LLMService instance."""
+    return LLMService(get_config(), claude_service, openai_service)
+
+
+@pytest.fixture
+def run_startup_checks() -> None:
+    """Ensure startup checks are run."""
+    init_db()
+
+
+@pytest.fixture
+def mock_db_session(monkeypatch) -> None:
+    """Mock the database session for tests."""
+    monkeypatch.setattr("app.shared.database.connection.SessionLocal", get_db_session)
+
+
+@pytest.fixture
+def cli() -> CLI:
+    """Return a CLI instance."""
+    return CLI()
