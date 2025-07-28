@@ -28,7 +28,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     
     - name: Install dependencies
-      run: uv sync -r requirements/prod.txt -r requirements/dev.txt
+      run: uv sync requirements/prod.txt requirements/dev.txt
 
     - name: Create data directory
       run: mkdir -p data
