@@ -67,6 +67,7 @@ async def test_image_search(
 
     cli.header("Image Search Test", "Testing Google Custom Search integration")
     image_service = ImageService(config, http_service)
+    image_service.google_enabled = True  # Ensure the service is active for the test
 
     # Test case 1: Cursive event
     cli.section("Test 1: Artist with lineup")
