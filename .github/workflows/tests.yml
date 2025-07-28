@@ -32,9 +32,6 @@ jobs:
         uv venv
         uv pip install -e ".[dev]"
     
-    - name: Run database migrations
-      run: uv run alembic -c alembic.ini upgrade head
-    
     - name: Run linter
       run: uv run ruff check .
     
