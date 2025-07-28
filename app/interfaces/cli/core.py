@@ -32,11 +32,16 @@ from app.schemas import ImportResult
 class CLI:
     """Main CLI interface with proper theming."""
 
-    def __init__(self: CLI, width: int = 100, theme: Theme | None = None) -> None:
+    def __init__(
+        self: CLI,
+        width: int = 100,
+        theme: Theme | None = None,
+        console: Console | None = None,
+    ) -> None:
         """Initialize CLI with theme and components."""
         self.width = width
         self.theme = theme or Theme()
-        self.console = Console(width=width)
+        self.console = console or Console(width=width)
 
         # Initialize components with theme
         self.header_component = Header(self.console, self.theme)

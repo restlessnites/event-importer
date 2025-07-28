@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from rich.console import Console
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -81,5 +82,8 @@ def mock_db_session(monkeypatch) -> None:
 
 @pytest.fixture
 def cli() -> CLI:
-    """Return a CLI instance."""
-    return CLI()
+    """Return a CLI instance, forcing interactive mode for consistent testing."""
+    # Force interactive mode to ensure all rich components are rendered
+    # This is crucial for consistent coverage between local and CI environments
+    console = Console(force_terminal=True, legacy_windows=False)
+    return CLI(console=console)
