@@ -32,10 +32,8 @@ jobs:
         uv venv
         uv pip install -e ".[dev]"
     
-    - name: Create database file
-      run: |
-        mkdir -p data
-        touch data/events.db
+    - name: Run database migrations
+      run: uv run alembic upgrade head
     
     - name: Run linter
       run: uv run ruff check .
