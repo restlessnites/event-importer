@@ -32,10 +32,15 @@ jobs:
         uv venv
         uv pip install -e ".[dev]"
 
+    - name: Create dummy .env file
+      run: |
+        echo "GOOGLE_API_KEY=AIzaSyA_this_is_a_fake_key_for_ci_123" > .env
+        echo "GOOGLE_CSE_ID=this_is_a_fake_cse_id_for_ci" >> .env
+
     - name: Create data directory
       run: mkdir -p data
 
-    - name: Run linter
+    - name: Lint with Ruff
       run: uv run ruff check .
 
     - name: Run tests with coverage
