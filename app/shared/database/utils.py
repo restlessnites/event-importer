@@ -50,13 +50,21 @@ def cache_event(
         return _cache(db_session)
 
 
-def get_cached_event(url: str, db: Session | None = None) -> dict[str, Any] | None:
-    """Get cached event data by URL"""
+def get_cached_event(
+    url: str | None = None, event_id: int | None = None, db: Session | None = None
+) -> dict[str, Any] | None:
+    """Get cached event data by URL or ID"""
 
     def _get(db_session: Session) -> dict[str, Any] | None:
-        event_cache = (
-            db_session.query(EventCache).filter(EventCache.source_url == url).first()
-        )
+        query = db_session.query(EventCache)
+        if url:
+            query = query.filter(EventCache.source_url == url)
+        elif event_id:
+            query = query.filter(EventCache.id == event_id)
+        else:
+            return None  # Either URL or event_id must be provided
+
+        event_cache = query.first()
         if event_cache:
             # Return the scraped_data dict instead of the SQLAlchemy object
             return event_cache.scraped_data

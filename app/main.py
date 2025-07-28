@@ -1,5 +1,6 @@
 """Main application entry point and factory with database initialization."""
 
+import asyncio
 import logging.config
 from argparse import ArgumentParser, Namespace
 
@@ -101,6 +102,12 @@ def create_parser() -> ArgumentParser:
     # Stats command
     subparsers.add_parser("stats", help="Show database statistics")
 
+    # Rebuild descriptions command
+    rebuild_parser = subparsers.add_parser(
+        "rebuild-descriptions", help="Rebuild descriptions for a specific event"
+    )
+    rebuild_parser.add_argument("event_id", type=int, help="Event ID to rebuild")
+
     # Validate command
     subparsers.add_parser("validate", help="Validate the installation")
 
@@ -123,8 +130,8 @@ def route_command(parser: ArgumentParser, args: Namespace) -> None:
     """Route to the appropriate interface based on the command."""
     if args.command == "import":
         run_cli(args)
-    elif args.command in ["list", "show", "stats"]:
-        run_events_cli(args)
+    elif args.command in ["list", "show", "stats", "rebuild-descriptions"]:
+        asyncio.run(run_events_cli(args))
     elif args.command == "mcp":
         mcp_run()
     elif args.command == "api":

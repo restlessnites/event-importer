@@ -16,6 +16,13 @@ from ..shared.database.models import EventCache, Submission
 logger = logging.getLogger(__name__)
 
 
+class Integration:
+    """Base class for all integrations"""
+
+    name: str | None = None
+    mcp_tools: Any | None = None
+
+
 class BaseSelector(ABC):
     """Base class for event selection strategies"""
 

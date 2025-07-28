@@ -111,8 +111,13 @@ async def _run_import(
             return await router.route_request(request_data)
 
 
-def _handle_import_result(result: dict, cli: CLI, verbose: bool) -> bool:
+def _handle_import_result(result: dict | None, cli: CLI, verbose: bool) -> bool:
     """Process and display the result of the import."""
+    if not result:
+        if not verbose:
+            cli.error("Import failed: An unexpected error occurred.")
+        return False
+
     if result.get("success"):
         cli.success("Import successful")
         cli.event_card(result["data"])

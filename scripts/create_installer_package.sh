@@ -42,6 +42,7 @@ cp "$PROJECT_ROOT/env.example" "$PACKAGE_DIR/"
 cp "$PROJECT_ROOT/README.md" "$PACKAGE_DIR/"
 cp "$PROJECT_ROOT/install.py" "$PACKAGE_DIR/"
 cp "$PROJECT_ROOT/Makefile.dist" "$PACKAGE_DIR/Makefile"
+cp "$PROJECT_ROOT/LICENSE" "$PACKAGE_DIR/"
 
 # Create data directory (empty)
 mkdir -p "$PACKAGE_DIR/data"

@@ -95,20 +95,19 @@ class DiceAgent(Agent):
                 error_msg = AgentMessages.DICE_DATA_TRANSFORM_FAILED
                 raise Exception(error_msg)
 
-            # Generate descriptions if missing - use safe service access
-            if not event_data.long_description or not event_data.short_description:
-                await self.send_progress(
-                    request_id,
-                    ImportStatus.RUNNING,
-                    "Generating descriptions",
-                    0.85,
-                )
-                try:
-                    llm_service = self.get_service("llm")
-                    event_data = await llm_service.generate_descriptions(event_data)
-                except Exception:
-                    logger.exception("Failed to generate descriptions")
-                    # Continue without descriptions rather than failing completely
+            # Enhance descriptions
+            await self.send_progress(
+                request_id,
+                ImportStatus.RUNNING,
+                "Enhancing descriptions",
+                0.85,
+            )
+            try:
+                llm_service = self.get_service("llm")
+                event_data = await llm_service.generate_descriptions(event_data)
+            except Exception:
+                logger.exception("Failed to enhance descriptions")
+                # Continue without descriptions rather than failing completely
 
             await self.send_progress(
                 request_id,
@@ -279,7 +278,7 @@ class DiceAgent(Agent):
         """Transform Dice API response to EventData format."""
         try:
             location, venue_name = self._extract_location(api_data)
-            event_time, date_str = self._extract_time(api_data, location)
+            event_time, date_str, end_date_str = self._extract_time(api_data, location)
             ticket_url, price_info = self._extract_ticket_info(
                 api_data,
                 source_url,
@@ -295,6 +294,7 @@ class DiceAgent(Agent):
                 location=location,
                 venue=venue_name,
                 date=date_str,
+                end_date=end_date_str,
                 ticket_url=ticket_url,
                 source_url=source_url,
                 images=self._extract_images(api_data),
@@ -332,12 +332,12 @@ class DiceAgent(Agent):
         self,
         api_data: dict[str, Any],
         location: EventLocation | None,
-    ) -> tuple[dict[str, Any] | None, str | None]:
+    ) -> tuple[dict[str, Any] | None, str | None, str | None]:
         """Extract event time and date string from API data."""
         dates = api_data.get("dates", {})
         event_start = dates.get("event_start_date")
         if not event_start:
-            return None, None
+            return None, None, None
 
         event_end = dates.get("event_end_date")
         api_timezone = dates.get("timezone")
@@ -348,8 +348,13 @@ class DiceAgent(Agent):
             location=location,
             timezone=api_timezone,
         )
-        date_str = event_start.split("T")[0]
-        return event_time, date_str
+        start_date_str = event_start.split("T")[0]
+
+        end_date_str = None
+        if event_end:
+            end_date_str = event_end.split("T")[0]
+
+        return event_time, start_date_str, end_date_str
 
     def _extract_lineup(self, api_data: dict[str, Any]) -> list[str]:
         """Extract lineup from API data."""

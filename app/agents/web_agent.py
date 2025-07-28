@@ -107,21 +107,19 @@ class WebAgent(Agent):
                     0.9,
                 )
 
-            # Generate missing descriptions if needed
-            if event_data and (
-                not event_data.short_description or not event_data.long_description
-            ):
+            # Generate and enhance descriptions
+            if event_data:
                 await self.send_progress(
                     request_id,
                     ImportStatus.RUNNING,
-                    "Generating descriptions",
+                    "Enhancing descriptions",
                     0.98,
                 )
                 try:
                     llm_service = self.get_service("llm")
                     event_data = await llm_service.generate_descriptions(event_data)
                 except (ValueError, TypeError, KeyError):
-                    logger.exception("Description generation failed")
+                    logger.exception("Description enhancement failed")
                     # Continue without descriptions rather than failing completely
 
             await self.send_progress(

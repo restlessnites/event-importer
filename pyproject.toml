@@ -1,9 +1,11 @@
 [project]
 name = "event-importer"
 version = "1.0.0"
-description = "MCP server for importing structured event data from websites"
+description = "A CLI tool for importing events from various sources."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Event Importer Contributors" }]
 dependencies = [
     "mcp>=0.1.0",
     "anthropic>=0.54.0",
@@ -35,7 +37,7 @@ event-importer-api = "app.interfaces.api.server:run"
 ticketfairy-submit = "app.integrations.ticketfairy.cli:main"
 
 [project.entry-points."app.integrations"]
-ticketfairy = "app.integrations.ticketfairy"
+ticketfairy = "app.integrations.ticketfairy.base:TicketFairyIntegration"
 
 [build-system]
 requires = ["hatchling"]

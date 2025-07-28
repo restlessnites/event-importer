@@ -1,8 +1,7 @@
 """Event Importer - MCP server for importing structured event data from websites."""
 
-from importlib.metadata import version
+from .version import __version__ as __version__
 
-__version__ = version("event-importer")
 __author__ = "Event Importer Contributors"
 
 # No package-level imports - use absolute imports instead

@@ -130,6 +130,20 @@ class CoreMCPTools:
                 },
             },
         ),
+        types.Tool(
+            name="rebuild_event_descriptions",
+            description="Rebuild descriptions for a specific event",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "event_id": {
+                        "type": "integer",
+                        "description": "Event ID to rebuild descriptions for",
+                    },
+                },
+                "required": ["event_id"],
+            },
+        ),
     ]
 
     @staticmethod
@@ -155,6 +169,30 @@ class CoreMCPTools:
     async def handle_import_event(arguments: dict, router: Router) -> dict:
         """Handle import_event tool call"""
         return await router.route_request(arguments)
+
+    @staticmethod
+    async def handle_rebuild_event_descriptions(
+        arguments: dict, router: Router
+    ) -> dict:
+        """Handle rebuild_event_descriptions tool call"""
+        event_id = arguments.get("event_id")
+        if not event_id:
+            return {"success": False, "error": "Event ID is required"}
+
+        updated_event = await router.importer.rebuild_descriptions(event_id)
+
+        if updated_event:
+            return {
+                "success": True,
+                "event_id": event_id,
+                "message": "Descriptions rebuilt successfully",
+                "updated_data": updated_event.model_dump(mode="json"),
+            }
+        return {
+            "success": False,
+            "event_id": event_id,
+            "error": "Failed to rebuild descriptions",
+        }
 
     @staticmethod
     def _build_list_events_query(db_session, arguments: dict):
@@ -314,6 +352,7 @@ class CoreMCPTools:
         "list_events": handle_list_events.__func__,
         "show_event": handle_show_event.__func__,
         "get_statistics": handle_get_statistics.__func__,
+        "rebuild_event_descriptions": handle_rebuild_event_descriptions.__func__,
     }
 
 
@@ -391,6 +430,11 @@ async def main() -> None:
             # Special case for import_event (needs router)
             if name == "import_event":
                 result = await CoreMCPTools.handle_import_event(arguments, router)
+            # Handle rebuild separately as it needs the router instance
+            elif name == "rebuild_event_descriptions":
+                result = await CoreMCPTools.handle_rebuild_event_descriptions(
+                    arguments, router
+                )
             # Check if it's in our handlers (core + integration)
             elif name in all_handlers:
                 result = await all_handlers[name](arguments)

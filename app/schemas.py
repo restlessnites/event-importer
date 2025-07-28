@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 import uuid
-from datetime import date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 
 try:
     from datetime import UTC
@@ -25,6 +25,8 @@ from pydantic import (  # pylint: disable=E0611
     field_validator,
     model_validator,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def to_camel(string: str) -> str:
@@ -91,17 +93,12 @@ class EventTime(BaseModel):
         """Parse various time formats to HH:MM."""
         if not v:
             return None
-        v = str(v).strip()
-        v = re.sub(
-            r"^\s*(doors?|show|start|begin|end)s?\s*:?\s*",
-            "",
-            v,
-            flags=re.IGNORECASE,
-        )
         try:
-            parsed = date_parser.parse(v, fuzzy=True)
-            return parsed.strftime("%H:%M")
+            # Use dateutil.parser for robust time parsing with fuzzy matching
+            parsed_time = date_parser.parse(v, fuzzy=True)
+            return parsed_time.strftime("%H:%M")
         except (ValueError, TypeError):
+            # Return None if parsing fails, indicating an invalid time format
             return None
 
     def __bool__(self: EventTime) -> bool:
@@ -327,7 +324,6 @@ class EventData(BaseModel):
                         parsed = parsed.replace(year=current_year + 1)
             return parsed.date().isoformat()
         except (ValueError, TypeError) as e:
-            logger = logging.getLogger(__name__)
             logger.debug(f"Date parsing failed for '{v}': {e}")
             return None
 
@@ -443,24 +439,51 @@ class EventData(BaseModel):
 
     @model_validator(mode="after")
     def calculate_end_date(self: EventData) -> EventData:
-        """Calculate end_date for events that cross midnight."""
+        """Calculate end_date if it's not provided.
+        Sets end_date to the next day if end time is earlier than start time.
+        Otherwise, sets end_date to be the same as the start date.
+        """
+        # Don't overwrite an existing end_date
+        if self.end_date:
+            return self
+
+        # Check for required fields
         if not self.date or not self.time or not self.time.start or not self.time.end:
             return self
+
         try:
-            start_time = datetime.strptime(self.time.start, "%H:%M").time()
-            end_time = datetime.strptime(self.time.end, "%H:%M").time()
-            if end_time < start_time:
-                start_date = datetime.fromisoformat(self.date)
-                end_date = start_date + timedelta(days=1)
-                self.end_date = end_date.strftime("%Y-%m-%d")
+            # Use dateutil.parser for robust parsing of date and time
+            start_time_obj = date_parser.parse(self.time.start).time()
+            end_time_obj = date_parser.parse(self.time.end).time()
+            start_date_obj = date_parser.parse(self.date)
+
+            logger.debug(
+                "Calculating end date: start_date=%s, start_time=%s, end_time=%s",
+                start_date_obj.date(),
+                start_time_obj,
+                end_time_obj,
+            )
+
+            # A time of 00:00 is considered the end of the current day in this context.
+            # Only advance to the next day if the end time is past midnight.
+            if end_time_obj < start_time_obj and end_time_obj != time(0, 0):
+                self.end_date = (start_date_obj + timedelta(days=1)).strftime(
+                    "%Y-%m-%d"
+                )
+                logger.info(f"Calculated next-day end date: {self.end_date}")
             else:
-                self.end_date = self.date
-        except (ValueError, TypeError):
+                # If end time is not earlier (or is midnight), end date is the same day
+                self.end_date = start_date_obj.strftime("%Y-%m-%d")
+                logger.info(f"Calculated same-day end date: {self.end_date}")
+        except (ValueError, TypeError) as e:
+            # In case of date or time parsing errors, leave end_date as None
+            logger.warning(f"Could not calculate end_date due to error: {e}")
             pass
+
         return self
 
     def is_complete(self: EventData) -> bool:
-        """Check if the event has all important fields."""
+        """Check if the event data is sufficiently complete."""
         return all(
             [
                 self.title,
@@ -482,6 +505,9 @@ class ImportRequest(BaseModel):
     ignore_cache: bool = Field(
         default=False,
         description="Skip cache and force fresh import",
+    )
+    force_description_rebuild: bool = Field(
+        default=False, description="Force regeneration of event descriptions"
     )
 
 

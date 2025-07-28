@@ -453,3 +453,36 @@ class EventImporter:
         except (ValueError, TypeError, KeyError) as e:
             logger.warning(f"{ServiceMessages.GENRE_ENHANCEMENT_FAILED}: {e}")
             return event_data
+
+    async def rebuild_descriptions(
+        self: EventImporter, event_id: int
+    ) -> EventData | None:
+        """Rebuild descriptions for a cached event."""
+        logger.info(f"Rebuilding descriptions for event ID: {event_id}")
+        cached_data = get_cached_event(event_id=event_id)
+        if not cached_data:
+            logger.error(f"No cached event found for ID: {event_id}")
+            return None
+
+        try:
+            event_data = EventData(**cached_data)
+
+            # Use the LLM service to force a rebuild
+            llm_service = self._services["llm"]
+            updated_event_data = await llm_service.generate_descriptions(
+                event_data, force_rebuild=True
+            )
+
+            # Cache the updated event data
+            cache_event(
+                updated_event_data.source_url,
+                updated_event_data.model_dump(mode="json"),
+            )
+            logger.info(f"Successfully rebuilt descriptions for event ID: {event_id}")
+            return updated_event_data
+
+        except (ValidationError, Exception) as e:
+            logger.exception(
+                f"Failed to rebuild descriptions for event {event_id}: {e}"
+            )
+            return None

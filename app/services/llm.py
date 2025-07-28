@@ -97,21 +97,53 @@ class LLMService:
                 )
                 raise e
 
+    def _enhance_description(self: LLMService, event_data: EventData) -> EventData:
+        """Appends lineup to long description if available."""
+        if not event_data.lineup:
+            return event_data
+
+        lineup_header = "Lineup"
+        lineup_text = ", ".join(event_data.lineup)
+
+        if event_data.long_description:
+            # Check if lineup is already present to avoid duplication
+            if lineup_header.lower() not in event_data.long_description.lower():
+                event_data.long_description = f"{event_data.long_description.strip()}\n\n{lineup_header}:\n{lineup_text}"
+        else:
+            event_data.long_description = f"{lineup_header}:\n{lineup_text}"
+
+        return event_data
+
     @retry_on_error(max_attempts=2)
     async def generate_descriptions(
         self: LLMService,
         event_data: EventData,
+        force_rebuild: bool = False,
     ) -> EventData:
-        """Generate event descriptions with fallback."""
-        operation = LLMOperation(
-            name="generate_descriptions",
-            primary_provider=self.primary_service.generate_descriptions,
-            fallback_provider=self.fallback_service.generate_descriptions
-            if self.fallback_service
-            else None,
-            event_data=event_data,
+        """Generate long/short descriptions for an event if they are missing."""
+        # Descriptions are generated only if there's no long description,
+        # or if it's shorter than 200 characters.
+        needs_long = (
+            not event_data.long_description or len(event_data.long_description) < 200
         )
-        return await self._execute_with_fallback(operation)
+        needs_short = not (
+            event_data.short_description and len(event_data.short_description) <= 100
+        )
+
+        if force_rebuild or needs_long or needs_short:
+            operation = LLMOperation(
+                "generate_descriptions",
+                self.primary_service.generate_descriptions,
+                self.fallback_service.generate_descriptions
+                if self.fallback_service
+                else None,
+                event_data,
+                force_rebuild=force_rebuild,
+            )
+            event_data = await self._execute_with_fallback(operation)
+
+        # Always enhance with lineup after potential generation
+        return self._enhance_description(event_data)
 
     @retry_on_error(max_attempts=2)
     async def analyze_text(self: LLMService, prompt: str) -> str | None:
@@ -189,4 +221,8 @@ class LLMService:
             mime_type,
             url,
         )
-        return await self._execute_with_fallback(operation)
+        event_data = await self._execute_with_fallback(operation)
+
+        if event_data:
+            return self._enhance_description(event_data)
+        return None

@@ -79,6 +79,10 @@ async def test_import_event_success(mock_config, http_service, llm_service):
     }
     http_service.get.return_value.json = AsyncMock(return_value=api_response)
     http_service.get.return_value.status = 200
+
+    # Mock the llm_service to return the event data directly
+    llm_service.generate_descriptions.side_effect = lambda event_data: event_data
+
     agent = TicketmasterAgent(
         mock_config, services={"http": http_service, "llm": llm_service}
     )
@@ -113,6 +117,10 @@ async def test_import_event_no_embedded_data(mock_config, http_service, llm_serv
     }
     http_service.get.return_value.json = AsyncMock(return_value=api_response)
     http_service.get.return_value.status = 200
+
+    # Mock the llm_service to return the event data directly
+    llm_service.generate_descriptions.side_effect = lambda event_data: event_data
+
     agent = TicketmasterAgent(
         mock_config, services={"http": http_service, "llm": llm_service}
     )
@@ -135,6 +143,10 @@ async def test_import_event_no_dates(mock_config, http_service, llm_service):
     api_response = {"name": "Test Event with No Dates"}
     http_service.get.return_value.json = AsyncMock(return_value=api_response)
     http_service.get.return_value.status = 200
+
+    # Mock the llm_service to return the event data directly
+    llm_service.generate_descriptions.side_effect = lambda event_data: event_data
+
     agent = TicketmasterAgent(
         mock_config, services={"http": http_service, "llm": llm_service}
     )

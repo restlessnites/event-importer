@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import asc, desc, or_
 
+from app.core.importer import EventImporter
 from app.interfaces.cli.core import CLI
 from app.shared.database.connection import get_db_session, init_db
 from app.shared.database.models import EventCache
@@ -116,7 +117,7 @@ def show_stats(args: argparse.Namespace) -> None:
         cli.info("No integration submissions found")
 
 
-def run_events_cli(args: argparse.Namespace) -> None:
+async def run_events_cli(args: argparse.Namespace) -> None:
     """Run the events CLI with the given args."""
     # Initialize database
     init_db()
@@ -128,6 +129,8 @@ def run_events_cli(args: argparse.Namespace) -> None:
             show_event_details(args)
         elif args.command == "stats":
             show_stats(args)
+        elif args.command == "rebuild-descriptions":
+            await rebuild_descriptions_cli(args)
     except KeyboardInterrupt:
         cli = CLI()
         cli.warning("\nInterrupted by user")
@@ -228,6 +231,31 @@ def list_events(args: argparse.Namespace) -> None:
         _display_detailed_events(cli, events)
     else:
         _display_table_events(cli, events)
+
+
+async def rebuild_descriptions_cli(args: argparse.Namespace) -> None:
+    """CLI handler for rebuilding descriptions."""
+    cli = CLI()
+    event_id = args.event_id
+
+    cli.header("Rebuild Event Descriptions", f"Event ID: {event_id}")
+
+    try:
+        importer = EventImporter()
+        with cli.spinner("Rebuilding descriptions..."):
+            updated_event = await importer.rebuild_descriptions(event_id)
+
+        if updated_event:
+            cli.success("Successfully rebuilt descriptions.")
+            cli.section("Updated Event Data")
+            cli.event_card(updated_event.model_dump(mode="json"))
+        else:
+            cli.error(f"Failed to rebuild descriptions for event ID: {event_id}")
+            cli.info("Check if the event ID is correct and exists in the database.")
+
+    except Exception as e:
+        cli.error(f"An unexpected error occurred: {e}")
+        sys.exit(1)
 
 
 def show_event_details(args: argparse.Namespace) -> None:

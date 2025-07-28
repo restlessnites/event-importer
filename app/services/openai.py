@@ -294,6 +294,7 @@ class OpenAIService:
     async def generate_descriptions(
         self: OpenAIService,
         event_data: EventData,
+        force_rebuild: bool = False,
     ) -> EventData:
         """Generate missing descriptions for an event."""
         if not self.client:
@@ -301,24 +302,49 @@ class OpenAIService:
 
         # Check if we need to generate descriptions (missing or too short)
         needs_long = (
-            not event_data.long_description or len(event_data.long_description) < 100
+            not event_data.long_description or len(event_data.long_description) < 200
         )
         needs_short = (
             not event_data.short_description or len(event_data.short_description) > 100
         )
 
-        if not needs_long and not needs_short:
+        if not force_rebuild and not needs_long and not needs_short:
             return event_data
 
         # Convert EventData to dict for the prompt builder
         event_dict = event_data.model_dump(exclude_unset=True)
 
         # Build prompt for description generation only
-        prompt = EventPrompts.build_description_only_prompt(
-            event_data=event_dict,
-            needs_long=needs_long,
-            needs_short=needs_short,
-        )
+        context_str = EventPrompts._build_event_context(event_dict)
+        prompt_parts = [
+            "Generate ONLY the missing or invalid descriptions for this event based on the available information:",
+            f"\n{context_str}",
+            "\nRequirements:",
+        ]
+
+        if needs_long:
+            prompt_parts.append(
+                """
+                **LONG DESCRIPTION**:
+                - Create a natural, engaging description incorporating all available information.
+                - Should be 2-4 sentences, informative and complete, but UNDER 500 characters.
+                - Include lineup/artists, venue, date, genres, promoters, location.
+                - If a description DOES exist in the source, use it as-is (just clean it up).
+                """
+            )
+
+        if needs_short:
+            prompt_parts.append(
+                """
+                **SHORT DESCRIPTION**:
+                - Must be under 100 characters.
+                - Factual only - NO adjectives or marketing language.
+                - Format: "[Genre] with [Artist]" or similar.
+                - Examples: "Electronic music with DJ Shadow", "Jazz quartet at Blue Note".
+                """
+            )
+
+        prompt = "\n".join(prompt_parts)
         # Add JSON requirement for OpenAI
         prompt = self._add_json_requirement(prompt)
 
@@ -330,11 +356,11 @@ class OpenAIService:
 
         if result:
             # Update only missing descriptions
-            if needs_long and result.get("long_description"):
-                event_data.long_description = result["long_description"]
-            if needs_short and result.get("short_description"):
+            if force_rebuild or (needs_long and result.get("long_description")):
+                event_data.long_description = result.get("long_description")
+            if force_rebuild or (needs_short and result.get("short_description")):
                 # Ensure it's under 100 chars
-                event_data.short_description = result["short_description"][:100]
+                event_data.short_description = result.get("short_description", "")[:100]
 
         return event_data
 

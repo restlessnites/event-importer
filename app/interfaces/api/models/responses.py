@@ -31,3 +31,12 @@ class HealthResponse(BaseModel):
     status: str = Field(..., description="Service status")
     version: str = Field(..., description="Application version")
     features: list[str] = Field(..., description="Enabled features")
+
+
+class RebuildDescriptionResponse(BaseModel):
+    """Response model for rebuilding descriptions."""
+
+    success: bool = Field(..., description="Whether the rebuild was successful")
+    event_id: int = Field(..., description="Event ID")
+    message: str = Field(..., description="Status message")
+    data: EventData | None = Field(None, description="Updated event data")

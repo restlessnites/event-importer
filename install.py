@@ -6,12 +6,21 @@ bootstrapping 'pip' if necessary. It then hands off to the main installer module
 This separation avoids import errors on a clean machine.
 """
 
+import ensurepip
 import subprocess  # noqa: S404
 import sys
-import ensurepip
 
 # A list of dependencies that the installer itself needs to run.
-INSTALLER_DEPS = ["rich", "python-dotenv"]
+INSTALLER_DEPS = [
+    "rich",
+    "python-dotenv",
+    "sqlalchemy",
+    "pydantic",
+    "pydantic-settings",
+    "aiohttp",
+    "certifi",
+    "tenacity",
+]
 
 
 def ensure_pip_is_available():

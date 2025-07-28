@@ -11,6 +11,7 @@ from app.interfaces.api.models.requests import (
 from app.interfaces.api.models.responses import (
     ImportEventResponse,
     ProgressResponse,
+    RebuildDescriptionResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -68,4 +69,32 @@ async def get_import_progress(request_id: str) -> ProgressResponse:
 
     except Exception as e:
         logger.exception("Progress error")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post(
+    "/{event_id}/rebuild-descriptions", response_model=RebuildDescriptionResponse
+)
+async def rebuild_event_descriptions(
+    event_id: int,
+) -> RebuildDescriptionResponse:
+    """Rebuild descriptions for a specific event."""
+    try:
+        router_instance = get_router()
+        updated_event = await router_instance.importer.rebuild_descriptions(event_id)
+
+        if updated_event:
+            return RebuildDescriptionResponse(
+                success=True,
+                event_id=event_id,
+                message="Descriptions rebuilt successfully",
+                data=updated_event,
+            )
+        raise HTTPException(
+            status_code=404,
+            detail=f"Event not found or failed to rebuild for ID: {event_id}",
+        )
+
+    except Exception as e:
+        logger.exception(f"Failed to rebuild descriptions for event {event_id}")
         raise HTTPException(status_code=500, detail=str(e)) from e

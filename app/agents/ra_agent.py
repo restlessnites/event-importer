@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from dateutil import parser as date_parser
+
 from app.error_messages import AgentMessages, ServiceMessages
 from app.schemas import EventData, EventLocation, ImportMethod, ImportStatus
 from app.shared.agent import Agent
@@ -91,20 +93,19 @@ class ResidentAdvisorAgent(Agent):
                     logger.debug(f"{ServiceMessages.GENRE_SEARCH_FAILED}: {e}")
                     # Continue without genres
 
-            # Generate descriptions if missing - use safe service access
-            if not event_data.long_description or not event_data.short_description:
-                await self.send_progress(
-                    request_id,
-                    ImportStatus.RUNNING,
-                    "Generating descriptions",
-                    0.85,
-                )
-                try:
-                    llm_service = self.get_service("llm")
-                    event_data = await llm_service.generate_descriptions(event_data)
-                except (ValueError, TypeError, KeyError):
-                    logger.exception(AgentMessages.DESCRIPTION_GENERATION_FAILED)
-                    # Continue without descriptions rather than failing completely
+            # Enhance descriptions
+            await self.send_progress(
+                request_id,
+                ImportStatus.RUNNING,
+                "Enhancing descriptions",
+                0.85,
+            )
+            try:
+                llm_service = self.get_service("llm")
+                event_data = await llm_service.generate_descriptions(event_data)
+            except (ValueError, TypeError, KeyError):
+                logger.exception(AgentMessages.DESCRIPTION_GENERATION_FAILED)
+                # Continue without descriptions rather than failing completely
 
             await self.send_progress(
                 request_id,
@@ -285,10 +286,20 @@ class ResidentAdvisorAgent(Agent):
         if content_url := event.get("contentUrl"):
             ticket_url = f"https://ra.co{content_url}"
 
+        # Extract end_date from endTime
+        end_date_str = None
+        if end_time_str := event.get("endTime"):
+            try:
+                end_date_obj = date_parser.parse(end_time_str)
+                end_date_str = end_date_obj.strftime("%Y-%m-%d")
+            except (ValueError, TypeError):
+                pass  # Ignore if parsing fails
+
         return EventData(
             title=event["title"],
             venue=event.get("venue", {}).get("name"),
             date=event.get("date"),
+            end_date=end_date_str,
             time=time,
             lineup=lineup,
             promoters=promoters,
