@@ -10,9 +10,25 @@ The framework is built on a few key components that work together to select, tra
 
 ## Core Components
 
-Each integration consists of four main Python classes, which inherit from base classes defined in `app/integrations/base.py`.
+Each integration consists of several Python classes, which inherit from base classes defined in `app/integrations/base.py`.
 
-### 1. Selectors
+### 1. `Integration` Class
+
+This is the main entry point for an integration. It must inherit from `app.integrations.base.Integration` and implement the `name` property.
+
+**Example (`TicketFairyIntegration`):**
+```python
+from app.integrations.base import Integration
+
+class TicketFairyIntegration(Integration):
+    @property
+    def name(self) -> str:
+        return "ticketfairy"
+```
+
+The system uses this class to discover and load the other components of the integration dynamically.
+
+### 2. Selectors
 
 - **Purpose**: To select which events should be processed by the integration.
 - **Base Class**: `BaseSelector`
@@ -26,18 +42,10 @@ Selects all events that have never been submitted to a specific service.
 ```python
 class UnsubmittedSelector(BaseSelector):
     def select_events(self, db: Session, service_name: str) -> List[EventCache]:
-        return (
-            db.query(EventCache)
-            .outerjoin(Submission, and_(
-                Submission.event_cache_id == EventCache.id,
-                Submission.service_name == service_name
-            ))
-            .filter(Submission.id == None)
-            .all()
-        )
+        # ... implementation ...
 ```
 
-### 2. Transformer
+### 3. Transformer
 
 - **Purpose**: To transform the standardized `EventData` dictionary into the specific format required by the destination API.
 - **Base Class**: `BaseTransformer`
@@ -52,18 +60,9 @@ Converts an `EventData` object into the JSON payload expected by the TicketFairy
 class TicketFairyTransformer(BaseTransformer):
     def transform(self, event_data: Dict[str, Any]) -> Dict[str, Any]:
         # ... data mapping logic ...
-        return {
-            "data": {
-                "attributes": {
-                    "title": event_data.get("title"),
-                    "venue": event_data.get("venue"),
-                    # ... other transformed fields
-                }
-            }
-        }
 ```
 
-### 3. Client
+### 4. Client
 
 - **Purpose**: To handle the actual HTTP communication with the external service's API.
 - **Base Class**: `BaseClient`
@@ -71,83 +70,59 @@ class TicketFairyTransformer(BaseTransformer):
 
 The client is responsible for making the API call, handling authentication, and raising appropriate errors.
 
-**Example (`TicketFairyClient`):**
-
-```python
-from app.shared.http import get_http_service
-
-class TicketFairyClient(BaseClient):
-    def __init__(self):
-        self.http = get_http_service()
-        # You would typically get the API key from config
-        self.api_key = "your_api_key" 
-
-    async def submit(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        headers = {"Authorization": f"Bearer {self.api_key}"}
-        
-        response_data = await self.http.post_json(
-            API_URL, 
-            service="TicketFairy",
-            headers=headers, 
-            json=data
-        )
-        
-        return response_data
-```
-
-### 4. Submitter
+### 5. Submitter
 
 - **Purpose**: To orchestrate the entire submission process for an integration.
 - **Base Class**: `BaseSubmitter`
 
 The submitter ties all the other components together. It initializes the selectors, transformer, and client. Its core `submit_events` method (provided by the base class) handles the workflow of selecting events, transforming them, and using the client to submit them, while also managing database records (`Submission` model) to track the status of each attempt.
 
-**Example (`TicketFairySubmitter`):**
+## Auto-Discovery of Interface Components
 
-```python
-class TicketFairySubmitter(BaseSubmitter):
-    @property
-    def service_name(self) -> str:
-        return "ticketfairy"
+The framework can automatically discover and register components for different interfaces (like MCP, CLI, and API) if they are placed in conventional file names within your integration's directory.
 
-    def _create_client(self) -> BaseClient:
-        return TicketFairyClient()
+- **MCP Tools**: If you create an `mcp_tools.py` file, the MCP server will automatically load the `TOOLS` and `TOOL_HANDLERS` from it.
+- **API Routes**: An `routes.py` file containing a FastAPI `APIRouter` will be automatically registered with the API server.
+- **CLI Commands**: A `cli.py` file can be used to add custom commands to the main CLI.
 
-    def _create_transformer(self) -> BaseTransformer:
-        return TicketFairyTransformer()
-
-    def _create_selectors(self) -> Dict[str, BaseSelector]:
-        return {
-            "unsubmitted": UnsubmittedSelector(),
-            "failed": FailedSelector(),
-        }
-```
-
-## Auto-Discovery and Interfaces
-
-The framework can automatically register CLI commands and API endpoints for your integration.
-
-- **CLI Commands**: If you create a `cli.py` file in your integration's directory, it will be automatically discovered. You can use this to add new subcommands to the main `event-importer` CLI. For example, `event-importer ticketfairy submit`.
-- **API Routes**: If you create a `routes.py` file with a FastAPI `APIRouter`, its endpoints will be automatically included in the API server. For example, `POST /integrations/ticketfairy/submit`.
+This is handled by the `get_mcp_tools()` and `get_routes()` methods on the base `Integration` class, which use dynamic importing to load these modules on demand. This prevents dependency issues during installation while allowing seamless extension of the application's interfaces.
 
 ## How to Create a New Integration
 
-1. **Create a Directory**: Add a new folder inside `app/integrations/`, for example, `app/integrations/my_service`.
+1.  **Create a Directory**: Add a new folder inside `app/integrations/`, for example, `app/integrations/my_service`.
 
-2. **Add `__init__.py`**: This file can be empty, but it's required for the module to be discoverable.
+2.  **Implement the `Integration` Class**: Create a `base.py` file and define your main integration class, inheriting from `app.integrations.base.Integration`.
 
-3. **Implement Components**:
-    - Create `selectors.py` and define your `Selector` classes.
-    - Create `transformer.py` and define your `Transformer` class.
-    - Create `client.py` and define your `Client` class.
-    - Create `submitter.py` and define your `Submitter` class that wires everything together.
+    ```python
+    from app.integrations.base import Integration
 
-4. **Add Configuration**:
-    - Add any required API keys or settings to `.env.example`.
-    - Update `app/config.py` to load these new environment variables.
+    class MyServiceIntegration(Integration):
+        @property
+        def name(self) -> str:
+            return "my_service"
+    ```
 
-5. **(Optional) Add Interfaces**:
-    - Create `cli.py` to add command-line functionality.
-    - Create `routes.py` to add API endpoints.
+3.  **Implement Components**:
+    -   Create `selectors.py` and define your `Selector` classes.
+    -   Create `transformer.py` and define your `Transformer` class.
+    -   Create `client.py` and define your `Client` class.
+    -   Create `submitter.py` and define your `Submitter` class that wires everything together.
 
-6. **Run It**: Your new integration's commands and routes will be available automatically the next time you run the application.
+4.  **Add Configuration**:
+    -   Add any required API keys or settings to `.env.example`.
+    -   Update `app/config.py` to load these new environment variables.
+
+5.  **Register the Entry Point**: Open `pyproject.toml` and add your new integration class to the `app.integrations` entry points group.
+
+    ```toml
+    [project.entry-points."app.integrations"]
+    ticketfairy = "app.integrations.ticketfairy.base:TicketFairyIntegration"
+    my_service = "app.integrations.my_service.base:MyServiceIntegration"
+    ```
+
+6.  **(Optional) Add Interfaces**:
+    -   Create `mcp_tools.py` to add custom tools to the MCP server.
+    -   Create `routes.py` to add API endpoints.
+    -   Create `cli.py` to add command-line functionality.
+
+7.  **Run It**: Your new integration's tools, routes, and commands will be available automatically the next time you run the application.

@@ -126,14 +126,17 @@ The `LLMService` (`app/services/llm.py`) provides a resilient AI backend.
 
 The `app/integrations` directory contains a pluggable framework for sending imported event data to external services. This allows for easy extension without modifying the core import logic.
 
+- **Auto-Discovery**: Integrations are discovered at startup using `importlib.metadata` to find any packages registered under the `"app.integrations"` entry point group in `pyproject.toml`.
+- **Dynamic Loading**: The core application **does not** directly import integration code. Instead, components like MCP tools or API routes are loaded on-demand by the relevant interface (e.g., the MCP server or the API server). This is achieved by calling methods on the integration's main class (e.g., `integration.get_mcp_tools()`), which then dynamically imports the necessary module.
+- **Decoupling**: This approach decouples the core application from the integrations, preventing dependency conflicts during installation and ensuring that integrations are self-contained.
+
 The key components are:
 
+- **`Integration`**: The main entry point class for an integration.
 - **`BaseSubmitter`**: The main orchestrator for an integration (e.g., `TicketFairySubmitter`). It coordinates getting events, transforming them, and submitting them.
 - **`BaseSelector`**: Defines which events to select from the database for submission (e.g., `UnsubmittedSelector`, `FailedSelector`).
 - **`BaseTransformer`**: Converts the standard `EventData` format into the specific format required by the destination API (e.g., `TicketFairyTransformer`).
 - **`BaseClient`**: A simple wrapper around the external service's API (e.g., `TicketFairyClient`).
-
-Integrations are **auto-discovered** at startup. If an integration provides `cli.py` or `routes.py`, its CLI commands and API endpoints are automatically registered with the main application.
 
 ### 4. Database Models
 
@@ -158,14 +161,12 @@ Integrations Framework (reads from DB, uses HTTP)
 
 ### Adding a New Integration
 
-1. Create a new directory under `app/integrations/`, e.g., `app/integrations/my_service/`.
-2. Implement the required classes inheriting from the base classes in `app/integrations/base.py`:
-    - A `Client` to communicate with the service's API.
-    - A `Transformer` to map `EventData` to the service's format.
-    - One or more `Selector`s to query events from the database.
-    - A `Submitter` to orchestrate the process.
-3. (Optional) Add a `cli.py` to define custom CLI commands or `routes.py` to add API endpoints.
-4. The integration will be auto-discovered and available. Add any required API data to `env.example` and `config.py`.
+1.  Create a new directory under `app/integrations/`, e.g., `app/integrations/my_service/`.
+2.  Create a `base.py` file with a main integration class inheriting from `app.integrations.base.Integration`.
+3.  Implement the required `Selector`, `Transformer`, `Client`, and `Submitter` classes.
+4.  (Optional) Add interface files like `mcp_tools.py`, `routes.py`, or `cli.py`.
+5.  Register the main integration class as an entry point in `pyproject.toml` under the `[project.entry-points."app.integrations"]` group.
+6.  The integration will be auto-discovered and its components loaded on-demand. Add any required API data to `env.example` and `config.py`.
 
 ### Adding a New Import Source
 
