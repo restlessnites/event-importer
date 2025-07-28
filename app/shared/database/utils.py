@@ -2,9 +2,10 @@ import hashlib
 import json
 from typing import Any
 
+from sqlalchemy.orm import Session
+
 from .connection import get_db_session
 from .models import EventCache, Submission
-from sqlalchemy.orm import Session
 
 
 def hash_event_data(event_data: dict[str, Any]) -> str:
@@ -14,13 +15,17 @@ def hash_event_data(event_data: dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def cache_event(url: str, event_data: dict[str, Any], db: Session | None = None) -> EventCache:
+def cache_event(
+    url: str, event_data: dict[str, Any], db: Session | None = None
+) -> EventCache:
     """Cache scraped event data"""
     data_hash = hash_event_data(event_data)
 
     def _cache(db_session: Session) -> EventCache:
         # Check if event already exists
-        existing = db_session.query(EventCache).filter(EventCache.source_url == url).first()
+        existing = (
+            db_session.query(EventCache).filter(EventCache.source_url == url).first()
+        )
 
         if existing:
             # Update if data has changed
@@ -49,7 +54,9 @@ def get_cached_event(url: str, db: Session | None = None) -> dict[str, Any] | No
     """Get cached event data by URL"""
 
     def _get(db_session: Session) -> dict[str, Any] | None:
-        event_cache = db_session.query(EventCache).filter(EventCache.source_url == url).first()
+        event_cache = (
+            db_session.query(EventCache).filter(EventCache.source_url == url).first()
+        )
         if event_cache:
             # Return the scraped_data dict instead of the SQLAlchemy object
             return event_cache.scraped_data
