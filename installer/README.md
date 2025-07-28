@@ -6,7 +6,7 @@ This installer provides an automated setup process for the Event Importer on mac
 
 The installer is built with modularity and maintainability in mind:
 
-```
+```plaintext
 installer/
 ├── core.py                 # Main orchestrator
 ├── utils.py               # Shared utilities
@@ -29,39 +29,46 @@ installer/
 ## Components
 
 ### Core (core.py)
+
 - Orchestrates the entire installation flow
 - Manages component lifecycle
 - Provides top-level error handling
 
 ### Utils (utils.py)
+
 - `Console`: Consistent colored output and user interaction
 - `SystemCheck`: Platform and command detection
 - `ProcessRunner`: Safe subprocess execution
 - `FileUtils`: File operations with backup support
 
-### Components
+### Component Details
 
 #### DependencyInstaller
+
 - Checks and installs Homebrew
 - Installs uv package manager
 - Handles PATH configuration
 
 #### EnvironmentSetup
+
 - Creates .env from template
 - Manages Python dependencies via uv
 - Validates environment structure
 
 #### APIKeyManager
+
 - Interactive API key configuration
 - Distinguishes required vs optional keys
 - Secure input handling
 
 #### ClaudeDesktopConfig
+
 - Auto-detects Claude Desktop installation
 - Configures MCP server integration
 - Backs up existing configurations
 
 ### Validators
+
 - Comprehensive post-installation checks
 - Detailed error reporting
 - Distinguishes errors from warnings
@@ -69,11 +76,13 @@ installer/
 ## Usage
 
 Users simply run:
+
 ```bash
 python3 install.py
 ```
 
 The installer will:
+
 1. Check system requirements
 2. Install missing dependencies
 3. Configure the environment
