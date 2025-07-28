@@ -9,14 +9,12 @@ from app.config import Config
 from app.error_messages import ServiceMessages
 from app.errors import retry_on_error
 from app.genres import MusicGenres
-from app.prompts import GenrePrompts
+from app.prompts import GENRE_PROMPT
 from app.schemas import EventData
 from app.services.llm import LLMService
 from app.shared.http import HTTPService
 
 logger = logging.getLogger(__name__)
-
-
 
 
 class GenreService:
@@ -60,7 +58,8 @@ class GenreService:
 
         try:
             found_genres = await self._search_artist_genres(
-                primary_artist, self._build_event_context(event_data),
+                primary_artist,
+                self._build_event_context(event_data),
             )
 
             if found_genres:
@@ -71,12 +70,15 @@ class GenreService:
                     logger.info(f"Enhanced event with genres: {event_data.genres}")
 
         except (ValueError, TypeError, KeyError) as e:
-            logger.warning(f"{ServiceMessages.GENRE_ENHANCEMENT_FAILED} for {primary_artist}: {e}")
+            logger.warning(
+                f"{ServiceMessages.GENRE_ENHANCEMENT_FAILED} for {primary_artist}: {e}"
+            )
 
         return event_data
 
     def _build_event_context(
-        self: "GenreService", event_data: EventData,
+        self: "GenreService",
+        event_data: EventData,
     ) -> dict[str, Any]:
         """Build context dict for genre search."""
         context = {
@@ -93,7 +95,9 @@ class GenreService:
 
     @retry_on_error(max_attempts=2)
     async def _search_artist_genres(
-        self: "GenreService", artist_name: str, event_context: dict[str, Any],
+        self: "GenreService",
+        artist_name: str,
+        event_context: dict[str, Any],
     ) -> list[str]:
         """Search for an artist's genres using Google and an LLM."""
         # Build search query
@@ -110,11 +114,11 @@ class GenreService:
             search_text = self._extract_search_text(search_results)
 
             # Use LLM to analyze and extract genres
-            genres = await self._extract_genres_with_llm(
-                artist_name, search_text, event_context,
+            return await self._extract_genres_with_llm(
+                artist_name,
+                search_text,
+                event_context,
             )
-
-            return genres
 
         except (ValueError, TypeError, KeyError):
             logger.exception(f"{ServiceMessages.GENRE_SEARCH_FAILED} for {artist_name}")
@@ -139,7 +143,8 @@ class GenreService:
         return response.get("items", [])
 
     def _extract_search_text(
-        self: "GenreService", results: list[dict[str, Any]],
+        self: "GenreService",
+        results: list[dict[str, Any]],
     ) -> str:
         """Extract relevant text from search results."""
         texts = []
@@ -168,8 +173,10 @@ class GenreService:
         event_context: dict[str, Any],
     ) -> list[str]:
         """Use LLM to extract genres from search text."""
-        prompt = GenrePrompts.build_artist_verification_prompt(
-            artist_name, search_text, event_context,
+        prompt = GENRE_PROMPT.build_artist_verification_prompt(
+            artist_name,
+            search_text,
+            event_context,
         )
         try:
             response = await self.llm.analyze_text(prompt)

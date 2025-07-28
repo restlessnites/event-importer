@@ -14,8 +14,6 @@ from app.shared.url_analyzer import URLAnalyzer
 logger = logging.getLogger(__name__)
 
 
-
-
 class ResidentAdvisorAgent(Agent):
     """Agent for importing events from Resident Advisor."""
 
@@ -37,7 +35,9 @@ class ResidentAdvisorAgent(Agent):
         return ImportMethod.API
 
     async def import_event(
-        self: ResidentAdvisorAgent, url: str, request_id: str,
+        self: ResidentAdvisorAgent,
+        url: str,
+        request_id: str,
     ) -> EventData | None:
         """Import event from RA GraphQL API."""
         self.start_timer()
@@ -63,7 +63,10 @@ class ResidentAdvisorAgent(Agent):
                 raise Exception(error_msg)
 
             await self.send_progress(
-                request_id, ImportStatus.RUNNING, "Parsing event data", 0.7,
+                request_id,
+                ImportStatus.RUNNING,
+                "Parsing event data",
+                0.7,
             )
 
             # Parse to our format
@@ -71,7 +74,10 @@ class ResidentAdvisorAgent(Agent):
 
             if not event_data.genres and self.services.get("genre"):
                 await self.send_progress(
-                    request_id, ImportStatus.RUNNING, "Searching for genres", 0.8,
+                    request_id,
+                    ImportStatus.RUNNING,
+                    "Searching for genres",
+                    0.8,
                 )
                 try:
                     genre_service = self.get_service("genre")
@@ -83,7 +89,10 @@ class ResidentAdvisorAgent(Agent):
             # Generate descriptions if missing - use safe service access
             if not event_data.long_description or not event_data.short_description:
                 await self.send_progress(
-                    request_id, ImportStatus.RUNNING, "Generating descriptions", 0.85,
+                    request_id,
+                    ImportStatus.RUNNING,
+                    "Generating descriptions",
+                    0.85,
                 )
                 try:
                     llm_service = self.get_service("llm")
@@ -176,6 +185,14 @@ class ResidentAdvisorAgent(Agent):
 
         return data.get("data", {}).get("event")
 
+    def _parse_images(self: ResidentAdvisorAgent, event: dict) -> dict[str, str] | None:
+        """Parse images from RA event data, returning the first valid image."""
+        if (images_list := event.get("images")) and isinstance(images_list, list):
+            for img in images_list:
+                if filename := img.get("filename"):
+                    return {"full": filename, "thumbnail": filename}
+        return None
+
     def _parse_event(self: ResidentAdvisorAgent, event: dict, url: str) -> EventData:
         """Parse RA event data to our schema."""
         # Build location
@@ -198,35 +215,21 @@ class ResidentAdvisorAgent(Agent):
             )
 
         # Extract lineup
-        lineup = []
-        if event.get("artists"):
-            lineup = [a["name"] for a in event["artists"]]
+        lineup = [a["name"] for a in event.get("artists") or []]
 
         # Extract promoters
-        promoters = []
-        if event.get("promoters"):
-            promoters = [p["name"] for p in event["promoters"]]
+        promoters = [p["name"] for p in event.get("promoters") or []]
 
         # Extract genres
-        genres = []
-        if event.get("genres"):
-            genres = [g["name"] for g in event["genres"]]
+        genres = [g["name"] for g in event.get("genres") or []]
 
         # Build images from the images array
-        images = None
-        if event.get("images") and isinstance(event["images"], list):
-            for img in event["images"]:
-                if img.get("filename"):
-                    images = {
-                        "full": img["filename"],
-                        "thumbnail": img["filename"],
-                    }
-                    break  # Use the first image with a filename
+        images = self._parse_images(event)
 
         # Generate ticket URL from contentUrl
         ticket_url = None
-        if event.get("contentUrl"):
-            ticket_url = f"https://ra.co{event['contentUrl']}"
+        if content_url := event.get("contentUrl"):
+            ticket_url = f"https://ra.co{content_url}"
 
         return EventData(
             title=event["title"],

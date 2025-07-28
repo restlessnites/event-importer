@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -141,7 +142,9 @@ class Config:
         api_status = self.api.validate()
 
         if not api_status["anthropic"] and not api_status.get("openai"):
-            error_msg = "At least one of ANTHROPIC_API_KEY or OPENAI_API_KEY is required."
+            error_msg = (
+                "At least one of ANTHROPIC_API_KEY or OPENAI_API_KEY is required."
+            )
             raise ValueError(error_msg)
 
         if not api_status["zyte"]:
@@ -149,22 +152,18 @@ class Config:
             raise ValueError(error_msg)
 
         # Log warnings for optional APIs
-        if not api_status["ticketmaster"]:
-            import logging
+        logger = logging.getLogger(__name__)
 
-            logging.warning(
+        if not api_status["ticketmaster"]:
+            logger.warning(
                 "Ticketmaster API key not configured - Ticketmaster imports disabled",
             )
 
         if not api_status["google_search"]:
-            import logging
-
-            logging.warning("Google Search API not configured - image search disabled")
+            logger.warning("Google Search API not configured - image search disabled")
 
         if not api_status["ticketfairy"]:
-            import logging
-
-            logging.warning(
+            logger.warning(
                 "TicketFairy API key not configured - TicketFairy integration disabled",
             )
 
@@ -200,3 +199,11 @@ def set_config(config: Config) -> None:
     """Set the global configuration instance (mainly for testing)."""
     global _config
     _config = config
+
+
+if __name__ == "__main__":
+    config = get_config()
+    # Pretty print the config
+    import json
+
+    print(json.dumps(config.__dict__, indent=4))

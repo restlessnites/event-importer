@@ -39,9 +39,8 @@ async def check_health(base_url: str = "http://localhost:8000") -> bool | None:
                     print(f"   Version: {data['version']}")
                     print(f"   Features: {', '.join(data['features'])}")
                     return True
-                else:
-                    print(f"❌ API health check failed: {response.status}")
-                    return False
+                print(f"❌ API health check failed: {response.status}")
+                return False
         except Exception as e:
             print(f"❌ Failed to connect to API: {e}")
             return False

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
+from urllib.parse import urlparse
 
 from app.error_messages import AgentMessages, ServiceMessages
 from app.schemas import EventData, EventLocation, ImportMethod, ImportStatus
@@ -12,8 +14,6 @@ from app.shared.http import HTTPService
 from app.shared.url_analyzer import URLAnalyzer
 
 logger = logging.getLogger(__name__)
-
-
 
 
 class TicketmasterAgent(Agent):
@@ -39,7 +39,9 @@ class TicketmasterAgent(Agent):
         return ImportMethod.API
 
     async def import_event(
-        self: TicketmasterAgent, url: str, request_id: str,
+        self: TicketmasterAgent,
+        url: str,
+        request_id: str,
     ) -> EventData | None:
         """Import event from Ticketmaster Discovery API."""
         self.start_timer()
@@ -69,19 +71,28 @@ class TicketmasterAgent(Agent):
                 raise Exception(error_msg)
 
             await self.send_progress(
-                request_id, ImportStatus.RUNNING, "Parsing event data", 0.6,
+                request_id,
+                ImportStatus.RUNNING,
+                "Parsing event data",
+                0.6,
             )
 
             # Parse the event data
             event_data = self._parse_event(event, url)
 
             await self.send_progress(
-                request_id, ImportStatus.RUNNING, "Enhancing event data", 0.75,
+                request_id,
+                ImportStatus.RUNNING,
+                "Enhancing event data",
+                0.75,
             )
 
             if not event_data.genres and self.services.get("genre"):
                 await self.send_progress(
-                    request_id, ImportStatus.RUNNING, "Searching for genres", 0.8,
+                    request_id,
+                    ImportStatus.RUNNING,
+                    "Searching for genres",
+                    0.8,
                 )
                 try:
                     genre_service = self.get_service("genre")
@@ -93,7 +104,10 @@ class TicketmasterAgent(Agent):
             # Generate descriptions if missing - use safe service access
             if not event_data.long_description or not event_data.short_description:
                 await self.send_progress(
-                    request_id, ImportStatus.RUNNING, "Generating descriptions", 0.85,
+                    request_id,
+                    ImportStatus.RUNNING,
+                    "Generating descriptions",
+                    0.85,
                 )
                 try:
                     llm_service = self.get_service("llm")
@@ -126,12 +140,11 @@ class TicketmasterAgent(Agent):
     async def _fetch_event(self: TicketmasterAgent, event_id: str) -> dict | None:
         """Fetch event from Discovery API."""
         try:
-            data = await self.http.get_json(
+            return await self.http.get_json(
                 f"{self.API_BASE}/events/{event_id}.json",
                 service="Ticketmaster",
                 params={"apikey": self.api_key},
             )
-            return data
         except (ValueError, TypeError, KeyError):
             # Try searching if direct fetch fails
             logger.info("Direct fetch failed, trying search")
@@ -139,95 +152,13 @@ class TicketmasterAgent(Agent):
 
     def _parse_event(self: TicketmasterAgent, event: dict, url: str) -> EventData:
         """Parse Ticketmaster event data to our schema, with robust description extraction."""
-        # Extract venue and location first (needed for timezone)
-        venue_name = None
-        location = None
-        if event.get("_embedded", {}).get("venues"):
-            venue = event["_embedded"]["venues"][0]
-            venue_name = venue.get("name")
-
-            # Build location
-            loc_parts = {}
-            if venue.get("address", {}).get("line1"):
-                loc_parts["address"] = venue["address"]["line1"]
-            if venue.get("city", {}).get("name"):
-                loc_parts["city"] = venue["city"]["name"]
-            if venue.get("state"):
-                loc_parts["state"] = venue["state"].get("stateCode")
-            if venue.get("country", {}).get("name"):
-                loc_parts["country"] = venue["country"]["name"]
-
-            if loc_parts:
-                location = EventLocation(**loc_parts)
-
-        # Extract date and time (with timezone from location)
-        date = None
-        time = None
-        if event.get("dates", {}).get("start"):
-            start = event["dates"]["start"]
-            if start.get("localDate"):
-                date = start["localDate"]
-            if start.get("localTime"):
-                time = self.create_event_time(
-                    start=start["localTime"],
-                    location=location,
-                )
-
-        # Extract lineup
-        lineup = []
-        if event.get("_embedded", {}).get("attractions"):
-            lineup = [a["name"] for a in event["_embedded"]["attractions"]]
-
-        # Extract genres
-        genres = []
-        if event.get("classifications"):
-            for c in event["classifications"]:
-                if c.get("genre", {}).get("name"):
-                    genres.append(c["genre"]["name"])
-
-        # Extract cost
-        cost = None
-        if event.get("priceRanges"):
-            pr = event["priceRanges"][0]
-            if pr.get("min") and pr.get("max"):
-                cost = f"${pr['min']:.2f} - ${pr['max']:.2f}"
-            elif pr.get("min"):
-                cost = f"${pr['min']:.2f}"
-
-        # Extract images
-        images = None
-        if event.get("images"):
-            # Sort by width to get highest res
-            sorted_images = sorted(
-                event["images"], key=lambda x: int(x.get("width", 0)), reverse=True,
-            )
-            if sorted_images:
-                images = {
-                    "full": sorted_images[0]["url"],
-                    "thumbnail": sorted_images[-1]["url"],
-                }
-
-        # Robust description extraction
-        long_description = (
-            event.get("info")
-            or event.get("pleaseNote")
-            or event.get("description")
-            or event.get("additionalInfo")
-        )
-        # Clean up whitespace if present
-        if isinstance(long_description, str):
-            long_description = long_description.strip()
-        else:
-            long_description = None
-
-        # Short description logic
-        if long_description:
-            if len(long_description) <= 150:
-                short_description = long_description
-            else:
-                short_description = long_description[:147].rstrip() + "..."
-        else:
-            short_description = None
+        venue_name, location = self._parse_venue_and_location(event)
+        date, time = self._parse_datetime(event, location)
+        lineup = self._parse_lineup(event)
+        genres = self._parse_genres(event)
+        cost = self._parse_cost(event)
+        images = self._parse_images(event)
+        long_description, short_description = self._parse_descriptions(event)
 
         return EventData(
             title=event["name"],
@@ -247,8 +178,6 @@ class TicketmasterAgent(Agent):
 
     def _extract_search_info_from_url(self: TicketmasterAgent, url: str) -> dict:
         """Extract searchable information from a Ticketmaster URL using domain/source and path keywords."""
-        import re
-        from urllib.parse import urlparse
 
         search_info = {}
         parsed = urlparse(url)
@@ -306,7 +235,8 @@ class TicketmasterAgent(Agent):
         return search_info
 
     async def _search_for_event(
-        self: TicketmasterAgent, search_info: dict,
+        self: TicketmasterAgent,
+        search_info: dict,
     ) -> dict | None:
         """Search for an event using the Discovery API search endpoint with domain/source filtering."""
         try:
@@ -342,3 +272,112 @@ class TicketmasterAgent(Agent):
         except (ValueError, TypeError, KeyError):
             logger.exception(AgentMessages.DISCOVERY_API_ERROR)
             return None
+
+    def _parse_venue_and_location(
+        self: TicketmasterAgent,
+        event: dict,
+    ) -> tuple[str | None, EventLocation | None]:
+        """Parse venue and location from event data."""
+        venue_name = None
+        location = None
+        if event.get("_embedded", {}).get("venues"):
+            venue = event["_embedded"]["venues"][0]
+            venue_name = venue.get("name")
+
+            loc_parts = {}
+            if venue.get("address", {}).get("line1"):
+                loc_parts["address"] = venue["address"]["line1"]
+            if venue.get("city", {}).get("name"):
+                loc_parts["city"] = venue["city"]["name"]
+            if venue.get("state"):
+                loc_parts["state"] = venue["state"].get("stateCode")
+            if venue.get("country", {}).get("name"):
+                loc_parts["country"] = venue["country"]["name"]
+
+            if loc_parts:
+                location = EventLocation(**loc_parts)
+        return venue_name, location
+
+    def _parse_datetime(
+        self: TicketmasterAgent,
+        event: dict,
+        location: EventLocation | None,
+    ) -> tuple[str | None, str | None]:
+        """Parse date and time from event data."""
+        date = None
+        time = None
+        if event.get("dates", {}).get("start"):
+            start = event["dates"]["start"]
+            if start.get("localDate"):
+                date = start["localDate"]
+            if start.get("localTime"):
+                time = self.create_event_time(
+                    start=start["localTime"],
+                    location=location,
+                )
+        return date, time
+
+    def _parse_lineup(self: TicketmasterAgent, event: dict) -> list[str]:
+        """Parse lineup from event data."""
+        if event.get("_embedded", {}).get("attractions"):
+            return [a["name"] for a in event["_embedded"]["attractions"]]
+        return []
+
+    def _parse_genres(self: TicketmasterAgent, event: dict) -> list[str]:
+        """Parse genres from event data."""
+        genres = []
+        if event.get("classifications"):
+            for c in event["classifications"]:
+                if c.get("genre", {}).get("name"):
+                    genres.append(c["genre"]["name"])
+        return genres
+
+    def _parse_cost(self: TicketmasterAgent, event: dict) -> str | None:
+        """Parse cost from event data."""
+        cost = None
+        if event.get("priceRanges"):
+            pr = event["priceRanges"][0]
+            if pr.get("min") and pr.get("max"):
+                cost = f"${pr['min']:.2f} - ${pr['max']:.2f}"
+            elif pr.get("min"):
+                cost = f"${pr['min']:.2f}"
+        return cost
+
+    def _parse_images(self: TicketmasterAgent, event: dict) -> dict[str, str] | None:
+        """Parse images from event data."""
+        if event.get("images"):
+            sorted_images = sorted(
+                event["images"],
+                key=lambda x: int(x.get("width", 0)),
+                reverse=True,
+            )
+            if sorted_images:
+                return {
+                    "full": sorted_images[0]["url"],
+                    "thumbnail": sorted_images[-1]["url"],
+                }
+        return None
+
+    def _parse_descriptions(
+        self: TicketmasterAgent,
+        event: dict,
+    ) -> tuple[str | None, str | None]:
+        """Parse and format descriptions from event data."""
+        long_description = (
+            event.get("info")
+            or event.get("pleaseNote")
+            or event.get("description")
+            or event.get("additionalInfo")
+        )
+        if isinstance(long_description, str):
+            long_description = long_description.strip()
+        else:
+            long_description = None
+
+        short_description = None
+        if long_description:
+            if len(long_description) <= 150:
+                short_description = long_description
+            else:
+                short_description = long_description[:147].rstrip() + "..."
+        return long_description, short_description

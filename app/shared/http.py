@@ -3,24 +3,24 @@
 from __future__ import annotations
 
 import asyncio
+import builtins
 import logging
 import ssl
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from types import TracebackType
-from typing import Any
+from typing import Any, Unpack
 
 import aiohttp
 import certifi
 from aiohttp import BasicAuth, ClientResponse, ClientSession, ClientTimeout
-from typing_extensions import Unpack
 
 from app.config import Config, get_config
 from app.errors import (
     APIError,
     AuthenticationError,
     RateLimitError,
-    TimeoutError,
+    RequestTimeoutError,
     handle_errors_async,
 )
 
@@ -98,15 +98,17 @@ class HTTPService:
 
     @asynccontextmanager
     async def _error_handler(
-        self: HTTPService, service: str, url: str,
+        self: HTTPService,
+        service: str,
+        url: str,
     ) -> AsyncGenerator[None, None]:
         """Context manager for consistent error handling."""
         try:
             yield
-        except asyncio.TimeoutError as e:
+        except builtins.TimeoutError as e:
             logger.debug(f"{service} timeout for URL: {url}")
             error_msg = f"{service} request timed out"
-            raise TimeoutError(error_msg) from e
+            raise RequestTimeoutError(error_msg) from e
         except aiohttp.ClientError as e:
             logger.debug(f"{service} client error for URL {url}: {e}")
             raise APIError(service, str(e)) from e
@@ -409,7 +411,9 @@ class HTTPService:
                 if content_length and max_size:
                     size = int(content_length)
                     if size > max_size:
-                        error_msg = f"Response too large: {size} bytes (max: {max_size} bytes)"
+                        error_msg = (
+                            f"Response too large: {size} bytes (max: {max_size} bytes)"
+                        )
                         raise ValueError(error_msg)
 
                 # Download with size limit

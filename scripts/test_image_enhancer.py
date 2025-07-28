@@ -1,8 +1,11 @@
 #!/usr/bin/env -S uv run python
 """Test script to debug image search functionality with CLI."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
+import sys
 
 from dotenv import load_dotenv
 
@@ -183,8 +186,6 @@ async def test_specific_url() -> None:
 
 async def main() -> None:
     """Run tests based on command line arguments."""
-    import sys
-
     cli = get_cli()
 
     try:

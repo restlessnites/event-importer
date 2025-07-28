@@ -51,12 +51,16 @@ class SecurityPageDetector:
     ) -> tuple[bool, str | None]:
         """Detect if the HTML content is a security/protection page.
 
+        Args:
+            html: The HTML content to check
+            url: The URL being checked (for domain-specific rules)
+
         Returns:
             Tuple of (is_security_page, detected_reason)
 
         """
         if not html or len(html.strip()) < 100:
-            return True, "Empty or minimal content"
+            return True, f"Empty or minimal content from {url}"
 
         html_lower = html.lower()
 
@@ -83,6 +87,10 @@ class SecurityPageDetector:
         # Only flag as security page if it's a standalone captcha challenge
         if cls._is_blocking_captcha_page(html_lower):
             return True, "Standalone captcha challenge detected"
+
+        # Domain-specific checks
+        if "cloudflare" in url.lower() and "challenge" in html_lower:
+            return True, "Cloudflare challenge page"
 
         return False, None
 

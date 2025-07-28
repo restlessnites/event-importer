@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import uuid
-from datetime import datetime
-from enum import Enum
+from datetime import datetime, timedelta
+from enum import StrEnum
 from typing import Any
 
 import nh3
@@ -13,7 +14,7 @@ from dateutil import parser as date_parser
 from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 
-class ImportStatus(str, Enum):
+class ImportStatus(StrEnum):
     """Status of an import request."""
 
     PENDING = "pending"
@@ -23,7 +24,7 @@ class ImportStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class ImportMethod(str, Enum):
+class ImportMethod(StrEnum):
     """Method used for import."""
 
     API = "api"  # Direct API (e.g., RA.co GraphQL, Ticketmaster)
@@ -40,7 +41,7 @@ class EventTime(BaseModel):
     timezone: str | None = None
 
     @field_validator("start", "end", mode="before")
-    def parse_time(cls: type[EventTime], v: str | None) -> str | None:
+    def parse_time(self: type[EventTime], v: str | None) -> str | None:
         """Parse various time formats to HH:MM."""
         if not v:
             return None
@@ -81,7 +82,7 @@ class EventLocation(BaseModel):
     coordinates: Coordinates | None = None
 
     @field_validator("address", "city", "state", "country", mode="before")
-    def clean_text(cls: type[EventLocation], v: str | None) -> str | None:
+    def clean_text(self: type[EventLocation], v: str | None) -> str | None:
         """Clean location text fields."""
         if not v:
             return None
@@ -108,7 +109,7 @@ class EventLocation(BaseModel):
 
     @field_validator("coordinates", mode="before")
     def validate_coordinates(
-        cls: type[EventLocation], v: dict[str, Any] | None,
+        self: type[EventLocation], v: dict[str, Any] | None,
     ) -> dict | None:
         """Ensure coordinates are a valid dict or None."""
         if not isinstance(v, dict):
@@ -190,14 +191,14 @@ class EventData(BaseModel):
     imported_at: datetime = Field(default_factory=datetime.utcnow)
 
     @field_validator("images", mode="before")
-    def ensure_dict_or_none(cls: type[EventData], v: object | None) -> dict | None:
+    def ensure_dict_or_none(self: type[EventData], v: object | None) -> dict | None:
         """Ensure that fields that should be objects are dicts, or None if invalid."""
         if v and not isinstance(v, dict):
             return None
         return v
 
     @field_validator("title", "venue", mode="before")
-    def clean_text_field(cls: type[EventData], v: str | None) -> str | None:
+    def clean_text_field(self: type[EventData], v: str | None) -> str | None:
         """Strip whitespace and handle None for text fields."""
         if not v:
             return None
@@ -205,7 +206,7 @@ class EventData(BaseModel):
         return cleaned or None
 
     @field_validator("date", mode="before")
-    def parse_date(cls: type[EventData], v: str | None) -> str | None:
+    def parse_date(self: type[EventData], v: str | None) -> str | None:
         """Parse various date formats to ISO format with smart year handling."""
         if not v:
             return None
@@ -269,14 +270,12 @@ class EventData(BaseModel):
 
         except (ValueError, TypeError) as e:
             # Import logging here to avoid circular imports
-            import logging
-
             logger = logging.getLogger(__name__)
             logger.debug(f"Date parsing failed for '{v}': {e}")
             return None
 
     @field_validator("promoters", "lineup", "genres", mode="before")
-    def clean_list_field(cls: type[EventData], v: list[str] | str | None) -> list[str]:
+    def clean_list_field(self: type[EventData], v: list[str] | str | None) -> list[str]:
         """Clean and deduplicate list fields."""
         if not v:
             return []
@@ -298,7 +297,7 @@ class EventData(BaseModel):
         return result
 
     @field_validator("long_description", "short_description", mode="before")
-    def clean_description(cls: type[EventData], v: str | None) -> str | None:
+    def clean_description(self: type[EventData], v: str | None) -> str | None:
         """Clean description fields."""
         if not v:
             return None
@@ -315,7 +314,7 @@ class EventData(BaseModel):
         return cleaned or None
 
     @field_validator("cost", mode="before")
-    def parse_cost(cls: type[EventData], v: str | float | None) -> str | None:
+    def parse_cost(self: type[EventData], v: str | float | None) -> str | None:
         """Parse and standardize cost information with comprehensive normalization."""
         if not v:
             return None
@@ -397,7 +396,7 @@ class EventData(BaseModel):
         return None
 
     @field_validator("minimum_age", mode="before")
-    def standardize_age(cls: type[EventData], v: str | int | None) -> str | None:
+    def standardize_age(self: type[EventData], v: str | int | None) -> str | None:
         """Standardize age restrictions."""
         if not v:
             return None
@@ -423,8 +422,6 @@ class EventData(BaseModel):
             return self
 
         try:
-            from datetime import datetime, timedelta
-
             # Parse start and end times
             start_time = datetime.strptime(self.time.start, "%H:%M").time()
             end_time = datetime.strptime(self.time.end, "%H:%M").time()

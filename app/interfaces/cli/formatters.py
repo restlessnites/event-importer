@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import html
+import json
 from typing import Any
 
 from rich.console import Console
 from rich.text import Text
 
-from app.interfaces.cli.components import Message, Spacer
+from app.interfaces.cli.components import CodeBlock, Message, Spacer
 from app.interfaces.cli.theme import Theme
 from app.interfaces.cli.utils import (
     format_status,
@@ -16,7 +18,7 @@ from app.interfaces.cli.utils import (
     pluralize,
     truncate,
 )
-from app.schemas import EventData, EventTime, ImportResult
+from app.schemas import EventData, EventTime, ImportResult, ImportStatus
 
 
 class EventCardFormatter:
@@ -55,40 +57,45 @@ class EventCardFormatter:
         # Links section (enhanced)
         self._render_links(event_data)
 
+    def _format_time_detail(
+        self: EventCardFormatter, event_data: dict[str, Any]
+    ) -> str | None:
+        """Formats the event time for display in the details section."""
+        time = event_data.get("time")
+        if not isinstance(time, dict) or not time.get("start"):
+            return None
+
+        time_str = time["start"]
+        if end_time := time.get("end"):
+            end_date = event_data.get("end_date")
+            start_date = event_data.get("date")
+            if end_date and start_date != end_date:
+                time_str += f" – {end_time} (+1)"
+            else:
+                time_str += f" – {end_time}"
+        return time_str
+
+    def _get_event_details(
+        self: EventCardFormatter, event_data: dict[str, Any]
+    ) -> list[tuple[str, Any]]:
+        """Get key event details as a list of tuples."""
+        details = []
+        if venue := event_data.get("venue"):
+            details.append(("Venue", venue))
+        if date := event_data.get("date"):
+            details.append(("Date", date))
+        if time_str := self._format_time_detail(event_data):
+            details.append(("Time", time_str))
+        if cost := event_data.get("cost"):
+            cost_str = "Free" if str(cost) == "0" else str(cost)
+            details.append(("Cost", cost_str))
+        if minimum_age := event_data.get("minimum_age"):
+            details.append(("Age", minimum_age))
+        return details
+
     def _render_details(self: EventCardFormatter, event_data: dict[str, Any]) -> None:
         """Render key event details."""
-        details = []
-
-        # Venue & Date on same line
-        if event_data.get("venue"):
-            details.append(("Venue", event_data["venue"]))
-        if event_data.get("date"):
-            details.append(("Date", event_data["date"]))
-
-        # Time
-        if event_data.get("time"):
-            time = event_data["time"]
-            if isinstance(time, dict) and time.get("start"):
-                time_str = time["start"]
-                if time.get("end"):
-                    end_time = time["end"]
-                    # Check if event crosses midnight (has different end date)
-                    if event_data.get("end_date") and event_data.get("date") != event_data.get("end_date"):
-                        # Show date for end time when it's different
-                        time_str += f" – {end_time} (+1)"
-                    else:
-                        time_str += f" – {end_time}"
-                details.append(("Time", time_str))
-
-        # Cost & Age
-        if event_data.get("cost"):
-            cost = event_data["cost"]
-            # Handle the case where cost is "0" or 0
-            if str(cost) == "0":
-                cost = "Free"
-            details.append(("Cost", cost))
-        if event_data.get("minimum_age"):
-            details.append(("Age", event_data["minimum_age"]))
+        details = self._get_event_details(event_data)
 
         # Render as aligned pairs
         for label, value in details:
@@ -112,7 +119,8 @@ class EventCardFormatter:
         self.console.print()
 
     def _render_descriptions(
-        self: EventCardFormatter, event_data: dict[str, Any],
+        self: EventCardFormatter,
+        event_data: dict[str, Any],
     ) -> None:
         """Render event descriptions."""
         if event_data.get("short_description"):
@@ -126,8 +134,6 @@ class EventCardFormatter:
         if event_data.get("long_description"):
             desc = event_data["long_description"]
             # Clean up HTML entities
-            import html
-
             desc = html.unescape(desc)
 
             self.console.print(
@@ -176,7 +182,8 @@ class EventCardFormatter:
             self.console.print()
 
     def _render_additional_info(
-        self: EventCardFormatter, event_data: dict[str, Any],
+        self: EventCardFormatter,
+        event_data: dict[str, Any],
     ) -> None:
         """Render additional event information."""
         # Genres
@@ -242,7 +249,9 @@ class ImportResultFormatter:
         self.spacer = Spacer(console, theme)
 
     def render(
-        self: ImportResultFormatter, result: ImportResult, show_raw: bool = False,
+        self: ImportResultFormatter,
+        result: ImportResult,
+        show_raw: bool = False,
     ) -> None:
         """Render import result."""
         # Import status
@@ -254,8 +263,6 @@ class ImportResultFormatter:
         self.console.print()
 
         # Check if successful
-        from app.schemas import ImportStatus
-
         if result.status == ImportStatus.SUCCESS and result.event_data:
             self._render_success(result)
 
@@ -277,6 +284,20 @@ class ImportResultFormatter:
         else:
             self._render_failure(result)
 
+        # Show raw JSON if requested (useful for debugging)
+        if show_raw and result.event_data:
+            self.console.print()
+            self.console.print(
+                Text("RAW EVENT DATA", style=self.theme.typography.section_style),
+            )
+            self.console.print("─" * 14, style=self.theme.typography.muted_style)
+            self.console.print()
+
+            # Use the existing CodeBlock component
+            code_block = CodeBlock(self.console, self.theme)
+            raw_json = json.dumps(result.event_data.model_dump(), indent=2, default=str)
+            code_block.render(raw_json, language="json")
+
     def _render_success(self: ImportResultFormatter, result: ImportResult) -> None:
         """Render successful import summary."""
         self.message.success(f"Import completed in {result.import_time:.2f}s")
@@ -297,7 +318,8 @@ class ImportResultFormatter:
         )
 
     def _render_data_quality(
-        self: ImportResultFormatter, event_data: EventData,
+        self: ImportResultFormatter,
+        event_data: EventData,
     ) -> None:
         """Render data completeness check."""
         self.console.print()
@@ -357,7 +379,8 @@ class ImportResultFormatter:
         return str(time)
 
     def _render_image_results(
-        self: ImportResultFormatter, search_data: dict[str, Any],
+        self: ImportResultFormatter,
+        search_data: dict[str, Any],
     ) -> None:
         """Render image search results."""
         if not search_data:

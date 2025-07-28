@@ -14,13 +14,14 @@ from openai.types.chat import ChatCompletionMessageParam
 from app.config import Config
 from app.errors import APIError, ConfigurationError, handle_errors_async
 from app.prompts import EventPrompts
-from app.schemas import EventData
+from app.schemas import EventData, EventTime
 
 logger = logging.getLogger(__name__)
 
 # Error message constants
 OPENAI_CLIENT_NOT_INITIALIZED = "OpenAI client not initialized - check API key"
 OPENAI_API_KEY_NOT_FOUND = "OpenAI API key not found in configuration"
+
 
 class OpenAIService:
     # Tool definition for structured extraction
@@ -139,85 +140,94 @@ class OpenAIService:
         return f"Return the information as a valid JSON object.\\n{prompt}"
 
     def _clean_response_data(
-        self: OpenAIService, data: dict[str, Any],
+        self: OpenAIService,
+        data: dict[str, Any],
     ) -> dict[str, Any]:
         """Clean and validate response data before creating EventData."""
-        cleaned = {}
-
-        for key, value in data.items():
-            if value is not None:
-                # Convert empty strings to None for optional fields
-                if isinstance(value, str) and value.strip() == "":
-                    continue
-                # Convert empty lists to empty list (not None) for list fields
-                if (
-                    isinstance(value, list)
-                    and len(value) == 0
-                    and key in ["promoters", "lineup", "genres"]
-                ):
-                    cleaned[key] = []
-                # Keep non-empty values
-                else:
-                    cleaned[key] = value
-
-        # Handle images field specifically - ensure it's either None or a dict with valid strings
-        images_value = cleaned.get("images")
-        if images_value:
-            if isinstance(images_value, dict):
-                # Clean the images dict, removing None values
-                cleaned_images = {}
-                for img_key, img_url in images_value.items():
-                    if img_url and isinstance(img_url, str) and img_url.strip():
-                        cleaned_images[img_key] = img_url.strip()
-
-                # Only keep images dict if it has valid entries
-                if cleaned_images:
-                    cleaned["images"] = cleaned_images
-                else:
-                    cleaned.pop("images", None)
-            else:
-                # If images is not a dict, remove it
-                cleaned.pop("images", None)
-
-        # Handle time parsing specifically
-        time_value = cleaned.get("time")
-        if time_value:
-            if isinstance(time_value, str):
-                # Split time range if present
-                parts = re.split(r"\s*-\s*|\s+to\s+", time_value, maxsplit=1)
-                start_time = parts[0].strip() if parts else None
-                end_time = parts[1].strip() if len(parts) > 1 else None
-
-                # Only create EventTime if we have valid time strings
-                if start_time and start_time.lower() not in ["", "null", "none", "n/a"]:
-                    try:
-                        from app.schemas import EventTime
-
-                        cleaned["time"] = EventTime(start=start_time, end=end_time)
-                    except (ValueError, TypeError) as e:
-                        logger.warning(f"Failed to parse time '{time_value}': {e}")
-                        # Remove invalid time rather than failing the whole import
-                        cleaned.pop("time", None)
-                else:
-                    # Remove empty/invalid time
-                    cleaned.pop("time", None)
-            elif isinstance(time_value, dict):
-                # Already a dict, let EventTime validate it
-                try:
-                    from app.schemas import EventTime
-
-                    cleaned["time"] = EventTime(**time_value)
-                except (ValueError, TypeError) as e:
-                    logger.warning(
-                        f"Failed to create EventTime from dict {time_value}: {e}",
-                    )
-                    cleaned.pop("time", None)
-
+        cleaned = self._filter_null_and_empty_values(data)
+        self._process_images_field(cleaned)
+        self._process_time_field(cleaned)
         return cleaned
+
+    def _filter_null_and_empty_values(
+        self: OpenAIService,
+        data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Filter out None values and empty strings."""
+        return {
+            key: value
+            for key, value in data.items()
+            if value is not None and not (isinstance(value, str) and not value.strip())
+        }
+
+    def _process_images_field(self: OpenAIService, data: dict[str, Any]) -> None:
+        """Clean and validate the 'images' field in the data dictionary."""
+        images_value = data.get("images")
+        if not isinstance(images_value, dict):
+            data.pop("images", None)
+            return
+
+        cleaned_images = {
+            key: val.strip()
+            for key, val in images_value.items()
+            if val and isinstance(val, str) and val.strip()
+        }
+
+        if cleaned_images:
+            data["images"] = cleaned_images
+        else:
+            data.pop("images", None)
+
+    def _process_time_field(self: OpenAIService, data: dict[str, Any]) -> None:
+        """Parse and validate the 'time' field in the data dictionary."""
+        time_value = data.get("time")
+        if not time_value:
+            return
+
+        parsed_time = None
+        if isinstance(time_value, str):
+            parsed_time = self._parse_time_from_string(time_value)
+        elif isinstance(time_value, dict):
+            parsed_time = self._parse_time_from_dict(time_value)
+
+        if parsed_time:
+            data["time"] = parsed_time
+        else:
+            data.pop("time", None)
+
+    def _parse_time_from_string(
+        self: OpenAIService,
+        time_str: str,
+    ) -> EventTime | None:
+        """Parse an EventTime object from a string."""
+        parts = re.split(r"\s*-\s*|\s+to\s+", time_str, maxsplit=1)
+        start_time = parts[0].strip() if parts else None
+        end_time = parts[1].strip() if len(parts) > 1 else None
+
+        if start_time and start_time.lower() not in ["", "null", "none", "n/a"]:
+            try:
+                return EventTime(start=start_time, end=end_time)
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Failed to parse time '{time_str}': {e}")
+        return None
+
+    def _parse_time_from_dict(
+        self: OpenAIService,
+        time_dict: dict[str, Any],
+    ) -> EventTime | None:
+        """Parse an EventTime object from a dictionary."""
+        try:
+            return EventTime(**time_dict)
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Failed to create EventTime from dict {time_dict}: {e}")
+        return None
 
     @handle_errors_async(reraise=True)
     async def extract_from_html(
-        self: OpenAIService, html: str, url: str, max_length: int = 50000,
+        self: OpenAIService,
+        html: str,
+        url: str,
+        max_length: int = 50000,
     ) -> EventData | None:
         """Extract event data from HTML content."""
         if not self.client:
@@ -248,7 +258,10 @@ class OpenAIService:
 
     @handle_errors_async(reraise=True)
     async def extract_from_image(
-        self: OpenAIService, image_data: bytes, mime_type: str, url: str,
+        self: OpenAIService,
+        image_data: bytes,
+        mime_type: str,
+        url: str,
     ) -> EventData | None:
         """Extract event data from an image."""
         if not self.client:
@@ -279,7 +292,8 @@ class OpenAIService:
 
     @handle_errors_async(reraise=True)
     async def generate_descriptions(
-        self: OpenAIService, event_data: EventData,
+        self: OpenAIService,
+        event_data: EventData,
     ) -> EventData:
         """Generate missing descriptions for an event."""
         if not self.client:
@@ -309,7 +323,9 @@ class OpenAIService:
         prompt = self._add_json_requirement(prompt)
 
         result = await self._call_with_tool(
-            prompt, tool=self.DESCRIPTION_TOOL, tool_name="generate_descriptions",
+            prompt,
+            tool=self.DESCRIPTION_TOOL,
+            tool_name="generate_descriptions",
         )
 
         if result:
@@ -370,7 +386,9 @@ class OpenAIService:
 
         try:
             result = await self._call_with_tool(
-                prompt, tool=self.GENRE_TOOL, tool_name="enhance_genres",
+                prompt,
+                tool=self.GENRE_TOOL,
+                tool_name="enhance_genres",
             )
             if result and result.get("genres"):
                 event_data.genres = result["genres"]
@@ -411,7 +429,10 @@ class OpenAIService:
             raise APIError(service_name, str(e)) from e
 
     async def _call_with_vision(
-        self: OpenAIService, prompt: str, image_b64: str, mime_type: str,
+        self: OpenAIService,
+        prompt: str,
+        image_b64: str,
+        mime_type: str,
     ) -> dict[str, Any] | None:
         """Call OpenAI vision API with a given prompt and image."""
         if not self.client:
@@ -445,11 +466,7 @@ class OpenAIService:
 
             # Extract JSON from the response text
             match = re.search(r"```json\n(.*?)\n```", response_text, re.DOTALL)
-            if match:
-                json_str = match.group(1)
-            else:
-                # If no markdown block, assume the whole response is JSON
-                json_str = response_text
+            json_str = match.group(1) if match else response_text
 
             return json.loads(json_str)
 
@@ -510,7 +527,9 @@ class OpenAIService:
             return None
 
     async def get_embedding(
-        self: OpenAIService, text: str, model: str = "text-embedding-3-small",
+        self: OpenAIService,
+        text: str,
+        model: str = "text-embedding-3-small",
     ) -> list[float]:
         text = text.replace("\n", " ")
         return (

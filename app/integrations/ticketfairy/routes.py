@@ -6,9 +6,9 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func
 
-from ...shared.database.connection import get_db_session, init_db
-from ...shared.database.models import EventCache, Submission
-from .submitter import TicketFairySubmitter
+from app.integrations.ticketfairy.submitter import TicketFairySubmitter
+from app.shared.database.connection import get_db_session, init_db
+from app.shared.database.models import EventCache, Submission
 
 
 class SubmissionRequest(BaseModel):
@@ -35,7 +35,8 @@ async def submit_events(request: SubmissionRequest) -> dict[str, Any]:
             result = await submitter.submit_by_url(request.url, dry_run=request.dry_run)
         else:
             result = await submitter.submit_events(
-                request.selector, dry_run=request.dry_run,
+                request.selector,
+                dry_run=request.dry_run,
             )
 
         return result
@@ -43,7 +44,8 @@ async def submit_events(request: SubmissionRequest) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Submission failed: {e!s}",
+            status_code=500,
+            detail=f"Submission failed: {e!s}",
         ) from e
 
 
@@ -52,11 +54,11 @@ async def submit_by_url(request: URLSubmissionRequest) -> dict[str, Any]:
     """Submit a specific event by URL"""
     try:
         submitter = TicketFairySubmitter()
-        result = await submitter.submit_by_url(request.url, dry_run=request.dry_run)
-        return result
+        return await submitter.submit_by_url(request.url, dry_run=request.dry_run)
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Submission failed: {e!s}",
+            status_code=500,
+            detail=f"Submission failed: {e!s}",
         ) from e
 
 
@@ -98,7 +100,8 @@ async def get_status() -> dict[str, Any]:
             }
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Failed to get status: {e!s}",
+            status_code=500,
+            detail=f"Failed to get status: {e!s}",
         ) from e
 
 
@@ -107,8 +110,7 @@ async def retry_failed(dry_run: bool = False) -> dict[str, Any]:
     """Retry failed submissions"""
     try:
         submitter = TicketFairySubmitter()
-        result = await submitter.submit_events("failed", dry_run=dry_run)
-        return result
+        return await submitter.submit_events("failed", dry_run=dry_run)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Retry failed: {e!s}") from e
 

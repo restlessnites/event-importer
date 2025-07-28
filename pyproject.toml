@@ -54,23 +54,55 @@ dev-dependencies = [
 ]
 
 [tool.ruff]
+target-version = "py312"
 line-length = 88
-target-version = "py310"
+exclude = [
+    ".venv",
+    "migrations",
+    "node_modules",
+    "__pycache__",
+    "build",
+    "dist",
+    "*.ipynb"
+]
 
 [tool.ruff.lint]
+preview = true
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear
-    "UP",  # pyupgrade
-    "ANN", # flake8-annotations
+    "F",    # pyflakes
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "S",    # bandit security checks
+    "T20",  # flake8-print
+    "C90",  # McCabe complexity
+    "N",    # pep8-naming
+    "A",    # flake8-builtins
+    "ARG",  # flake8-unused-arguments
+    "PTH",  # flake8-use-pathlib
+    "RET",  # flake8-return
+    "SIM",  # flake8-simplify
+    "LOG",  # flake8-logging
+    "PLC0415", # import-outside-toplevel
 ]
-ignore = ["E501"]
 
-[tool.ruff.lint.isort]
-known-first-party = ["app"]
+ignore = [
+    "E501",  # line too long
+    "B008",  # function call in default argument
+    "S101",  # assert used (common in tests)
+    "T201",  # print found (allow intentional CLI output)
+    "S603",  # subprocess call without shell=True (if you use subprocess safely)
+    "S607",  # starting process with partial executable path
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "ARG001", "S105", "S106"]  # Allow asserts, unused args, hardcoded passwords in tests
+"**/migrations/*" = ["N806"]  # Allow non-lowercase variable names in migrations 
 
 [tool.black]
 line-length = 88

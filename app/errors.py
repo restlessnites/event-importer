@@ -23,15 +23,12 @@ class EventImporterError(Exception):
     """Base exception for all Event Importer errors."""
 
 
-
 class ConfigurationError(EventImporterError):
     """Raised when configuration is invalid or missing."""
 
 
-
 class ExtractionError(EventImporterError):
     """Base exception for extraction-related errors."""
-
 
 
 class ImporterError(Exception):
@@ -79,11 +76,11 @@ class RateLimitError(APIError):
         super().__init__(service, message, 429)
 
 
-class TimeoutError(APIError):
+class RequestTimeoutError(APIError):
     """Raised for request timeouts."""
 
-    def __init__(self: TimeoutError, message: str) -> None:
-        """Initialize TimeoutError."""
+    def __init__(self: RequestTimeoutError, message: str) -> None:
+        """Initialize RequestTimeoutError."""
         super().__init__("HTTP", message, 408)
 
 
@@ -126,7 +123,6 @@ class NotFoundError(ExtractionError):
     """Raised when a requested resource is not found."""
 
 
-
 @dataclass
 class ErrorContext:
     """Context information for error handling."""
@@ -144,7 +140,7 @@ class ErrorContext:
 T = TypeVar("T")
 
 
-def handle_errors(
+def handle_errors[T](
     *,
     default: T | None = None,
     reraise: bool = True,
@@ -180,7 +176,7 @@ def handle_errors(
     return decorator
 
 
-def handle_errors_async(
+def handle_errors_async[T](
     *,
     default: T | None = None,
     reraise: bool = True,
@@ -238,7 +234,8 @@ def retry_on_error(
             exception = retry_state.outcome.exception()
             # Never retry these error types
             if isinstance(
-                exception, AuthenticationError | SecurityPageError | ValidationError,
+                exception,
+                AuthenticationError | SecurityPageError | ValidationError,
             ):
                 return False
             # Only retry specified exceptions

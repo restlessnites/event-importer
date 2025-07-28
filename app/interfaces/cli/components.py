@@ -156,7 +156,7 @@ class DataTable:
         )
 
         # Add columns
-        for key in data[0].keys():
+        for key in data[0]:
             table.add_column(key)
 
         # Add rows
@@ -175,8 +175,9 @@ class ProgressDisplay:
         self.theme = theme
 
     def create(self: ProgressDisplay, description: str = "Processing") -> Progress:
-        """Create a progress bar."""
-        return Progress(
+        """Create a progress bar with a custom description."""
+        # The description can be used when adding tasks to the progress bar
+        progress = Progress(
             SpinnerColumn(spinner_name="dots", style=self.theme.typography.info_style),
             TextColumn("[progress.description]{task.description}"),
             BarColumn(
@@ -188,6 +189,9 @@ class ProgressDisplay:
             console=self.console,
             transient=True,
         )
+        # Store the default description for later use
+        progress.default_description = description
+        return progress
 
 
 class CodeBlock:

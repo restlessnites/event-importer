@@ -3,6 +3,7 @@
 
 import asyncio
 import logging
+import traceback
 
 from dotenv import load_dotenv
 
@@ -199,8 +200,6 @@ async def test_individual_artist() -> None:
 
         except Exception as e:
             cli.error(f"Search failed: {e}")
-            import traceback
-
             cli.code(traceback.format_exc(), "python", "Exception Details")
 
 
@@ -249,8 +248,6 @@ Source: discogs.com"""
 
         except Exception as e:
             cli.error(f"Claude analysis failed: {e}")
-            import traceback
-
             cli.code(traceback.format_exc(), "python", "Exception Details")
 
 

@@ -22,8 +22,6 @@ from app.shared.http import HTTPService
 logger = logging.getLogger(__name__)
 
 
-
-
 class DiceAgent(Agent):
     """Agent for importing events from Dice.fm using search API."""
 
@@ -85,7 +83,10 @@ class DiceAgent(Agent):
                 raise Exception(error_msg)
 
             await self.send_progress(
-                request_id, ImportStatus.RUNNING, "Processing event data", 0.8,
+                request_id,
+                ImportStatus.RUNNING,
+                "Processing event data",
+                0.8,
             )
 
             # Step 3: Transform API data to EventData
@@ -97,7 +98,10 @@ class DiceAgent(Agent):
             # Generate descriptions if missing - use safe service access
             if not event_data.long_description or not event_data.short_description:
                 await self.send_progress(
-                    request_id, ImportStatus.RUNNING, "Generating descriptions", 0.85,
+                    request_id,
+                    ImportStatus.RUNNING,
+                    "Generating descriptions",
+                    0.85,
                 )
                 try:
                     llm_service = self.get_service("llm")
@@ -168,7 +172,10 @@ class DiceAgent(Agent):
             return url  # Fallback
 
     async def _search_for_event_id(
-        self, search_query: str, original_url: str, request_id: str,
+        self,
+        search_query: str,
+        original_url: str,
+        request_id: str,
     ) -> str | None:
         """Search for event using Dice unified search API and match against the perm_name."""
         try:
@@ -223,7 +230,9 @@ class DiceAgent(Agent):
             return None
 
     async def _fetch_api_data(
-        self, event_id: str, request_id: str,
+        self,
+        event_id: str,
+        request_id: str,
     ) -> dict[str, Any] | None:
         """Fetch event data from Dice API."""
         try:
@@ -242,7 +251,10 @@ class DiceAgent(Agent):
             }
 
             response = await self.http.get_json(
-                api_url, service="Dice API", headers=headers, timeout=30.0,
+                api_url,
+                service="Dice API",
+                headers=headers,
+                timeout=30.0,
             )
 
             # Log the event data response for debugging
@@ -260,114 +272,137 @@ class DiceAgent(Agent):
             return None
 
     def _transform_api_data(
-        self, api_data: dict[str, Any], source_url: str,
+        self,
+        api_data: dict[str, Any],
+        source_url: str,
     ) -> EventData | None:
         """Transform Dice API response to EventData format."""
         try:
-            # Fix: Remove the incorrect event extraction - data is at root level
-            title = api_data.get("name", "")
+            location, venue_name = self._extract_location(api_data)
+            event_time, date_str = self._extract_time(api_data, location)
+            ticket_url, price_info = self._extract_ticket_info(
+                api_data,
+                source_url,
+            )
+            lineup = self._extract_lineup(api_data)
+            promoters = self._extract_promoters(api_data)
 
-            # Venues are at root level (extract first for timezone detection)
-            venues = api_data.get("venues", [])
-            location = None
-            venue_name = None
-            if venues:
-                venue = venues[0]
-                venue_name = venue.get("name")
-                city_info = venue.get("city", {})
-                location = EventLocation(
-                    venue=venue_name,
-                    address=venue.get("address"),
-                    city=city_info.get("name"),
-                    state=None,
-                    country=city_info.get("country_name"),
-                    coordinates=venue.get("location", {}),
-                )
-
-            # Fix: Access dates directly from api_data, not from non-existent event object
-            dates = api_data.get("dates", {})
-            event_start = dates.get("event_start_date")
-            event_end = dates.get("event_end_date")
-
-            event_time = None
-            if event_start:
-                # Use API timezone if available, otherwise detect from location
-                api_timezone = dates.get("timezone")
-                event_time = self.create_event_time(
-                    start=event_start,
-                    end=event_end,
-                    location=location,
-                    timezone=api_timezone,  # This will fallback to location detection if None
-                )
-
-            # Lineup from summary_lineup
-            lineup = []
-            summary_lineup = api_data.get("summary_lineup", {})
-            if summary_lineup and "top_artists" in summary_lineup:
-                for artist in summary_lineup["top_artists"]:
-                    lineup.append(artist.get("name", ""))
-
-            # Images are at root level
-            images = api_data.get("images", {})
-            image_dict = None
-            if images:
-                image_dict = {
-                    "full": images.get("landscape") or images.get("square"),
-                    "thumbnail": images.get("square") or images.get("portrait"),
-                }
-
-            # Ticket info
-            ticket_types = api_data.get("ticket_types", [])
-            ticket_url = source_url
-            price_info = None
-            if ticket_types:
-                prices = []
-                for ticket in ticket_types:
-                    if ticket.get("status") == "on-sale":
-                        price = ticket.get("price", {})
-                        amount = price.get("amount")
-                        if amount:
-                            prices.append(amount / 100)
-                if prices:
-                    min_price = min(prices)
-                    price_info = {
-                        "amount": min_price,
-                        "currency": ticket_types[0]
-                        .get("price", {})
-                        .get("currency", "USD"),
-                    }
-
-            # Description from about section - FIX THE BUG HERE
-            about = api_data.get("about", {})
-            description = about.get("description")
-
-            # Promoters
-            promoters = []
-            billing_promoter = api_data.get("billing_promoter", {})
-            if billing_promoter and billing_promoter.get("name"):
-                promoters.append(billing_promoter["name"])
-
-            # Extract date string from event_start_date
-            date_str = None
-            if event_start:
-                date_str = event_start.split("T")[0]
-
-            event_data = EventData(
-                title=title,
-                long_description=description,
-                lineup=lineup if lineup else None,
+            return EventData(
+                title=api_data.get("name", ""),
+                long_description=api_data.get("about", {}).get("description"),
+                lineup=lineup or None,
                 time=event_time,
                 location=location,
                 venue=venue_name,
                 date=date_str,
                 ticket_url=ticket_url,
                 source_url=source_url,
-                images=image_dict,
-                promoters=promoters if promoters else None,
+                images=self._extract_images(api_data),
+                promoters=promoters or None,
                 price=price_info,
                 genres=None,
             )
-            return event_data
         except (ValueError, TypeError, KeyError):
             logger.exception(AgentMessages.DICE_TRANSFORM_ERROR)
             return None
+
+    def _extract_location(
+        self,
+        api_data: dict[str, Any],
+    ) -> tuple[EventLocation | None, str | None]:
+        """Extract location and venue name from API data."""
+        venues = api_data.get("venues", [])
+        if not venues:
+            return None, None
+
+        venue = venues[0]
+        venue_name = venue.get("name")
+        city_info = venue.get("city", {})
+        location = EventLocation(
+            venue=venue_name,
+            address=venue.get("address"),
+            city=city_info.get("name"),
+            state=None,
+            country=city_info.get("country_name"),
+            coordinates=venue.get("location", {}),
+        )
+        return location, venue_name
+
+    def _extract_time(
+        self,
+        api_data: dict[str, Any],
+        location: EventLocation | None,
+    ) -> tuple[dict[str, Any] | None, str | None]:
+        """Extract event time and date string from API data."""
+        dates = api_data.get("dates", {})
+        event_start = dates.get("event_start_date")
+        if not event_start:
+            return None, None
+
+        event_end = dates.get("event_end_date")
+        api_timezone = dates.get("timezone")
+
+        event_time = self.create_event_time(
+            start=event_start,
+            end=event_end,
+            location=location,
+            timezone=api_timezone,
+        )
+        date_str = event_start.split("T")[0]
+        return event_time, date_str
+
+    def _extract_lineup(self, api_data: dict[str, Any]) -> list[str]:
+        """Extract lineup from API data."""
+        lineup = []
+        if summary_lineup := api_data.get("summary_lineup"):
+            for artist in summary_lineup.get("top_artists", []):
+                if artist_name := artist.get("name"):
+                    lineup.append(artist_name)
+        return lineup
+
+    def _extract_images(self, api_data: dict[str, Any]) -> dict[str, str] | None:
+        """Extract images from API data."""
+        if images := api_data.get("images"):
+            return {
+                "full": images.get("landscape") or images.get("square"),
+                "thumbnail": images.get("square") or images.get("portrait"),
+            }
+        return None
+
+    def _extract_ticket_info(
+        self,
+        api_data: dict[str, Any],
+        source_url: str,
+    ) -> tuple[str, dict[str, Any] | None]:
+        """Extract ticket URL and price info from API data."""
+        ticket_types = api_data.get("ticket_types", [])
+        ticket_url = source_url
+        price_info = None
+
+        if not ticket_types:
+            return ticket_url, price_info
+
+        prices = []
+        for ticket in ticket_types:
+            if ticket.get("status") == "on-sale" and (
+                amount := ticket.get("price", {}).get("amount")
+            ):
+                prices.append(amount / 100)
+
+        if prices:
+            min_price = min(prices)
+            price_info = {
+                "amount": min_price,
+                "currency": ticket_types[0].get("price", {}).get("currency", "USD"),
+            }
+
+        return ticket_url, price_info
+
+    def _extract_promoters(self, api_data: dict[str, Any]) -> list[str]:
+        """Extract promoters from API data."""
+        promoters = []
+        if (billing_promoter := api_data.get("billing_promoter")) and (
+            promoter_name := billing_promoter.get("name")
+        ):
+            promoters.append(promoter_name)
+        return promoters

@@ -1,12 +1,12 @@
 """URL analysis for event imports."""
 
 import re
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 from urllib.parse import urlparse
 
 
-class URLType(str, Enum):
+class URLType(StrEnum):
     """Supported URL types."""
 
     RESIDENT_ADVISOR = "resident_advisor"

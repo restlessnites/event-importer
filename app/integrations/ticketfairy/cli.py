@@ -1,16 +1,109 @@
-"""TicketFairy CLI."""
+"""CLI for TicketFairy integration."""
+
 
 import argparse
 import asyncio
+import re
 
-from ...interfaces.cli.core import CLI
-from ...shared.database.connection import init_db
-from ...shared.http import close_http_service
-from .submitter import TicketFairySubmitter
+from sqlalchemy import func, select
+
+from app.integrations.ticketfairy.submitter import TicketFairySubmitter
+from app.interfaces.cli.core import CLI
+from app.shared.database.connection import get_db_session, init_db
+from app.shared.database.models import EventCache, Submission
+from app.shared.http import close_http_service
+
+
+def _display_dry_run_details(cli: CLI, submission: dict, event_index: int) -> None:
+    """Displays the detailed information for a single dry-run submission."""
+    cli.console.print()
+    cli.info(f"Event {event_index}: ID {submission['event_id']}")
+    cli.info(f"URL: {submission['url']}")
+
+    if "data" not in submission:
+        return
+
+    payload = submission["data"]
+    cli.console.print()
+    cli.info("TicketFairy API Payload:")
+
+    if "data" in payload and "attributes" in payload["data"]:
+        attrs = payload["data"]["attributes"]
+        image = attrs.get("image", "")
+        key_fields = {
+            "Title": attrs.get("title", "N/A"),
+            "Venue": attrs.get("venue", "N/A"),
+            "Ticket URL": attrs.get("url", "N/A"),
+            "Address": attrs.get("address", "N/A"),
+            "Start Date": attrs.get("startDate", "N/A"),
+            "End Date": attrs.get("endDate", "N/A"),
+            "Timezone": attrs.get("timezone", "N/A"),
+            "Status": attrs.get("status", "N/A"),
+            "Image URL": (f"{image[:60]}..." if len(image) > 60 else image) or "N/A",
+            "Is Online": attrs.get("isOnline", "N/A"),
+            "Hosted By": attrs.get("hostedBy", "N/A"),
+        }
+        cli.table([key_fields], title=f"Event {event_index} - TicketFairy Fields")
+
+        if details := attrs.get("details"):
+            cli.console.print()
+            cli.info("Description/Details:")
+            details_clean = re.sub(r"<[^>]+>", "", details)
+            cli.console.print(
+                f"  {details_clean[:200]}..."
+                if len(details_clean) > 200
+                else f"  {details_clean}",
+            )
+
+    cli.console.print()
+    cli.info("Full JSON Payload (use this to debug API issues):")
+    cli.json(payload, title="Complete TicketFairy API Payload")
+
+
+def _display_submission_results(
+    cli: CLI, submitter: TicketFairySubmitter, result: dict, dry_run: bool
+) -> None:
+    """Displays the results of a submission command."""
+    cli.header(f"Submission Results for '{submitter.service_name}'")
+    cli.info(f"Selector: {result['selector']}")
+    cli.info(f"Total events processed: {result['total']}")
+
+    if submitted := result.get("submitted"):
+        cli.success(f"Successfully submitted: {len(submitted)}")
+        if dry_run:
+            cli.section("Dry Run - Would be submitted")
+            for i, submission in enumerate(submitted, 1):
+                _display_dry_run_details(cli, submission, i)
+                if i < len(submitted):
+                    cli.rule()
+        else:
+            table_data = [
+                {
+                    "ID": s["event_id"],
+                    "URL": s["url"],
+                    "Status": s.get("status", "success"),
+                }
+                for s in submitted
+            ]
+            cli.table(table_data)
+
+    if errors := result.get("errors"):
+        cli.error(f"Errors: {len(errors)}")
+        cli.section("Error Details")
+        table_data = [
+            {"Event ID": e["event_id"], "URL": e["url"], "Error": e["error"]}
+            for e in errors
+        ]
+        cli.table(table_data)
+
+    if not result.get("submitted") and not result.get("errors"):
+        cli.warning("No events found to submit.")
 
 
 async def submit_command(
-    filter_type: str = "unsubmitted", url: str | None = None, dry_run: bool = False,
+    filter_type: str = "unsubmitted",
+    url: str | None = None,
+    dry_run: bool = False,
 ) -> None:
     """Submit events to TicketFairy"""
     submitter = TicketFairySubmitter()
@@ -24,98 +117,7 @@ async def submit_command(
             cli.info(f"Submitting events with filter: {filter_type}")
             result = await submitter.submit_events(filter_type, dry_run=dry_run)
 
-        # Summary
-        cli.header(f"Submission Results for '{submitter.service_name}'")
-        cli.info(f"Selector: {result['selector']}")
-        cli.info(f"Total events processed: {result['total']}")
-
-        if result["submitted"]:
-            cli.success(f"Successfully submitted: {len(result['submitted'])}")
-            if dry_run:
-                cli.section("Dry Run - Would be submitted")
-
-                # Show detailed transformation data for each event
-                for i, submission in enumerate(result["submitted"], 1):
-                    cli.console.print()
-                    cli.info(f"Event {i}: ID {submission['event_id']}")
-                    cli.info(f"URL: {submission['url']}")
-
-                    # Show the actual TicketFairy payload
-                    if "data" in submission:
-                        cli.console.print()
-                        cli.info("TicketFairy API Payload:")
-
-                        # Extract key fields from the transformed data
-                        payload = submission["data"]
-                        if "data" in payload and "attributes" in payload["data"]:
-                            attrs = payload["data"]["attributes"]
-
-                            # Show key transformed fields in a readable format
-                            key_fields = {
-                                "Title": attrs.get("title", "N/A"),
-                                "Venue": attrs.get("venue", "N/A"),
-                                "Ticket URL": attrs.get("url", "N/A"),
-                                "Address": attrs.get("address", "N/A"),
-                                "Start Date": attrs.get("startDate", "N/A"),
-                                "End Date": attrs.get("endDate", "N/A"),
-                                "Timezone": attrs.get("timezone", "N/A"),
-                                "Status": attrs.get("status", "N/A"),
-                                "Image URL": attrs.get("image", "N/A")[:60] + "..."
-                                if len(attrs.get("image", "")) > 60
-                                else attrs.get("image", "N/A"),
-                                "Is Online": attrs.get("isOnline", "N/A"),
-                                "Hosted By": attrs.get("hostedBy", "N/A"),
-                            }
-
-                            cli.table(
-                                [key_fields], title=f"Event {i} - TicketFairy Fields",
-                            )
-
-                            # Show details (description) separately since it can be long
-                            if attrs.get("details"):
-                                cli.console.print()
-                                cli.info("Description/Details:")
-                                # Strip HTML tags for cleaner display
-                                import re
-
-                                details_clean = re.sub(r"<[^>]+>", "", attrs["details"])
-                                cli.console.print(
-                                    f"  {details_clean[:200]}..."
-                                    if len(details_clean) > 200
-                                    else f"  {details_clean}",
-                                )
-
-                        # Option to show full JSON payload
-                        cli.console.print()
-                        cli.info("Full JSON Payload (use this to debug API issues):")
-                        cli.json(payload, title="Complete TicketFairy API Payload")
-
-                        # Separator between events if multiple
-                        if i < len(result["submitted"]):
-                            cli.rule()
-            else:
-                # For actual submissions, show simpler summary
-                table_data = [
-                    {
-                        "ID": s["event_id"],
-                        "URL": s["url"],
-                        "Status": s.get("status", "success"),
-                    }
-                    for s in result["submitted"]
-                ]
-                cli.table(table_data)
-
-        if result["errors"]:
-            cli.error(f"Errors: {len(result['errors'])}")
-            cli.section("Error Details")
-            table_data = [
-                {"Event ID": e["event_id"], "URL": e["url"], "Error": e["error"]}
-                for e in result["errors"]
-            ]
-            cli.table(table_data)
-
-        if not result["submitted"] and not result["errors"]:
-            cli.warning("No events found to submit.")
+        _display_submission_results(cli, submitter, result, dry_run)
 
     except (ValueError, TypeError, KeyError) as e:
         cli.error(f"An unexpected error occurred: {e}")
@@ -124,33 +126,29 @@ async def submit_command(
 
 def status_command() -> None:
     """Show submission status"""
-    from sqlalchemy import func, select
-
-    from ...interfaces.cli.core import CLI
-    from ...shared.database.connection import get_db_session
-    from ...shared.database.models import EventCache, Submission
-
     # Initialize CLI with theme
     cli = CLI()
+    cli.header("Submission Status")
 
-    with get_db_session() as db:
+    # Database session
+    with get_db_session() as session:
+        # Get total events in cache
+        total_events = session.execute(select(func.count(EventCache.id))).scalar() or 0
+
         # Get submission counts by status
         status_counts = (
-            db.query(Submission.status, func.count(Submission.id))
+            session.query(Submission.status, func.count(Submission.id))
             .filter(Submission.service_name == "ticketfairy")
             .group_by(Submission.status)
             .all()
         )
-
-        # Get total cached events
-        total_events = db.query(func.count(EventCache.id)).scalar()
 
         # Get unsubmitted count - fix SQLAlchemy warning by using select() explicitly
         submitted_event_ids_query = select(Submission.event_cache_id).where(
             Submission.service_name == "ticketfairy",
         )
         unsubmitted_count = (
-            db.query(func.count(EventCache.id))
+            session.query(func.count(EventCache.id))
             .filter(~EventCache.id.in_(submitted_event_ids_query))
             .scalar()
         )
@@ -202,7 +200,8 @@ def main() -> None:
 
     # Retry command (alias for submit --filter failed)
     retry_parser = subparsers.add_parser(
-        "retry-failed", help="Retry failed submissions",
+        "retry-failed",
+        help="Retry failed submissions",
     )
     retry_parser.add_argument(
         "--dry-run",

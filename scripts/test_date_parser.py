@@ -4,10 +4,20 @@ Comprehensive test for the date parsing fix.
 This script tests both the date parsing logic and imports the actual La Bamba event.
 """
 
+from __future__ import annotations
+
 import asyncio
+import traceback
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from dateutil import parser as date_parser
+
+from app.core.router import Router
+from app.schemas import EventData
+
+if TYPE_CHECKING:
+    pass
 
 from app.interfaces.cli import get_cli
 
@@ -84,8 +94,6 @@ def test_fixed_eventdata_parsing() -> None:
     for input_date, expected, description in test_cases:
         try:
             # Import here to get the latest version with the fix
-            from app.schemas import EventData
-
             event = EventData(title="Test Event", date=input_date)
             actual = event.date
 
@@ -141,8 +149,6 @@ async def test_la_bamba_import() -> None:
     cli.info(f"Importing: {url}")
 
     try:
-        from app.core.router import Router
-
         router = Router()
 
         with cli.spinner("Importing event"):
@@ -187,8 +193,6 @@ async def test_la_bamba_import() -> None:
 
     except Exception as e:
         cli.error(f"Import test failed: {e}")
-        import traceback
-
         cli.code(traceback.format_exc(), "python", "Error Details")
 
 

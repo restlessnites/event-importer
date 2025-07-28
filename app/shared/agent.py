@@ -9,7 +9,14 @@ from datetime import datetime
 from typing import Any
 
 from app.config import Config
-from app.schemas import EventData, EventLocation, EventTime, ImportMethod, ImportProgress, ImportStatus
+from app.schemas import (
+    EventData,
+    EventLocation,
+    EventTime,
+    ImportMethod,
+    ImportProgress,
+    ImportStatus,
+)
 from app.shared.timezone import get_timezone_from_location
 
 logger = logging.getLogger(__name__)
@@ -147,19 +154,19 @@ class Agent(ABC):
         timezone: str | None = None,
     ) -> EventTime:
         """Create EventTime with automatic timezone detection from location.
-        
+
         Args:
             start: Start time in HH:MM format
-            end: End time in HH:MM format  
+            end: End time in HH:MM format
             location: Event location for timezone detection
             timezone: Explicit timezone (overrides location detection)
-            
+
         Returns:
             EventTime with timezone populated
         """
         if timezone is None:
             timezone = get_timezone_from_location(location)
-            
+
         return EventTime(
             start=start,
             end=end,

@@ -24,11 +24,10 @@ from app.shared.statistics import StatisticsService
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
-
-
 
 
 # Core MCP Tools and Handlers
@@ -136,7 +135,7 @@ class CoreMCPTools:
     @staticmethod
     def format_event_data(event_data: dict) -> dict:
         """Format event data for display"""
-        formatted = {
+        return {
             "title": event_data.get("title", "N/A"),
             "venue": event_data.get("venue", "N/A"),
             "date": event_data.get("date", "N/A"),
@@ -151,7 +150,6 @@ class CoreMCPTools:
             else "N/A",
             "cost": event_data.get("cost", "N/A"),
         }
-        return formatted
 
     @staticmethod
     async def handle_import_event(arguments: dict, router: Router) -> dict:
@@ -159,92 +157,80 @@ class CoreMCPTools:
         return await router.route_request(arguments)
 
     @staticmethod
+    def _build_list_events_query(db_session, arguments: dict):
+        """Build the query for listing events based on arguments."""
+        query = db_session.query(EventCache)
+
+        if search := arguments.get("search"):
+            search_term = f"%{search}%"
+            query = query.filter(
+                or_(
+                    EventCache.source_url.like(search_term),
+                    EventCache.scraped_data.like(search_term),
+                ),
+            )
+
+        sort_map = {
+            "date": EventCache.scraped_at,
+            "url": EventCache.source_url,
+        }
+        sort_field = arguments.get("sort", "date")
+        sort_order = arguments.get("order", "desc")
+        order_direction = desc if sort_order == "desc" else asc
+
+        if sort_column := sort_map.get(sort_field):
+            query = query.order_by(order_direction(sort_column))
+
+        if limit := arguments.get("limit"):
+            query = query.limit(limit)
+
+        return query
+
+    @staticmethod
+    def _format_list_event(event: EventCache, summary_only: bool) -> dict:
+        """Format a single event for the list view."""
+        event_info = {
+            "id": event.id,
+            "source_url": event.source_url,
+            "scraped_at": event.scraped_at.isoformat() if event.scraped_at else None,
+            "updated_at": event.updated_at.isoformat() if event.updated_at else None,
+            "data_hash": event.data_hash,
+        }
+
+        if summary_only:
+            event_info.update(CoreMCPTools.format_event_data(event.scraped_data))
+        else:
+            event_info["event_data"] = event.scraped_data
+
+        event_info["submissions"] = [
+            {
+                "id": sub.id,
+                "service": sub.service_name,
+                "status": sub.status,
+                "submitted_at": sub.submitted_at.isoformat()
+                if sub.submitted_at
+                else None,
+                "retry_count": sub.retry_count,
+                "error_message": sub.error_message,
+            }
+            for sub in event.submissions
+        ]
+        return event_info
+
+    @staticmethod
     async def handle_list_events(arguments: dict) -> dict:
         """Handle list_events tool call"""
         with get_db_session() as db:
-            # Build query
-            query = db.query(EventCache)
-
-            # Apply search filter
-            if arguments.get("search"):
-                search_term = f"%{arguments['search']}%"
-                query = query.filter(
-                    or_(
-                        EventCache.source_url.like(search_term),
-                        EventCache.scraped_data.like(search_term),
-                    ),
-                )
-
-            # Apply sorting
-            sort_field = arguments.get("sort", "date")
-            sort_order = arguments.get("order", "desc")
-
-            if sort_field == "date":
-                if sort_order == "desc":
-                    query = query.order_by(desc(EventCache.scraped_at))
-                else:
-                    query = query.order_by(asc(EventCache.scraped_at))
-            elif sort_field == "url":
-                if sort_order == "desc":
-                    query = query.order_by(desc(EventCache.source_url))
-                else:
-                    query = query.order_by(asc(EventCache.source_url))
-
-            # Apply limit only if specified
-            limit = arguments.get("limit")
-            if limit:
-                query = query.limit(limit)
-
+            query = CoreMCPTools._build_list_events_query(db, arguments)
             events = query.all()
 
             if not events:
                 return {"success": True, "events": [], "message": "No events found"}
 
-            # Format events
-            formatted_events = []
             summary_only = arguments.get("summary_only", False)
-
-            for event in events:
-                event_info = {
-                    "id": event.id,
-                    "source_url": event.source_url,
-                    "scraped_at": event.scraped_at.isoformat()
-                    if event.scraped_at
-                    else None,
-                    "updated_at": event.updated_at.isoformat()
-                    if event.updated_at
-                    else None,
-                    "data_hash": event.data_hash,
-                }
-
-                if summary_only:
-                    # Show only formatted summary
-                    event_info.update(
-                        CoreMCPTools.format_event_data(event.scraped_data),
-                    )
-                else:
-                    # Include full event data by default
-                    event_info["event_data"] = event.scraped_data
-
-                # Always include submission info
-                if event.submissions:
-                    event_info["submissions"] = [
-                        {
-                            "id": sub.id,
-                            "service": sub.service_name,
-                            "status": sub.status,
-                            "submitted_at": sub.submitted_at.isoformat()
-                            if sub.submitted_at
-                            else None,
-                            "retry_count": sub.retry_count,
-                            "error_message": sub.error_message,
-                        }
-                        for sub in event.submissions
-                    ]
-                else:
-                    event_info["submissions"] = []
-
-                formatted_events.append(event_info)
+            formatted_events = [
+                CoreMCPTools._format_list_event(event, summary_only) for event in events
+            ]
 
             result = {
                 "success": True,
@@ -252,8 +238,7 @@ class CoreMCPTools:
                 "total": len(formatted_events),
             }
 
-            # Only include limit info if it was applied
-            if limit:
+            if limit := arguments.get("limit"):
                 result["limit_applied"] = limit
 
             return result
@@ -341,7 +326,8 @@ def get_all_tools() -> list[types.Tool]:
     integrations = get_available_integrations()
     for name, integration in integrations.items():
         if hasattr(integration, "mcp_tools") and hasattr(
-            integration.mcp_tools, "TOOLS",
+            integration.mcp_tools,
+            "TOOLS",
         ):
             logger.info(f"Adding MCP tools for integration: {name}")
             tools.extend(integration.mcp_tools.TOOLS)
@@ -358,7 +344,8 @@ def get_all_tool_handlers() -> dict:
     integrations = get_available_integrations()
     for _name, integration in integrations.items():
         if hasattr(integration, "mcp_tools") and hasattr(
-            integration.mcp_tools, "TOOL_HANDLERS",
+            integration.mcp_tools,
+            "TOOL_HANDLERS",
         ):
             handlers.update(integration.mcp_tools.TOOL_HANDLERS)
 
@@ -396,7 +383,8 @@ async def main() -> None:
 
     @server.call_tool()
     async def handle_call_tool(
-        name: str, arguments: dict[str, Any],
+        name: str,
+        arguments: dict[str, Any],
     ) -> list[types.TextContent]:
         """Handle tool calls."""
         try:

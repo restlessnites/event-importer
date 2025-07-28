@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from ..base import BaseTransformer
+from app.shared.timezone import get_timezone_from_location
+
+if TYPE_CHECKING:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -29,220 +32,122 @@ def _format_list_or_string(data: list[str] | str | None) -> str:
     return str(data) if data is not None else ""
 
 
-def _get_timezone_from_location(location: dict[str, Any]) -> str:
-    """Determine timezone from location data for major cities in US, Canada, and UK.
-
-    Args:
-        location: Location dictionary with city, state, country
-
-    Returns:
-        Timezone string for TicketFairy
-
-    """
-    if not isinstance(location, dict):
-        return "UTC"
-
-    city = (location.get("city") or "").lower()
-    country = (location.get("country") or "").lower()
-
-    # US timezone mapping
-    if "united states" in country:
-        pacific_cities = [
-            "los angeles",
-            "san francisco",
-            "seattle",
-            "las vegas",
-            "portland",
-            "san diego",
-        ]
-        central_cities = ["chicago", "houston", "dallas", "austin", "new orleans"]
-        eastern_cities = [
-            "new york",
-            "miami",
-            "atlanta",
-            "boston",
-            "washington",
-            "philadelphia",
-        ]
-        mountain_cities = ["denver", "salt lake city"]
-
-        if city in pacific_cities:
-            return "America/Los_Angeles"
-        if city in central_cities:
-            return "America/Chicago"
-        if city in eastern_cities:
-            return "America/New_York"
-        if city in mountain_cities:
-            return "America/Denver"
-        if city == "phoenix":
-            return "America/Phoenix"  # Special case - no DST
-        return "America/New_York"  # Default to Eastern
-
-    # Canada
-    if "canada" in country:
-        if city == "vancouver":
-            return "America/Vancouver"
-        if city == "calgary":
-            return "America/Edmonton"
-        if city == "montreal":
-            return "America/Montreal"
-        return "America/Toronto"  # Default
-
-    # UK
-    if "united kingdom" in country:
-        return "Europe/London"
-
-    return "UTC"
-
-
-class TicketFairyTransformer(BaseTransformer):
+class TicketFairyTransformer:
     """Transforms a normalized event data dictionary into the format required
     by the TicketFairy API.
     """
 
-    def transform(
-        self: TicketFairyTransformer, event_data: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Transforms the scraped event data into the format expected by the
-        TicketFairy /api/draft-events endpoint.
+    def _get_address(self: TicketFairyTransformer, location: dict[str, Any]) -> str:
+        """Constructs a formatted address string from location data."""
+        if not isinstance(location, dict):
+            return "N/A"
 
-        Actual canonical event data fields used in this system:
-        - title (required)
-        - venue
-        - long_description
-        - short_description
-        - location: {address, city, state, country}
-        - images: {full, thumbnail}
-        - ticket_url
-        - date (ISO date)
-        - time: {start, end} (HH:MM format)
-        - lineup (list)
-        - promoters (list)
-        - genres (list)
-        """
-        # --- Extract data using correct canonical keys ---
-        title = event_data.get("title", "N/A")
+        address_parts = [
+            location.get("address"),
+            location.get("city"),
+            location.get("state"),
+            location.get("country"),
+        ]
+        return ", ".join(part for part in address_parts if part) or "N/A"
 
-        # Handle venue
-        venue = event_data.get("venue", "N/A")
+    def _get_image_url(self: TicketFairyTransformer, images: dict[str, Any]) -> str:
+        """Extracts the best available image URL."""
+        if not isinstance(images, dict):
+            return "N/A"
+        return images.get("full") or images.get("thumbnail") or "N/A"
 
-        # Handle location/address - build from available location data
-        location = event_data.get("location", {})
-        address = "N/A"
-        if isinstance(location, dict):
-            address_parts = []
-            if location.get("address"):
-                address_parts.append(location["address"])
-            if location.get("city"):
-                address_parts.append(location["city"])
-            if location.get("state"):
-                address_parts.append(location["state"])
-            if location.get("country"):
-                address_parts.append(location["country"])
-
-            if address_parts:
-                address = ", ".join(address_parts)
-            else:
-                address = "N/A"
-
-        # Handle images
-        image_url = "N/A"
-        images = event_data.get("images", {})
-        if isinstance(images, dict):
-            image_url = images.get("full") or images.get("thumbnail") or "N/A"
-
-        # Handle ticket URL with proper fallback
+    def _get_ticket_url(
+        self: TicketFairyTransformer,
+        event_data: dict[str, Any],
+    ) -> str:
+        """Determines the most appropriate ticket URL."""
         ticket_url_raw = event_data.get("ticket_url")
         source_url_raw = event_data.get("source_url")
 
-        ticket_url = (
+        return (
             _get_meaningful_url(ticket_url_raw)
             or _get_meaningful_url(source_url_raw)
             or "N/A"
         )
 
-        # Handle datetime - combine date and time into TicketFairy format
-        # Determine timezone from location
-        timezone = _get_timezone_from_location(location)
+    def _get_datetimes(
+        self: TicketFairyTransformer,
+        event_data: dict[str, Any],
+    ) -> tuple[str, str]:
+        """Formats start and end datetimes for the API payload."""
+        date_str = event_data.get("date", "")
+        if not date_str:
+            return "", ""
 
-        start_date = ""
-        end_date = ""
-
-        date_str = event_data.get("date", "")  # ISO format YYYY-MM-DD (start date)
-        end_date_str = event_data.get("end_date", date_str)  # Use end_date if available, fallback to start date
+        end_date_str = event_data.get("end_date", date_str)
         time_obj = event_data.get("time", {})
 
-        if date_str:
-            start_time = "00:00:00"  # Default time
-            end_time = "23:59:59"  # Default end time
+        start_time = "00:00:00"
+        end_time = "23:59:59"
 
-            if isinstance(time_obj, dict):
-                if time_obj.get("start"):
-                    start_time = f"{time_obj['start']}:00"  # Convert HH:MM to HH:MM:SS
-                if time_obj.get("end"):
-                    end_time = f"{time_obj['end']}:00"  # Convert HH:MM to HH:MM:SS
+        if isinstance(time_obj, dict):
+            start_time = (
+                f"{time_obj['start']}:00" if time_obj.get("start") else start_time
+            )
+            end_time = f"{time_obj['end']}:00" if time_obj.get("end") else end_time
 
-            start_date = f"{date_str} {start_time}"
-            end_date = f"{end_date_str} {end_time}"  # Use correct end date for midnight crossover
+        start_date = f"{date_str} {start_time}"
+        end_date = f"{end_date_str} {end_time}"
+        return start_date, end_date
 
-        # Handle lists - using actual canonical field names
-        lineup = _format_list_or_string(event_data.get("lineup", []))
-        promoters = _format_list_or_string(event_data.get("promoters", []))
-        genres = _format_list_or_string(event_data.get("genres", []))
-
-        # --- Combine details into a single field ---
-        details_parts = []
-
-        # Add short description first if available
+    def _construct_details(
+        self: TicketFairyTransformer,
+        event_data: dict[str, Any],
+    ) -> str:
+        """Constructs the HTML 'details' field from various event data parts."""
+        parts = []
+        # Descriptions
         short_desc = event_data.get("short_description", "")
-        if short_desc:
-            details_parts.append(short_desc)
-
-        # Add long description if available and different from short
         long_desc = event_data.get("long_description", "")
-        if long_desc:
-            if not short_desc or long_desc != short_desc:
-                details_parts.append(long_desc)
+        if short_desc:
+            parts.append(short_desc)
+        if long_desc and long_desc != short_desc:
+            parts.append(long_desc)
+        if not parts and event_data.get("content"):
+            parts.append(event_data["content"])
 
-        # If we have no descriptions at all, try alternative field names
-        if not details_parts:
-            content = event_data.get("content", "")
-            if content:
-                details_parts.append(content)
+        # Other fields
+        if cost := event_data.get("cost"):
+            parts.append(f"Cost: {cost}")
+        list_fields = ["lineup", "promoters", "genres"]
+        for field in list_fields:
+            value = _format_list_or_string(event_data.get(field, []))
+            if value:
+                parts.append(f"{field.title()}: {value}")
 
-        # Add cost if available
-        cost = event_data.get("cost", "")
-        if cost:
-            details_parts.append(f"Cost: {cost}")
+        html_parts = [f"<p>{part}</p>" for part in parts if part]
+        return "".join(html_parts) or "<p>N/A</p>"
 
-        # Add additional info
-        if lineup:
-            details_parts.append(f"Lineup: {lineup}")
-        if promoters:
-            details_parts.append(f"Promoters: {promoters}")
-        if genres:
-            details_parts.append(f"Genres: {genres}")
+    def transform(
+        self: TicketFairyTransformer,
+        event_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Transforms the scraped event data into the format expected by the
+        TicketFairy /api/draft-events endpoint.
+        """
+        location = event_data.get("location", {})
+        start_date, end_date = self._get_datetimes(event_data)
 
-        # Join with HTML paragraph tags for TinyMCE
-        details_parts_html = [f"<p>{part}</p>" for part in filter(None, details_parts)]
-        details = "".join(details_parts_html) or "<p>N/A</p>"
-
-        # --- Construct the final payload ---
         return {
             "data": {
                 "attributes": {
-                    "title": title,
-                    "url": ticket_url,
-                    "image": image_url,
+                    "title": event_data.get("title", "N/A"),
+                    "url": self._get_ticket_url(event_data),
+                    "image": self._get_image_url(event_data.get("images", {})),
                     "hostedBy": True,
                     "startDate": start_date,
                     "endDate": end_date,
-                    "timezone": timezone,
+                    "timezone": get_timezone_from_location(location),
                     "isOnline": 0,
                     "status": "Public",
-                    "address": address,
-                    "venue": venue,
-                    "details": details,
+                    "address": self._get_address(location),
+                    "venue": event_data.get("venue", "N/A"),
+                    "details": self._construct_details(event_data),
                 },
             },
         }

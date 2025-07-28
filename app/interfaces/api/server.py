@@ -25,13 +25,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager."""
     # Startup
-    logger.info(f"Starting Event Importer API v{__version__}")
+    logger.info(f"Starting {app.title} v{__version__}")
 
     try:
         # Run startup checks including database initialization
@@ -47,7 +45,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
     # Shutdown
-    logger.info("Shutting down Event Importer API")
+    logger.info(f"Shutting down {app.title}")
     await close_http_service()
 
 

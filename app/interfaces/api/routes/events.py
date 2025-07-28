@@ -5,8 +5,10 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from app.core.router import Router
-from app.interfaces.api.models import (
+from app.interfaces.api.models.requests import (
     ImportEventRequest,
+)
+from app.interfaces.api.models.responses import (
     ImportEventResponse,
     ProgressResponse,
 )

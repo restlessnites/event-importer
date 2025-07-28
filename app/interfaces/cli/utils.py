@@ -1,6 +1,9 @@
-"""Utility functions for CLI (separated from theme/styling)."""
+"""Utility functions for the CLI."""
+
+from __future__ import annotations
 
 from datetime import datetime
+from urllib.parse import urlparse
 
 
 def format_timestamp(dt: datetime | str) -> str:
@@ -79,8 +82,6 @@ def format_url_for_display(url: str, style: str = "full") -> str:
     """
     if style == "full":
         return url
-
-    from urllib.parse import urlparse
 
     parsed = urlparse(url)
     domain = parsed.netloc or "unknown"

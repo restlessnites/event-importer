@@ -4,16 +4,21 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..base import BaseClient, BaseSelector, BaseSubmitter, BaseTransformer
-from .client import TicketFairyClient
-from .selectors import (
+from app.integrations.base import (
+    BaseClient,
+    BaseSelector,
+    BaseSubmitter,
+    BaseTransformer,
+)
+from app.integrations.ticketfairy.client import TicketFairyClient
+from app.integrations.ticketfairy.selectors import (
     AllEventsSelector,
     FailedSelector,
     PendingSelector,
     UnsubmittedSelector,
     URLSelector,
 )
-from .transformer import TicketFairyTransformer
+from app.integrations.ticketfairy.transformer import TicketFairyTransformer
 
 
 class TicketFairySubmitter(BaseSubmitter):
@@ -45,7 +50,9 @@ class TicketFairySubmitter(BaseSubmitter):
         return URLSelector(url)
 
     async def submit_by_url(
-        self: TicketFairySubmitter, url: str, dry_run: bool = False,
+        self: TicketFairySubmitter,
+        url: str,
+        dry_run: bool = False,
     ) -> dict[str, Any]:
         """Submit a specific event by URL"""
         # Create temporary selector
@@ -54,8 +61,7 @@ class TicketFairySubmitter(BaseSubmitter):
         self.selectors["url"] = url_selector
 
         try:
-            result = await self.submit_events("url", dry_run)
-            return result
+            return await self.submit_events("url", dry_run)
         finally:
             # Restore original selectors
             self.selectors = old_selectors

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
-from typing import Any, Generic, TypeVar
+from typing import Any, TypeVar
 
 from app.config import Config
 from app.errors import ConfigurationError, retry_on_error
@@ -20,7 +20,7 @@ LLM_NO_PROVIDERS_CONFIGURED = "No LLM providers configured. Please set either AN
 T = TypeVar("T")
 
 
-class LLMOperation(Generic[T]):
+class LLMOperation[T]:
     """Represents an LLM operation with its providers and fallback logic."""
 
     def __init__(

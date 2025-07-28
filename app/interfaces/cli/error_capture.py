@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import re
+import traceback
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -146,8 +148,6 @@ class CaptureHandler(logging.Handler):
         # Extract exception info if present
         exc_info = None
         if record.exc_info:
-            import traceback
-
             exc_info = "".join(traceback.format_exception(*record.exc_info))
 
         # Create captured error
@@ -234,11 +234,10 @@ class CLIErrorDisplay:
 
     def _clean_message(self: CLIErrorDisplay, message: str) -> str:
         """Clean up error messages for display."""
-        import re
-
         # Remove timestamps that might be in the message
-        message = re.sub(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d+ - ", "", message)
-        message = re.sub(r"^\[\d{2}:\d{2}:\d{2}\] ", "", message)
+        message = re.sub(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} - ", "", message)
+        # Remove logger name and level
+        message = re.sub(r"\[.*?\] ", "", message)
 
         # Remove logger names and level prefixes
         message = re.sub(r"^[\w\.]+\s+-\s+\w+\s+-\s+", "", message)

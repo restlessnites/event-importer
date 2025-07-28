@@ -3,6 +3,7 @@
 
 import asyncio
 import sys
+import traceback
 from datetime import datetime
 
 from app import EventImporter
@@ -65,12 +66,10 @@ async def test_import(url: str, cli: CLI, show_raw: bool = False) -> None:
         # Display results using CLI helper
         cli.import_result(result, show_raw)
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         cli.error("Import timed out")
     except Exception as e:
         cli.error(f"Unexpected error: {e}")
-        import traceback
-
         cli.code(traceback.format_exc(), "python", "Exception Traceback")
     finally:
         # Stop capturing errors

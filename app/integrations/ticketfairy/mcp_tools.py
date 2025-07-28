@@ -1,10 +1,16 @@
 """TicketFairy MCP tools."""
 
+from __future__ import annotations
+
+from datetime import datetime, timedelta
 from typing import Any
 
 from mcp.types import Tool
+from sqlalchemy import func
 
-from .submitter import TicketFairySubmitter
+from app.integrations.ticketfairy.submitter import TicketFairySubmitter
+from app.shared.database.connection import get_db_session
+from app.shared.database.models import EventCache, Submission
 
 # Define MCP tools for TicketFairy
 TOOLS: list[Tool] = [
@@ -90,32 +96,50 @@ async def handle_submit_url_to_ticketfairy(arguments: dict[str, Any]) -> dict[st
 
 
 async def handle_ticketfairy_status(arguments: dict[str, Any]) -> dict[str, Any]:
-    """Handle status request"""
-    from sqlalchemy import func
+    """Handle status request
 
-    from ...shared.database.connection import get_db_session
-    from ...shared.database.models import EventCache, Submission
+    Args:
+        arguments: Optional filter arguments (e.g., date range, event count limit)
+    """
 
-    with get_db_session() as db:
+    # Extract optional parameters from arguments
+    limit = arguments.get("limit")
+    include_recent = arguments.get("include_recent")
+
+    with get_db_session() as session:
+        # Get total events in cache
+        total_events_query = session.query(func.count(EventCache.id))
+        if limit and include_recent:
+            # Only count recent submissions
+            cutoff = datetime.utcnow() - timedelta(days=limit)
+
+            total_events_query = total_events_query.filter(
+                EventCache.created_at >= cutoff
+            )
+        total_events = total_events_query.scalar() or 0
+
         # Get submission counts by status
-        status_counts = (
-            db.query(Submission.status, func.count(Submission.id))
+        status_query = (
+            session.query(Submission.status, func.count(Submission.id))
             .filter(Submission.service_name == "ticketfairy")
             .group_by(Submission.status)
-            .all()
         )
 
-        # Get total cached events
-        total_events = db.query(func.count(EventCache.id)).scalar()
+        if limit and include_recent:
+            # Only count recent submissions
+            cutoff = datetime.utcnow() - timedelta(days=limit)
+            status_query = status_query.filter(Submission.created_at >= cutoff)
+
+        status_counts = status_query.all()
 
         # Get unsubmitted count
         submitted_event_ids = (
-            db.query(Submission.event_cache_id)
+            session.query(Submission.event_cache_id)
             .filter(Submission.service_name == "ticketfairy")
             .subquery()
         )
         unsubmitted_count = (
-            db.query(func.count(EventCache.id))
+            session.query(func.count(EventCache.id))
             .filter(~EventCache.id.in_(submitted_event_ids))
             .scalar()
         )

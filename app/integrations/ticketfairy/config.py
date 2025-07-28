@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class TicketFairyConfig:
@@ -52,7 +54,7 @@ class TicketFairyConfig:
     def validate(self: TicketFairyConfig) -> None:
         """Validate configuration and log warnings if needed."""
         if not self.is_enabled():
-            logging.warning(
+            logger.warning(
                 "TicketFairy API key not configured - TicketFairy integration disabled",
             )
 

@@ -2,6 +2,7 @@
 
 import logging
 import re
+from collections.abc import Awaitable, Callable
 from io import BytesIO
 from typing import Any
 from urllib.parse import urlparse
@@ -10,10 +11,13 @@ from PIL import Image, UnidentifiedImageError
 
 from app.config import Config
 from app.errors import handle_errors_async, retry_on_error
-from app.schemas import EventData, ImageCandidate
+from app.schemas import EventData, ImageCandidate, ImageSearchResult
 from app.shared.http import HTTPService
 
 logger = logging.getLogger(__name__)
+
+
+ProgressCallback = Callable[[str, float], Awaitable[None]]
 
 
 class ImageService:
@@ -47,7 +51,9 @@ class ImageService:
     ]
 
     def __init__(
-        self: "ImageService", config: Config, http_service: HTTPService,
+        self: "ImageService",
+        config: Config,
+        http_service: HTTPService,
     ) -> None:
         """Initialize image service."""
         self.config = config
@@ -79,7 +85,10 @@ class ImageService:
 
         # Download image data, disabling SSL verification for robustness
         image_data = await http.download(
-            url, max_size=max_size, service="ImageValidator", verify_ssl=False,
+            url,
+            max_size=max_size,
+            service="ImageValidator",
+            verify_ssl=False,
         )
 
         # Validate with Pillow
@@ -106,8 +115,6 @@ class ImageService:
     @handle_errors_async(reraise=True)
     async def rate_image(self: "ImageService", url: str) -> ImageCandidate:
         """Rate an image based on various factors."""
-        from app.shared.http import HTTPService
-
         candidate = ImageCandidate(url=url)
 
         # Immediately reject images from blocked domains
@@ -163,7 +170,9 @@ class ImageService:
     @handle_errors_async(reraise=True)
     @retry_on_error(max_attempts=2)
     async def search_event_images(
-        self: "ImageService", event_data: EventData, limit: int = 10,
+        self: "ImageService",
+        event_data: EventData,
+        limit: int = 10,
     ) -> list[ImageCandidate]:
         """Search for event images using Google Custom Search."""
         if not self.google_enabled:
@@ -194,8 +203,138 @@ class ImageService:
         candidates.sort(key=lambda x: x.score, reverse=True)
         return candidates[:limit]
 
+    @handle_errors_async(reraise=True)
+    async def enhance_event_image(
+        self: "ImageService",
+        event_data: EventData,
+        progress_callback: ProgressCallback | None = None,
+    ) -> EventData:
+        """Enhance the image for an event by searching for better alternatives."""
+        if not self.google_enabled:
+            logger.warning("Image enhancement skipped: Google Search not configured.")
+            return event_data
+
+        logger.info(f"Starting image enhancement for event: {event_data.title}")
+        search_result = ImageSearchResult()
+
+        async def send_progress(message: str, percent: float) -> None:
+            if progress_callback:
+                await progress_callback(message, percent)
+
+        # The main workflow is broken into private helpers to reduce complexity
+        original_url = await self._rate_original_image_if_present(
+            event_data, search_result, send_progress
+        )
+        new_candidates = await self._search_for_new_candidates(
+            event_data, send_progress
+        )
+        search_result.candidates = await self._rate_found_candidates(
+            new_candidates, send_progress
+        )
+
+        await send_progress("Selecting best image", 0.95)
+        self._select_and_update_best_image(event_data, search_result, original_url)
+
+        event_data.image_search = search_result
+        return event_data
+
+    async def _rate_original_image_if_present(
+        self: "ImageService",
+        event_data: EventData,
+        search_result: ImageSearchResult,
+        send_progress: ProgressCallback,
+    ) -> str | None:
+        """Rate original image if present, update search_result, and return URL."""
+        original_url = (
+            event_data.images.get("full") or event_data.images.get("thumbnail")
+            if event_data.images
+            else None
+        )
+        if not original_url:
+            return None
+
+        await send_progress("Rating original image", 0.05)
+        try:
+            candidate = await self.rate_image(original_url)
+            candidate.source = "original"
+            search_result.original = candidate
+            logger.info(f"Original image rated: score {candidate.score}")
+        except Exception as e:
+            logger.warning(f"Failed to rate original image {original_url}: {e}")
+        return original_url
+
+    async def _search_for_new_candidates(
+        self: "ImageService", event_data: EventData, send_progress: ProgressCallback
+    ) -> list[ImageCandidate]:
+        """Search for new image candidates using generated queries."""
+        queries = self._build_search_queries(event_data)
+        await send_progress(f"Searching with {len(queries)} queries", 0.15)
+        search_candidates: list[ImageCandidate] = []
+        for i, query in enumerate(queries):
+            progress = 0.15 + ((i + 1) / len(queries) * 0.3)
+            await send_progress(
+                f"Query {i + 1}/{len(queries)}: '{query[:30]}...'", progress
+            )
+            try:
+                results = await self._search_google_images(query, 5)
+                for result in results:
+                    url = result.get("link")
+                    if url and not any(c.url == url for c in search_candidates):
+                        search_candidates.append(
+                            ImageCandidate(url=url, source=f"query_{i}")
+                        )
+            except Exception as e:
+                logger.warning(f"Search query '{query}' failed: {e}")
+        return search_candidates
+
+    async def _rate_found_candidates(
+        self: "ImageService",
+        candidates: list[ImageCandidate],
+        send_progress: ProgressCallback,
+    ) -> list[ImageCandidate]:
+        """Rate a list of found image candidates."""
+        await send_progress(f"Rating {len(candidates)} candidates", 0.5)
+        if not candidates:
+            return []
+
+        rated_candidates: list[ImageCandidate] = []
+        for i, candidate in enumerate(candidates):
+            progress = 0.5 + ((i + 1) / len(candidates) * 0.4)
+            await send_progress(f"Rating image {i + 1}/{len(candidates)}", progress)
+            try:
+                rated = await self.rate_image(candidate.url)
+                rated.source = candidate.source
+                if rated.score > 0:
+                    rated_candidates.append(rated)
+            except Exception as e:
+                logger.warning(f"Failed to rate image {candidate.url}: {e}")
+        return rated_candidates
+
+    def _select_and_update_best_image(
+        self: "ImageService",
+        event_data: EventData,
+        search_result: ImageSearchResult,
+        original_url: str | None,
+    ) -> None:
+        """Select the best image from candidates and update event_data."""
+        best_candidate = search_result.get_best_candidate()
+        if best_candidate and best_candidate.url != original_url:
+            logger.info(
+                f"Selected new image (score: {best_candidate.score}): {best_candidate.url}"
+            )
+            event_data.images = {
+                "full": best_candidate.url,
+                "thumbnail": best_candidate.url,
+            }
+            search_result.selected = best_candidate
+        else:
+            logger.info("Keeping original image.")
+            if search_result.original:
+                search_result.selected = search_result.original
+
     def _get_primary_artist_for_search(
-        self: "ImageService", event_data: EventData,
+        self: "ImageService",
+        event_data: EventData,
     ) -> str | None:
         """Extract the main artist name from event data for image searching."""
         if event_data.lineup:
@@ -224,16 +363,17 @@ class ImageService:
             return [f'"{event_data.title}" event flyer']
 
         # Use focused queries for high-quality press and official photos
-        queries = [
+        return [
             f'"{artist_name}" press photo',
             f'"{artist_name}" musician official photo',
             f'"{artist_name}" band photo',
         ]
-        return queries
 
     @handle_errors_async(reraise=True)
     async def _search_google_images(
-        self: "ImageService", query: str, limit: int = 10,
+        self: "ImageService",
+        query: str,
+        limit: int = 10,
     ) -> list[dict[str, Any]]:
         """Search for images using Google Custom Search API."""
         if not self.google_enabled:

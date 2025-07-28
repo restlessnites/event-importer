@@ -1,10 +1,15 @@
 """Main application entry point and factory with database initialization."""
 
-import argparse
-import logging
+import logging.config
+from argparse import ArgumentParser
 
 from app import __version__
 from app.error_messages import CommonMessages
+from app.integrations.ticketfairy.cli import run_ticketfairy_cli
+from app.interfaces.api.server import run as api_run
+from app.interfaces.cli import run_cli
+from app.interfaces.cli.events import run_events_cli
+from app.interfaces.mcp.server import run as mcp_run
 from app.startup import startup_checks
 
 
@@ -22,7 +27,7 @@ def configure_logging(verbose: bool = False) -> None:
 
 def main() -> int:
     """Main entry point that routes to appropriate interface."""
-    parser = argparse.ArgumentParser(
+    parser = ArgumentParser(
         prog="event-importer",
         description="Event Importer - Extract structured event data from websites",
     )
@@ -82,6 +87,9 @@ def main() -> int:
     api_parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
     api_parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
 
+    # Ticketfairy interface
+    subparsers.add_parser("ticketfairy", help="Run Ticketfairy CLI")
+
     args = parser.parse_args()
 
     # Check for verbose flag from either global or subcommand
@@ -90,8 +98,6 @@ def main() -> int:
     # Configure logging based on verbosity
     configure_logging(verbose=verbose)
     logger = logging.getLogger(__name__)
-
-
 
     if not args.command:
         # Default behavior - show help
@@ -108,21 +114,17 @@ def main() -> int:
     # Route to appropriate interface
     try:
         if args.command == "import":
-            from app.interfaces.cli import run_cli
-
             run_cli(args)
         elif args.command in ["list", "show", "stats"]:
-            from app.interfaces.cli.events import run_events_cli
-
             run_events_cli(args)
         elif args.command == "mcp":
-            from app.interfaces.mcp.server import run as mcp_run
-
             mcp_run()
         elif args.command == "api":
-            from app.interfaces.api.server import run as api_run
-
             api_run(host=args.host, port=args.port, reload=args.reload)
+        elif args.command == "ticketfairy":
+            run_ticketfairy_cli(args)
+        else:
+            parser.print_help()
     except KeyboardInterrupt:
         logger.info("Operation cancelled by user")
         return 0

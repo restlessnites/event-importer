@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
@@ -34,8 +35,6 @@ def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     # Log the actual database path for debugging
-    import logging
-
     logger = logging.getLogger(__name__)
     logger.info(f"Database path: {DB_PATH.absolute()}")
 

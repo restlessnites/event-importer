@@ -1,7 +1,10 @@
 #!/usr/bin/env -S uv run python
 """Test script for RA.co GraphQL API exploration with CLI output."""
 
+from __future__ import annotations
+
 import asyncio
+import traceback
 from typing import Any
 
 from app.interfaces.cli import get_cli
@@ -43,11 +46,9 @@ class RAGraphQLTester:
         headers = self.headers.copy()
         headers["cookie"] = self.cookies
 
-        response = await self.http.post_json(
+        return await self.http.post_json(
             self.api_url, service="RA", headers=headers, json=payload
         )
-
-        return response
 
     async def test_get_areas(self, cli: CLI) -> dict[str, Any]:
         """Test GET_AREAS query to find location IDs."""
@@ -106,10 +107,9 @@ class RAGraphQLTester:
                     cli.table(results, title="California Areas")
 
                 return response
-            else:
-                cli.error("No areas data in response")
-                cli.json(response, title="Raw Response")
-                return response
+            cli.error("No areas data in response")
+            cli.json(response, title="Raw Response")
+            return response
 
         except Exception as e:
             cli.error(f"GET_AREAS failed: {e}")
@@ -176,10 +176,9 @@ class RAGraphQLTester:
 
                 cli.table(results, title="Recent Event Listings")
                 return response
-            else:
-                cli.error("No event listings in response")
-                cli.json(response, title="Raw Response")
-                return response
+            cli.error("No event listings in response")
+            cli.json(response, title="Raw Response")
+            return response
 
         except Exception as e:
             cli.error(f"GET_EVENT_LISTINGS failed: {e}")
@@ -293,10 +292,9 @@ class RAGraphQLTester:
                     cli.info(f"Description: {content}")
 
                 return response
-            else:
-                cli.error(f"Event {event_id} not found")
-                cli.json(response, title="Raw Response")
-                return response
+            cli.error(f"Event {event_id} not found")
+            cli.json(response, title="Raw Response")
+            return response
 
         except Exception as e:
             cli.error(f"GET_FULL_EVENT failed: {e}")
@@ -408,10 +406,9 @@ class RAGraphQLTester:
                     cli.warning("No events found for this promoter")
 
                 return response
-            else:
-                cli.error(f"Promoter {promoter_id} not found")
-                cli.json(response, title="Raw Response")
-                return response
+            cli.error(f"Promoter {promoter_id} not found")
+            cli.json(response, title="Raw Response")
+            return response
 
         except Exception as e:
             cli.error(f"GET_PROMOTER_EVENTS failed: {e}")
@@ -462,10 +459,9 @@ class RAGraphQLTester:
 
                 cli.table(results, title="Help Scout Configurations")
                 return response
-            else:
-                cli.error("No Help Scout configs in response")
-                cli.json(response, title="Raw Response")
-                return response
+            cli.error("No Help Scout configs in response")
+            cli.json(response, title="Raw Response")
+            return response
 
         except Exception as e:
             cli.error(f"GET_HELPSCOUT_CONFIGS failed: {e}")
@@ -590,8 +586,6 @@ async def main() -> None:
         cli.warning("\nTests interrupted by user")
     except Exception as e:
         cli.error(f"Test suite failed: {e}")
-        import traceback
-
         cli.code(traceback.format_exc(), "python", "Exception Traceback")
     finally:
         # Clean up

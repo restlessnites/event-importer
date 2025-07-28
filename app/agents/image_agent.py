@@ -14,8 +14,6 @@ from app.shared.http import HTTPService
 logger = logging.getLogger(__name__)
 
 
-
-
 class ImageAgent(Agent):
     """Agent for importing events from image URLs (flyers/posters)."""
 

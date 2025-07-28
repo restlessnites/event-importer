@@ -1,7 +1,9 @@
 #!/usr/bin/env -S uv run python
 """Test the URL analyzer with various URLs using CLI."""
 
-from app.interfaces.cli import get_cli
+import traceback
+
+from app.interfaces.cli.runner import get_cli
 from app.shared.url_analyzer import URLAnalyzer
 
 
@@ -85,8 +87,6 @@ def test_url_analyzer() -> None:
 
     except Exception as e:
         cli.error(f"Test failed: {e}")
-        import traceback
-
         cli.code(traceback.format_exc(), "python", "Exception Traceback")
     finally:
         # Stop capturing and show any errors

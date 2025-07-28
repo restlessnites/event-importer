@@ -23,7 +23,13 @@ class BaseSelector(ABC):
     def select_events(
         self: BaseSelector, db: Session, service_name: str,
     ) -> list[EventCache]:
-        """Select events based on specific criteria"""
+        """Select events based on specific criteria
+
+        Args:
+            db: Database session
+            service_name: Name of the service (used for filtering submissions)
+                         Some selectors may not use this parameter.
+        """
 
 
 class BaseTransformer(ABC):
