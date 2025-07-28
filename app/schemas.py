@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 import uuid
-from datetime import date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -32,13 +32,17 @@ class CustomBaseModel(BaseModel):
         "alias_generator": to_camel,
         "populate_by_name": True,
         "arbitrary_types_allowed": True,
-        "json_encoders": {
-            datetime: lambda v: v.isoformat(),
-            date: lambda v: v.isoformat(),
-            time: lambda v: v.isoformat(),
-            timedelta: lambda v: v.total_seconds(),
-        },
     }
+
+    @field_serializer("*", mode="wrap")
+    def serialize_datetime_fields(self, value, serializer):
+        if isinstance(value, (datetime, date)):
+            return value.isoformat()
+        if isinstance(value, time):
+            return value.isoformat()
+        if isinstance(value, timedelta):
+            return value.total_seconds()
+        return serializer(value)
 
 
 class ImportStatus(StrEnum):
@@ -199,12 +203,13 @@ class Statistics(BaseModel):
 class EventData(BaseModel):
     """Structured event data imported from sources."""
 
-    model_config = {
-        "json_encoders": {
-            datetime: lambda v: v.isoformat(),
-            HttpUrl: lambda v: str(v),
-        }
-    }
+    @field_serializer("*", mode="wrap")
+    def serialize_fields(self, value, serializer):
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, HttpUrl):
+            return str(value)
+        return serializer(value)
 
     # Required field
     title: str = Field(..., min_length=3, max_length=200)
@@ -244,7 +249,7 @@ class EventData(BaseModel):
     source_url: HttpUrl | None = None
 
     # Metadata
-    imported_at: datetime = Field(default_factory=datetime.utcnow)
+    imported_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     @field_validator("images", mode="before")
     @classmethod
@@ -538,14 +543,13 @@ class ImportProgress(BaseModel):
     status: ImportStatus
     message: str
     progress: float = Field(..., ge=0.0, le=1.0)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     data: EventData | None = None
     error: str | None = None
 
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat(),
-        }
+    @field_serializer("timestamp", mode="plain")
+    def serialize_timestamp(self, value: datetime) -> str:
+        return value.isoformat()
 
 
 class ImportResult(BaseModel):
@@ -559,14 +563,16 @@ class ImportResult(BaseModel):
     error: str | None = None
     raw_data: dict[str, Any] | None = None
     import_time: float = Field(default=0.0, ge=0.0)  # seconds
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     def __bool__(self) -> bool:
         """Check if import was successful."""
         return self.status == ImportStatus.SUCCESS and self.event_data is not None
 
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat(),
-            HttpUrl: lambda v: str(v),
-        }
+    @field_serializer("timestamp", mode="plain")
+    def serialize_timestamp(self, value: datetime) -> str:
+        return value.isoformat()
+
+    @field_serializer("url", mode="plain")
+    def serialize_url(self, value: HttpUrl) -> str:
+        return str(value)

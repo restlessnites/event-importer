@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from mcp.types import Tool
@@ -111,7 +111,7 @@ async def handle_ticketfairy_status(arguments: dict[str, Any]) -> dict[str, Any]
         total_events_query = session.query(func.count(EventCache.id))
         if limit and include_recent:
             # Only count recent submissions
-            cutoff = datetime.utcnow() - timedelta(days=limit)
+            cutoff = datetime.now(UTC) - timedelta(days=limit)
 
             total_events_query = total_events_query.filter(
                 EventCache.created_at >= cutoff
@@ -127,7 +127,7 @@ async def handle_ticketfairy_status(arguments: dict[str, Any]) -> dict[str, Any]
 
         if limit and include_recent:
             # Only count recent submissions
-            cutoff = datetime.utcnow() - timedelta(days=limit)
+            cutoff = datetime.now(UTC) - timedelta(days=limit)
             status_query = status_query.filter(Submission.created_at >= cutoff)
 
         status_counts = status_query.all()

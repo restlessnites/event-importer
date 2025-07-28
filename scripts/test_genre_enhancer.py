@@ -78,6 +78,7 @@ async def test_genre_service(capsys, cli, http_service, claude_service):
 
     # Mock the search method to avoid external calls
     async def mock_search_genres(artist_name, event_context):
+        print(f"Mocking search for {artist_name} with context {event_context}")
         return ["Indie Rock", "Alternative Rock"]
 
     genre_service._search_artist_genres = mock_search_genres
@@ -96,6 +97,7 @@ async def test_genre_service(capsys, cli, http_service, claude_service):
     )
 
     async def mock_search_genres_no_genres(artist_name, event_context):
+        print(f"Mocking search for {artist_name} with context {event_context}")
         return ["Electronic", "IDM"]
 
     genre_service._search_artist_genres = mock_search_genres_no_genres
@@ -126,6 +128,7 @@ async def test_individual_artist(capsys, cli, http_service, claude_service):
     cli.section(f"Searching for genres for '{artist_name}'")
 
     async def mock_search_genres_boc(artist_name, event_context):
+        print(f"Mocking search for {artist_name} with context {event_context}")
         return ["Electronic", "Ambient", "IDM"]
 
     genre_service._search_artist_genres = mock_search_genres_boc
