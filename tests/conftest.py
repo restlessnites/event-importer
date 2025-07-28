@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
 from app.config import get_config
 from app.interfaces.cli.core import CLI
 from app.services.claude import ClaudeService
@@ -14,8 +17,6 @@ from app.shared.database.connection import (
 )
 from app.shared.database.models import Base
 from app.shared.http import HTTPService
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
 
 TEST_DATABASE_URL = "sqlite:///./test.db"
 
@@ -31,8 +32,8 @@ def db_session(test_database_url: str) -> Session:
     """Create a test database session."""
     engine = create_engine(test_database_url, connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=engine)
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    db = TestingSessionLocal()
+    testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = testing_session_local()
     try:
         yield db
     finally:

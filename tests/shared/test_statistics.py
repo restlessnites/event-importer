@@ -14,12 +14,12 @@ def test_get_event_statistics(mocker):
     # Setup count returns
     mock_query.count.side_effect = [
         100,  # total_events
-        10,   # events_today
-        25,   # events_this_week
-        80,   # events_with_submissions
-        5,    # future_events
-        3,    # events_this_month
-        7,    # recent_events
+        10,  # events_today
+        25,  # events_this_week
+        80,  # events_with_submissions
+        5,  # future_events
+        3,  # events_this_month
+        7,  # recent_events
     ]
 
     # Setup filter returns
@@ -31,7 +31,7 @@ def test_get_event_statistics(mocker):
     mock_query.values.return_value.all.return_value = [
         ("ra.co", 40),
         ("dice.fm", 30),
-        ("ticketmaster.com", 30)
+        ("ticketmaster.com", 30),
     ]
     mock_query.group_by.return_value = mock_query
 
@@ -64,15 +64,9 @@ def test_get_submission_statistics(mocker):
     mock_query.count.return_value = 150
 
     # Mock the group_by queries for status and service counts
-    status_all_result = [
-        ("success", 100),
-        ("pending", 30),
-        ("failed", 20)
-    ]
+    status_all_result = [("success", 100), ("pending", 30), ("failed", 20)]
 
-    service_all_result = [
-        ("ticketfairy", 150)
-    ]
+    service_all_result = [("ticketfairy", 150)]
 
     # Create a mock that returns the right data for each query
     def mock_all():

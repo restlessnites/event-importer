@@ -14,7 +14,7 @@ def get_coverage_percentage():
             ["coverage", "report", "--format=total"],
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
         return float(result.stdout.strip())
     except (subprocess.CalledProcessError, ValueError):
@@ -24,7 +24,7 @@ def get_coverage_percentage():
             try:
                 tree = ET.parse(coverage_xml)  # noqa: S314
                 root = tree.getroot()
-                return float(root.attrib.get('line-rate', 0)) * 100
+                return float(root.attrib.get("line-rate", 0)) * 100
             except (ET.ParseError, ValueError):
                 pass
         return 0
@@ -59,15 +59,17 @@ def update_readme_badge(badge_url):
     content = readme_path.read_text()
 
     # Look for the coverage badge line
-    lines = content.split('\n')
+    lines = content.split("\n")
     for i, line in enumerate(lines):
-        if 'Coverage' in line and 'img.shields.io/badge/coverage' in line:
+        if "Coverage" in line and "img.shields.io/badge/coverage" in line:
             # Replace with static badge
-            lines[i] = f"[![Coverage]({badge_url})](https://github.com/restlessnites/event-importer)"
+            lines[i] = (
+                f"[![Coverage]({badge_url})](https://github.com/restlessnites/event-importer)"
+            )
             break
 
     # Write back
-    readme_path.write_text('\n'.join(lines))
+    readme_path.write_text("\n".join(lines))
     return True
 
 

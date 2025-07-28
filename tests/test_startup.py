@@ -14,9 +14,10 @@ def test_startup_checks_creates_directories(tmp_path, monkeypatch):
     # Mock Path to use our temp directory
     tmp_path / "data"
 
-    with patch("app.startup.Path") as mock_path_class, \
-         patch("app.startup.ensure_database_ready"):
-
+    with (
+        patch("app.startup.Path") as mock_path_class,
+        patch("app.startup.ensure_database_ready"),
+    ):
         # Setup mock
         mock_path = MagicMock()
         mock_path.exists.return_value = False
@@ -33,9 +34,10 @@ def test_startup_checks_creates_directories(tmp_path, monkeypatch):
 
 def test_startup_checks_skips_existing_directory():
     """Test that startup_checks doesn't create directory if it exists."""
-    with patch("app.startup.Path") as mock_path_class, \
-         patch("app.startup.ensure_database_ready"):
-
+    with (
+        patch("app.startup.Path") as mock_path_class,
+        patch("app.startup.ensure_database_ready"),
+    ):
         # Setup mock - directory already exists
         mock_path = MagicMock()
         mock_path.exists.return_value = True
@@ -49,9 +51,10 @@ def test_startup_checks_skips_existing_directory():
 
 def test_ensure_database_ready_initializes_missing_tables():
     """Test that missing tables trigger database initialization."""
-    with patch("app.startup.get_db_session") as mock_get_db, \
-         patch("app.startup.init_db") as mock_init_db:
-
+    with (
+        patch("app.startup.get_db_session") as mock_get_db,
+        patch("app.startup.init_db") as mock_init_db,
+    ):
         # Mock the context manager and session
         mock_session = MagicMock()
         mock_context = MagicMock()
@@ -60,7 +63,9 @@ def test_ensure_database_ready_initializes_missing_tables():
         mock_get_db.return_value = mock_context
 
         # Simulate "no such table" error
-        error = OperationalError("statement", "params", sqlite3.OperationalError("no such table: events"))
+        error = OperationalError(
+            "statement", "params", sqlite3.OperationalError("no such table: events")
+        )
         mock_session.execute.side_effect = error
 
         ensure_database_ready()
@@ -72,7 +77,6 @@ def test_ensure_database_ready_initializes_missing_tables():
 def test_ensure_database_ready_reraises_other_errors():
     """Test that non-table errors are re-raised."""
     with patch("app.startup.get_db_session") as mock_get_db:
-
         # Mock the context manager and session
         mock_session = MagicMock()
         mock_context = MagicMock()
@@ -81,7 +85,9 @@ def test_ensure_database_ready_reraises_other_errors():
         mock_get_db.return_value = mock_context
 
         # Simulate different database error
-        error = OperationalError("statement", "params", sqlite3.OperationalError("database is locked"))
+        error = OperationalError(
+            "statement", "params", sqlite3.OperationalError("database is locked")
+        )
         mock_session.execute.side_effect = error
 
         # Should re-raise the error

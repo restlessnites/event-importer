@@ -42,9 +42,10 @@ def mock_config_no_keys():
 
 def test_init_with_both_providers(mock_config):
     """Test initialization with both providers configured."""
-    with patch('app.services.llm.ClaudeService') as mock_claude, \
-         patch('app.services.llm.OpenAIService') as mock_openai:
-
+    with (
+        patch("app.services.llm.ClaudeService") as mock_claude,
+        patch("app.services.llm.OpenAIService") as mock_openai,
+    ):
         service = LLMService(mock_config)
 
         # Both services should be initialized
@@ -56,9 +57,10 @@ def test_init_with_both_providers(mock_config):
 
 def test_init_with_claude_only(mock_config_claude_only):
     """Test initialization with only Claude configured."""
-    with patch('app.services.llm.ClaudeService') as mock_claude, \
-         patch('app.services.llm.OpenAIService') as mock_openai:
-
+    with (
+        patch("app.services.llm.ClaudeService") as mock_claude,
+        patch("app.services.llm.OpenAIService") as mock_openai,
+    ):
         service = LLMService(mock_config_claude_only)
 
         # Only Claude should be initialized
@@ -70,9 +72,10 @@ def test_init_with_claude_only(mock_config_claude_only):
 
 def test_init_no_providers_raises_error(mock_config_no_keys):
     """Test initialization with no providers raises error."""
-    with patch('app.services.llm.ClaudeService'), \
-         patch('app.services.llm.OpenAIService'):
-
+    with (
+        patch("app.services.llm.ClaudeService"),
+        patch("app.services.llm.OpenAIService"),
+    ):
         with pytest.raises(ConfigurationError) as exc_info:
             LLMService(mock_config_no_keys)
 
@@ -82,9 +85,10 @@ def test_init_no_providers_raises_error(mock_config_no_keys):
 @pytest.mark.asyncio
 async def test_generate_descriptions_success(mock_config):
     """Test successful description generation."""
-    with patch('app.services.llm.ClaudeService') as mock_claude_class, \
-         patch('app.services.llm.OpenAIService'):
-
+    with (
+        patch("app.services.llm.ClaudeService") as mock_claude_class,
+        patch("app.services.llm.OpenAIService"),
+    ):
         # Setup mock
         mock_claude = AsyncMock()
         mock_claude_class.return_value = mock_claude
@@ -94,12 +98,14 @@ async def test_generate_descriptions_success(mock_config):
             venue="Test Venue",
             date="2025-01-01",
             long_description="Long description",
-            short_description="Short desc"
+            short_description="Short desc",
         )
         mock_claude.generate_descriptions.return_value = modified_event
 
         service = LLMService(mock_config)
-        event_data = EventData(title="Test Event", venue="Test Venue", date="2025-01-01")
+        event_data = EventData(
+            title="Test Event", venue="Test Venue", date="2025-01-01"
+        )
 
         result = await service.generate_descriptions(event_data)
 
@@ -112,9 +118,10 @@ async def test_generate_descriptions_success(mock_config):
 @pytest.mark.asyncio
 async def test_generate_descriptions_with_fallback(mock_config):
     """Test description generation falls back to OpenAI on Claude failure."""
-    with patch('app.services.llm.ClaudeService') as mock_claude_class, \
-         patch('app.services.llm.OpenAIService') as mock_openai_class:
-
+    with (
+        patch("app.services.llm.ClaudeService") as mock_claude_class,
+        patch("app.services.llm.OpenAIService") as mock_openai_class,
+    ):
         # Setup mocks
         mock_claude = AsyncMock()
         mock_openai = AsyncMock()
@@ -128,12 +135,14 @@ async def test_generate_descriptions_with_fallback(mock_config):
             venue="Test Venue",
             date="2025-01-01",
             long_description="Fallback description",
-            short_description="Fallback"
+            short_description="Fallback",
         )
         mock_openai.generate_descriptions.return_value = modified_event
 
         service = LLMService(mock_config)
-        event_data = EventData(title="Test Event", venue="Test Venue", date="2025-01-01")
+        event_data = EventData(
+            title="Test Event", venue="Test Venue", date="2025-01-01"
+        )
 
         result = await service.generate_descriptions(event_data)
 
@@ -147,9 +156,10 @@ async def test_generate_descriptions_with_fallback(mock_config):
 @pytest.mark.asyncio
 async def test_analyze_text_success(mock_config):
     """Test successful text analysis."""
-    with patch('app.services.llm.ClaudeService') as mock_claude_class, \
-         patch('app.services.llm.OpenAIService'):
-
+    with (
+        patch("app.services.llm.ClaudeService") as mock_claude_class,
+        patch("app.services.llm.OpenAIService"),
+    ):
         # Setup mock
         mock_claude = AsyncMock()
         mock_claude_class.return_value = mock_claude
@@ -166,13 +176,16 @@ async def test_analyze_text_success(mock_config):
 @pytest.mark.asyncio
 async def test_extract_event_data_success(mock_config):
     """Test successful event data extraction."""
-    with patch('app.services.llm.ClaudeService') as mock_claude_class, \
-         patch('app.services.llm.OpenAIService'):
-
+    with (
+        patch("app.services.llm.ClaudeService") as mock_claude_class,
+        patch("app.services.llm.OpenAIService"),
+    ):
         # Setup mock
         mock_claude = AsyncMock()
         mock_claude_class.return_value = mock_claude
-        mock_event_data = EventData(title="Extracted Event", venue="Venue", date="2025-01-01")
+        mock_event_data = EventData(
+            title="Extracted Event", venue="Venue", date="2025-01-01"
+        )
         mock_claude.extract_event_data.return_value = mock_event_data
 
         service = LLMService(mock_config)
@@ -180,4 +193,6 @@ async def test_extract_event_data_success(mock_config):
         result = await service.extract_event_data("Event text", "https://example.com")
 
         assert result == mock_event_data
-        mock_claude.extract_event_data.assert_called_once_with(prompt="Event text", image_b64="https://example.com", mime_type=None)
+        mock_claude.extract_event_data.assert_called_once_with(
+            prompt="Event text", image_b64="https://example.com", mime_type=None
+        )

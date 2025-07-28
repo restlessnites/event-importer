@@ -28,7 +28,10 @@ class StatisticsService:
 
             # Recent activity (today)
             today_start = datetime.now().replace(
-                hour=0, minute=0, second=0, microsecond=0,
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
             )
             events_today = (
                 db.query(EventCache)
@@ -83,7 +86,8 @@ class StatisticsService:
             # Submissions by service
             service_counts = (
                 db.query(
-                    Submission.service_name, func.count(Submission.id).label("count"),
+                    Submission.service_name,
+                    func.count(Submission.id).label("count"),
                 )
                 .group_by(Submission.service_name)
                 .all()

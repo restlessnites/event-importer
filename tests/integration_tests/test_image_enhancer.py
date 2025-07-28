@@ -50,7 +50,9 @@ async def test_image_search(capsys, cli, http_service):
 
     # Check if Google API is configured before proceeding
     if not (config.api.google_api_key and config.api.google_cse_id):
-        pytest.skip("Google Search API not configured - set GOOGLE_API_KEY and GOOGLE_CSE_ID in .env file")
+        pytest.skip(
+            "Google Search API not configured - set GOOGLE_API_KEY and GOOGLE_CSE_ID in .env file"
+        )
 
     # Additional check - if the API key looks invalid, skip the test
     if config.api.google_api_key == "test-key" or len(config.api.google_api_key) < 10:

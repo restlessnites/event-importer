@@ -24,7 +24,8 @@ class Router:
 
     @handle_errors_async(reraise=False)
     async def route_request(
-        self: Router, request_data: dict[str, Any],
+        self: Router,
+        request_data: dict[str, Any],
     ) -> dict[str, Any]:
         """Route an import request.
 
@@ -57,9 +58,7 @@ class Router:
             return {
                 "success": False,
                 "error": result.error or "Import failed",
-                "method_used": result.method_used.value
-                if result.method_used
-                else None,
+                "method_used": result.method_used.value if result.method_used else None,
             }
 
         except (ValueError, TypeError, KeyError) as e:

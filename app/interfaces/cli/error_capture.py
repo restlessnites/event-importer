@@ -166,7 +166,9 @@ class CLIErrorDisplay:
         self.cli = cli
 
     def show_captured_errors(
-        self: CLIErrorDisplay, capture: ErrorCapture, title: str = "Captured Errors",
+        self: CLIErrorDisplay,
+        capture: ErrorCapture,
+        title: str = "Captured Errors",
     ) -> None:
         """Display captured errors in a nice format."""
         errors = capture.get_errors()
@@ -190,7 +192,10 @@ class CLIErrorDisplay:
             self._show_messages(errors, "Errors", "error")
 
     def _show_messages(
-        self: CLIErrorDisplay, messages: list[CapturedError], label: str, style: str,
+        self: CLIErrorDisplay,
+        messages: list[CapturedError],
+        label: str,
+        style: str,
     ) -> None:
         """Show a group of messages."""
         self.cli.console.print(

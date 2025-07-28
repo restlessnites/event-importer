@@ -12,7 +12,8 @@ class ImportEventResponse(BaseModel):
     data: EventData | None = Field(None, description="Imported event data")
     method_used: str | None = Field(None, description="Import method that was used")
     import_time: float | None = Field(
-        None, description="Time taken for import in seconds",
+        None,
+        description="Time taken for import in seconds",
     )
     error: str | None = Field(None, description="Error message if import failed")
 

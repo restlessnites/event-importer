@@ -45,7 +45,8 @@ class ZyteService:
 
             # Check for security pages
             is_security, reason = SecurityPageDetector.detect_security_page(
-                html, response_url,
+                html,
+                response_url,
             )
             if is_security:
                 # Log a warning with details
@@ -89,7 +90,9 @@ class ZyteService:
             return image_bytes, "image/png"  # Zyte screenshots are PNGs
 
     async def _make_request(
-        self: ZyteService, payload: dict[str, Any], is_screenshot: bool = False,
+        self: ZyteService,
+        payload: dict[str, Any],
+        is_screenshot: bool = False,
     ) -> tuple[Any, str]:
         """Make the actual request to Zyte API."""
         if not self.config.api.zyte_key:

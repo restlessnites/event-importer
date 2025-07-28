@@ -1,6 +1,5 @@
 """CLI for TicketFairy integration."""
 
-
 import argparse
 import asyncio
 import re

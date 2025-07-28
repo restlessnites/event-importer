@@ -83,7 +83,8 @@ class LLMService:
                         f"Attempting {operation.name} with fallback provider (OpenAI)",
                     )
                     return await operation.fallback_provider(
-                        *operation.args, **operation.kwargs,
+                        *operation.args,
+                        **operation.kwargs,
                     )
                 except Exception as fallback_error:
                     logger.exception(
@@ -98,13 +99,16 @@ class LLMService:
 
     @retry_on_error(max_attempts=2)
     async def generate_descriptions(
-        self: LLMService, event_data: EventData,
+        self: LLMService,
+        event_data: EventData,
     ) -> EventData:
         """Generate event descriptions with fallback."""
         operation = LLMOperation(
             name="generate_descriptions",
             primary_provider=self.primary_service.generate_descriptions,
-            fallback_provider=self.fallback_service.generate_descriptions if self.fallback_service else None,
+            fallback_provider=self.fallback_service.generate_descriptions
+            if self.fallback_service
+            else None,
             event_data=event_data,
         )
         return await self._execute_with_fallback(operation)
@@ -115,7 +119,9 @@ class LLMService:
         operation = LLMOperation(
             name="analyze_text",
             primary_provider=self.primary_service.analyze_text,
-            fallback_provider=self.fallback_service.analyze_text if self.fallback_service else None,
+            fallback_provider=self.fallback_service.analyze_text
+            if self.fallback_service
+            else None,
             prompt=prompt,
         )
         return await self._execute_with_fallback(operation)
@@ -144,14 +150,18 @@ class LLMService:
         operation = LLMOperation(
             name="enhance_genres",
             primary_provider=self.primary_service.enhance_genres,
-            fallback_provider=self.fallback_service.enhance_genres if self.fallback_service else None,
+            fallback_provider=self.fallback_service.enhance_genres
+            if self.fallback_service
+            else None,
             event_data=event_data,
         )
         return await self._execute_with_fallback(operation)
 
     @retry_on_error(max_attempts=2)
     async def extract_from_html(
-        self: LLMService, html: str, url: str,
+        self: LLMService,
+        html: str,
+        url: str,
     ) -> EventData | None:
         """Extract event data from HTML with fallback."""
         operation = LLMOperation(
@@ -165,7 +175,10 @@ class LLMService:
 
     @retry_on_error(max_attempts=2)
     async def extract_from_image(
-        self: LLMService, image_data: bytes, mime_type: str, url: str,
+        self: LLMService,
+        image_data: bytes,
+        mime_type: str,
+        url: str,
     ) -> EventData | None:
         """Extract event data from an image with fallback."""
         operation = LLMOperation(

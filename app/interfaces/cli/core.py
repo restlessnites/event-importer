@@ -122,11 +122,16 @@ class CLI:
     def json(self: CLI, data: dict, title: str | None = None) -> None:
         """Display JSON data with syntax highlighting."""
         self.code_component.render(
-            json.dumps(data, indent=2, default=str), language="json", title=title,
+            json.dumps(data, indent=2, default=str),
+            language="json",
+            title=title,
         )
 
     def code(
-        self: CLI, code: str, language: str = "python", title: str | None = None,
+        self: CLI,
+        code: str,
+        language: str = "python",
+        title: str | None = None,
     ) -> None:
         """Display code with syntax highlighting."""
         self.code_component.render(code, language, title)

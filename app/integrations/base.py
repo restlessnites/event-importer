@@ -21,7 +21,9 @@ class BaseSelector(ABC):
 
     @abstractmethod
     def select_events(
-        self: BaseSelector, db: Session, service_name: str,
+        self: BaseSelector,
+        db: Session,
+        service_name: str,
     ) -> list[EventCache]:
         """Select events based on specific criteria
 
@@ -76,7 +78,9 @@ class BaseSubmitter(ABC):
 
     @handle_errors_async(reraise=True)
     async def submit_events(
-        self: BaseSubmitter, selector_name: str = "unsubmitted", dry_run: bool = False,
+        self: BaseSubmitter,
+        selector_name: str = "unsubmitted",
+        dry_run: bool = False,
     ) -> dict[str, Any]:
         """Submit events to the integration.
 

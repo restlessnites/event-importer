@@ -26,6 +26,8 @@ def get_integration(name: str) -> type:
     """Get a specific integration by name"""
     integrations = get_available_integrations()
     if name not in integrations:
-        error_msg = f"Integration '{name}' not found. Available: {list(integrations.keys())}"
+        error_msg = (
+            f"Integration '{name}' not found. Available: {list(integrations.keys())}"
+        )
         raise ValueError(error_msg)
     return integrations[name]

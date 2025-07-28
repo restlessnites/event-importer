@@ -30,7 +30,9 @@ def cache_event(url: str, event_data: dict[str, Any]) -> EventCache:
             return existing
         # Create new cache entry
         cached_event = EventCache(
-            source_url=url, scraped_data=event_data, data_hash=data_hash,
+            source_url=url,
+            scraped_data=event_data,
+            data_hash=data_hash,
         )
         db.add(cached_event)
         db.flush()  # Get the ID

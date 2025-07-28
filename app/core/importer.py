@@ -266,9 +266,7 @@ class EventImporter:
         )
 
     @handle_errors_async(reraise=True)
-    async def import_event(
-        self: EventImporter, request: ImportRequest
-    ) -> ImportResult:
+    async def import_event(self: EventImporter, request: ImportRequest) -> ImportResult:
         """Import an event from a URL.
 
         Args:

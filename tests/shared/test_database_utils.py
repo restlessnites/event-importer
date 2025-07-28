@@ -1,6 +1,5 @@
 """Tests for database utility functions."""
 
-
 import pytest
 from sqlalchemy.orm import Session
 
@@ -17,7 +16,7 @@ def sample_event():
         date="2025-03-01",
         lineup=["Artist 1", "Artist 2"],
         genres=["house", "techno"],
-        source_url="https://example.com/event/123"
+        source_url="https://example.com/event/123",
     )
 
 
@@ -26,10 +25,7 @@ def test_cache_event_success(db_session: Session, sample_event):
     url = "https://example.com/event/123"
 
     # Cache the event - convert to dict
-    cache_event(
-        url=url,
-        event_data=sample_event.model_dump()
-    )
+    cache_event(url=url, event_data=sample_event.model_dump())
 
     # Retrieve it using get_cached_event to verify
     cached_data = get_cached_event(url)
@@ -41,10 +37,7 @@ def test_cache_event_empty(db_session: Session):
     """Test caching an event with empty data."""
     url = "https://example.com/event/empty"
 
-    cache_event(
-        url=url,
-        event_data={}
-    )
+    cache_event(url=url, event_data={})
 
     # Retrieve it to verify
     cached_data = get_cached_event(url)
@@ -57,10 +50,7 @@ def test_cache_event_update_existing(db_session: Session, sample_event):
     url = "https://example.com/event/123"
 
     # First cache
-    cache_event(
-        url=url,
-        event_data=sample_event.model_dump()
-    )
+    cache_event(url=url, event_data=sample_event.model_dump())
 
     # Get the first cached data
     first_data = get_cached_event(url)
@@ -70,10 +60,7 @@ def test_cache_event_update_existing(db_session: Session, sample_event):
     updated_event = sample_event.model_copy()
     updated_event.title = "Updated Event"
 
-    cache_event(
-        url=url,
-        event_data=updated_event.model_dump()
-    )
+    cache_event(url=url, event_data=updated_event.model_dump())
 
     # Get the updated data
     updated_data = get_cached_event(url)
@@ -85,10 +72,7 @@ def test_get_cached_event_found(db_session: Session, sample_event):
     url = "https://example.com/event/123"
 
     # Cache an event
-    cache_event(
-        url=url,
-        event_data=sample_event.model_dump()
-    )
+    cache_event(url=url, event_data=sample_event.model_dump())
 
     # Retrieve it
     cached_data = get_cached_event(url)
@@ -111,10 +95,7 @@ def test_get_cached_event_twice(db_session: Session, sample_event):
     url = "https://example.com/event/123"
 
     # Cache an event
-    cache_event(
-        url=url,
-        event_data=sample_event.model_dump()
-    )
+    cache_event(url=url, event_data=sample_event.model_dump())
 
     # Retrieve it twice
     first_get = get_cached_event(url)

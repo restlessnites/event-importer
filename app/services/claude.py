@@ -47,19 +47,40 @@ class ClaudeService:
                     "location": {
                         "type": "object",
                         "properties": {
-                            "address": {"type": "string", "description": "Street address"},
+                            "address": {
+                                "type": "string",
+                                "description": "Street address",
+                            },
                             "city": {"type": "string", "description": "City name"},
-                            "state": {"type": "string", "description": "State/province"},
-                            "country": {"type": "string", "description": "Country name"},
-                            "coordinates": {"type": "object", "description": "Lat/lng coordinates (optional)"},
+                            "state": {
+                                "type": "string",
+                                "description": "State/province",
+                            },
+                            "country": {
+                                "type": "string",
+                                "description": "Country name",
+                            },
+                            "coordinates": {
+                                "type": "object",
+                                "description": "Lat/lng coordinates (optional)",
+                            },
                         },
                     },
                     "time": {
                         "type": "object",
                         "properties": {
-                            "start": {"type": "string", "description": "Start time in HH:MM format"},
-                            "end": {"type": "string", "description": "End time in HH:MM format"},
-                            "timezone": {"type": "string", "description": "Timezone (optional)"},
+                            "start": {
+                                "type": "string",
+                                "description": "Start time in HH:MM format",
+                            },
+                            "end": {
+                                "type": "string",
+                                "description": "End time in HH:MM format",
+                            },
+                            "timezone": {
+                                "type": "string",
+                                "description": "Timezone (optional)",
+                            },
                         },
                     },
                     "doors_time": {"type": "string"},
@@ -97,7 +118,9 @@ class ClaudeService:
 
     @handle_errors_async(reraise=True)
     async def extract_from_html(
-        self: "ClaudeService", html: str, url: str,
+        self: "ClaudeService",
+        html: str,
+        url: str,
     ) -> EventData | None:
         """Extract event data from HTML."""
         max_length = 50000
@@ -125,7 +148,10 @@ class ClaudeService:
 
     @handle_errors_async(reraise=True)
     async def extract_from_image(
-        self: "ClaudeService", image_data: bytes, mime_type: str, url: str,
+        self: "ClaudeService",
+        image_data: bytes,
+        mime_type: str,
+        url: str,
     ) -> EventData | None:
         """Extract event data from an image."""
         image_b64 = base64.b64encode(image_data).decode("utf-8")
@@ -182,12 +208,13 @@ class ClaudeService:
                         end_time = parts[1].strip() if len(parts) > 1 else None
 
                         # Only create EventTime if we have valid time strings
-                        if (start_time and len(start_time) > 1):
+                        if start_time and len(start_time) > 1:
                             # Must be more than just a digit
                             try:
                                 # Let EventTime parse the time format (it handles AM/PM)
                                 cleaned_result["time"] = EventTime(
-                                    start=start_time, end=end_time,
+                                    start=start_time,
+                                    end=end_time,
                                 )
                                 logger.info(
                                     f"Successfully parsed time: start='{start_time}', end='{end_time}'",
@@ -228,7 +255,8 @@ class ClaudeService:
 
     @handle_errors_async(reraise=True)
     async def generate_descriptions(
-        self: "ClaudeService", event_data: EventData,
+        self: "ClaudeService",
+        event_data: EventData,
     ) -> EventData:
         """Generate missing descriptions for an event."""
         # Determine which descriptions need to be generated/fixed
@@ -299,7 +327,9 @@ class ClaudeService:
 
         try:
             result = await self._call_with_tool(
-                prompt, tool=self.GENRE_TOOL, tool_name="enhance_genres",
+                prompt,
+                tool=self.GENRE_TOOL,
+                tool_name="enhance_genres",
             )
             if result and result.get("genres"):
                 event_data.genres = result["genres"]
@@ -362,7 +392,10 @@ class ClaudeService:
             raise APIError(CLAUDE_SERVICE_NAME, str(e)) from e
 
     async def _call_with_vision(
-        self: "ClaudeService", prompt: str, image_b64: str, mime_type: str,
+        self: "ClaudeService",
+        prompt: str,
+        image_b64: str,
+        mime_type: str,
     ) -> dict[str, Any] | None:
         """Call Claude's vision model with a prompt and image."""
         if not self.client:
@@ -422,7 +455,8 @@ class ClaudeService:
             raise APIError(CLAUDE_SERVICE_NAME, error_msg) from e
 
     def _clean_response_data(
-        self: "ClaudeService", data: dict[str, Any],
+        self: "ClaudeService",
+        data: dict[str, Any],
     ) -> dict[str, Any]:
         """Clean and validate response data before creating EventData."""
         cleaned = {}
@@ -430,7 +464,9 @@ class ClaudeService:
         for key, value in data.items():
             if value is not None:
                 # Convert empty strings to None for optional fields
-                if (isinstance(value, str) and value.strip() == "") or (isinstance(value, list) and len(value) == 0):
+                if (isinstance(value, str) and value.strip() == "") or (
+                    isinstance(value, list) and len(value) == 0
+                ):
                     continue
                 cleaned[key] = value
 

@@ -28,7 +28,7 @@ async def test_send_progress_with_listener(progress_tracker):
         request_id=request_id,
         status=ImportStatus.RUNNING,
         message="Processing...",
-        progress=0.5
+        progress=0.5,
     )
     await progress_tracker.send_progress(progress)
 
@@ -44,7 +44,7 @@ async def test_send_progress_without_listener(progress_tracker):
         request_id="test-123",
         status=ImportStatus.SUCCESS,
         message="Complete",
-        progress=1.0
+        progress=1.0,
     )
     await progress_tracker.send_progress(progress)
 
@@ -64,7 +64,7 @@ async def test_remove_listener(progress_tracker):
         request_id=request_id,
         status=ImportStatus.RUNNING,
         message="Processing...",
-        progress=0.5
+        progress=0.5,
     )
     await progress_tracker.send_progress(progress)
 
@@ -87,7 +87,7 @@ async def test_multiple_listeners(progress_tracker):
         request_id=request_id,
         status=ImportStatus.RUNNING,
         message="Processing...",
-        progress=0.5
+        progress=0.5,
     )
     await progress_tracker.send_progress(progress)
 
@@ -135,7 +135,7 @@ async def test_listener_exception_handling(progress_tracker):
         request_id=request_id,
         status=ImportStatus.RUNNING,
         message="Processing...",
-        progress=0.5
+        progress=0.5,
     )
     await progress_tracker.send_progress(progress)
 

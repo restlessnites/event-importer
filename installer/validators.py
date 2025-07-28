@@ -45,9 +45,7 @@ class InstallationValidator:
         try:
             # Check uv
             result = self.runner.run(
-                ["uv", "--version"],
-                capture_output=True,
-                check=False
+                ["uv", "--version"], capture_output=True, check=False
             )
             uv_installed = result.returncode == 0
             results["checks"]["uv installed"] = uv_installed

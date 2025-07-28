@@ -345,7 +345,9 @@ class ImageService:
             if search_result.original:
                 search_result.selected = search_result.original
 
-    def _get_primary_artist_for_search(self: "ImageService", event_data: EventData) -> str:
+    def _get_primary_artist_for_search(
+        self: "ImageService", event_data: EventData
+    ) -> str:
         """Extract the primary artist from the event title if lineup is not available."""
         # Start with the full title
         title = event_data.title
@@ -355,11 +357,15 @@ class ImageService:
 
         # Remove "at [Venue]" part
         if event_data.venue:
-            venue_pattern = re.compile(f"\\s+at\\s+{re.escape(event_data.venue)}\\s*$", re.IGNORECASE)
+            venue_pattern = re.compile(
+                f"\\s+at\\s+{re.escape(event_data.venue)}\\s*$", re.IGNORECASE
+            )
             title = venue_pattern.sub("", title)
 
         # Basic cleanup of common suffixes
-        title = re.sub(r"\\s+\\(live\\)$|\\s+dj set\\s*$", "", title, flags=re.IGNORECASE).strip()
+        title = re.sub(
+            r"\\s+\\(live\\)$|\\s+dj set\\s*$", "", title, flags=re.IGNORECASE
+        ).strip()
 
         return title.strip()
 

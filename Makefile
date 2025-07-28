@@ -60,9 +60,8 @@ test-dice-api: ## Run the Dice API integration tests
 
 
 ##@ Code Quality
-lint: ## Run linters (ruff and mypy)
+lint: ## Run linters (ruff)
 	@uv run --active ruff check . || true
-	@uv run --active mypy app || true
 
 format: ## Auto-format code with ruff
 	@uv run --active ruff check . --fix
