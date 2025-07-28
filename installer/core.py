@@ -5,6 +5,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from rich.padding import Padding
+from rich.panel import Panel
+
 from app import __version__ as new_version
 from app.validators import InstallationValidator
 from installer.components.api_keys import APIKeyManager
@@ -13,8 +16,6 @@ from installer.components.dependencies import DependencyInstaller
 from installer.components.environment import EnvironmentSetup
 from installer.components.migration import MigrationManager
 from installer.utils import Console, SystemCheck
-from rich.panel import Panel
-from rich.padding import Padding
 
 
 class EventImporterInstaller:
@@ -62,6 +63,7 @@ class EventImporterInstaller:
                 "This installer will check and configure all required components."
             )
             self.console.info("Previously installed components will be skipped.")
+            self.console.print()
             self.migration_manager.check_and_run()
         return True
 
@@ -99,7 +101,8 @@ class EventImporterInstaller:
             self.console.error("Installation cancelled by user.")
             return False
         except Exception as e:
-            self.console.error(f"\n\nInstallation failed: {e}")
+            self.console.print()
+            self.console.error(f"Installation failed: {e}")
             return False
 
     def _get_current_version(self) -> str | None:

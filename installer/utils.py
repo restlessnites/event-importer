@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import getpass
 import platform
 import shutil
 import subprocess  # noqa S404

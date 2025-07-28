@@ -61,15 +61,13 @@ class ClaudeDesktopConfig:
         """Configure Claude Desktop to use the Event Importer MCP server."""
         config_path = self.get_config_path()
         if not config_path:
-            self.console.print_error(
-                "Could not determine Claude Desktop config location"
-            )
+            self.console.error("Could not determine Claude Desktop config location")
             return False
 
         # Get uv path
         uv_path = self.system_check.get_command_path("uv")
         if not uv_path:
-            self.console.print_error("uv not found in PATH")
+            self.console.error("uv not found in PATH")
             return False
 
         # Prepare the MCP server configuration
@@ -83,10 +81,9 @@ class ClaudeDesktopConfig:
         config = self._load_config(config_path)
 
         # Backup existing config if it exists
+        backup_path = None
         if config_path.exists():
             backup_path = self.file_utils.backup_file(config_path)
-            if backup_path:
-                self.console.print_info(f"Backed up existing config to: {backup_path}")
 
         # Add our MCP server
         if "mcpServers" not in config:
@@ -96,10 +93,13 @@ class ClaudeDesktopConfig:
 
         # Save config
         if self._save_config(config_path, config):
-            self.console.print_success("✓ Claude Desktop configuration updated")
-            self.console.print_info(f"Config location: {config_path}")
+            self.console.success("Claude Desktop configuration updated")
+            if backup_path:
+                self.console.info(
+                    f"  Existing configuration backed up to: {backup_path}"
+                )
             return True
-        self.console.print_error("Failed to save Claude Desktop configuration")
+        self.console.error("Failed to save Claude Desktop configuration")
         return False
 
     def _load_config(self, config_path: Path) -> dict:
@@ -125,7 +125,7 @@ class ClaudeDesktopConfig:
 
             return True
         except Exception as e:
-            self.console.print_error(f"Error saving config: {e}")
+            self.console.error(f"Error saving config: {e}")
             return False
 
     def is_already_configured(self, project_root: Path) -> bool:

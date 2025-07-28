@@ -43,6 +43,7 @@ class MigrationManager:
         """Finds potential previous installation directories by searching common locations."""
         self.console.info("Searching for previous installations...")
         search_roots = {
+            self.project_root.parent,
             Path.home(),
             Path.home() / "Documents",
             Path.home() / "Code",
@@ -68,34 +69,18 @@ class MigrationManager:
 
     def _get_old_install_path(self) -> Path | None:
         """
-        Find and prompt for the path to the old installation, presenting a list of
-        auto-detected options if available.
+        Find and prompt for the path to the old installation by checking for previous
+        installations or asking for a manual path.
         """
         previous_installs = self._find_previous_installations()
 
         if previous_installs:
-            self.console.info("\nFound potential previous installations:")
-            for i, path in enumerate(previous_installs, 1):
-                self.console.info(f"  [cyan]{i}[/cyan]: {path}")
-
-            self.console.info("  [cyan]m[/cyan]: Enter path manually")
-            self.console.info("  [cyan]c[/cyan]: Cancel migration")
-
-            while True:
-                choice = self.console.prompt("\nSelect an option", default="c")
-                if choice.lower() == "c":
-                    self.console.error("\nMigration cancelled.")
-                    return None
-                if choice.lower() == "m":
-                    break
-
-                try:
-                    choice_idx = int(choice) - 1
-                    if 0 <= choice_idx < len(previous_installs):
-                        return previous_installs[choice_idx]
-                    self.console.error("Invalid selection. Please try again.")
-                except ValueError:
-                    self.console.error("Invalid selection. Please try again.")
+            path_or_action = self._prompt_for_install_choice(previous_installs)
+            if isinstance(path_or_action, Path):
+                return path_or_action
+            if path_or_action == "cancel":
+                self.console.error("\nMigration cancelled.")
+                return None
         else:
             self.console.warning(
                 "Could not automatically find a previous installation."
@@ -106,11 +91,43 @@ class MigrationManager:
                 self.console.error("\nMigration cancelled.")
                 return None
 
-        # Fallback to manual path entry
+        return self._prompt_for_manual_path()
+
+    def _prompt_for_install_choice(self, previous_installs: list[Path]) -> Path | str:
+        """Prompts user to select from a list of found installations.
+
+        Returns:
+            Path: The selected installation path.
+            str: 'manual' or 'cancel'.
+        """
+        self.console.info("\nFound potential previous installations:")
+        for i, path in enumerate(previous_installs, 1):
+            self.console.info(f"  [cyan]{i}[/cyan]: {path}")
+
+        self.console.info("  [cyan]m[/cyan]: Enter path manually")
+        self.console.info("  [cyan]c[/cyan]: Cancel migration")
+
+        while True:
+            choice = self.console.prompt("\nSelect an option", default="c")
+            if choice.lower() == "c":
+                return "cancel"
+            if choice.lower() == "m":
+                return "manual"
+
+            try:
+                choice_idx = int(choice) - 1
+                if 0 <= choice_idx < len(previous_installs):
+                    return previous_installs[choice_idx]
+                self.console.error("Invalid selection. Please try again.")
+            except ValueError:
+                self.console.error("Invalid selection. Please try again.")
+
+    def _prompt_for_manual_path(self) -> Path | None:
+        """Prompts user to manually enter the full path to an old installation."""
         while True:
             try:
                 path_str = self.console.prompt(
-                    "\nPlease enter the full path to your old installation directory (or leave blank to cancel)"
+                    "\nPlease enter the full path to your old installation directory\nLeave blank to cancel"
                 )
                 if not path_str:
                     self.console.error("\nMigration cancelled.")

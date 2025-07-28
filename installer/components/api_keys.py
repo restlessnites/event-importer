@@ -6,8 +6,9 @@ from pathlib import Path
 
 from rich.table import Table
 
-from .environment import EnvironmentSetup
 from installer.utils import Console
+
+from .environment import EnvironmentSetup
 
 
 class APIKeyManager:
@@ -83,7 +84,7 @@ class APIKeyManager:
         missing_required = [k for k, _, _ in required_keys if not env_vars.get(k)]
 
         if not missing_required:
-            self.console.success("All required API keys present")
+            self.console.success("Required API keys present")
             return True
 
         self.console.warning(
