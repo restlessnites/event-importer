@@ -6,7 +6,7 @@ import logging
 import re
 import traceback
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -113,21 +113,16 @@ class ErrorCapture:
         """Check if any warnings were captured."""
         return any(e.is_warning() for e in self.captured)
 
-    @contextmanager
-    def capture(self: ErrorCapture, min_level: int = logging.WARNING) -> Iterator[None]:
-        """Context manager for capturing errors."""
+    @asynccontextmanager
+    async def capture(
+        self: ErrorCapture, min_level: int = logging.WARNING
+    ) -> Iterator[None]:
+        """Async context manager for capturing errors."""
         self.start(min_level)
         try:
             yield
         finally:
             self.stop()
-
-    def async_capture(
-        self: ErrorCapture, min_level: int = logging.WARNING,
-    ) -> Iterator[None]:
-        """Async context manager wrapper (just uses sync version)."""
-        # Since logging is sync, we can just use the sync context manager
-        yield from self.capture(min_level)
 
 
 class CaptureHandler(logging.Handler):

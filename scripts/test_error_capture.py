@@ -3,15 +3,17 @@
 
 import asyncio
 import logging
+import pytest
 
 from app.interfaces.cli import get_cli
 from app.shared.http import close_http_service, get_http_service
+from app.interfaces.cli.error_capture import ErrorCapture
+from app.shared.http import HTTPService
 
 
-async def test_error_capture() -> None:
+@pytest.mark.asyncio
+async def test_error_capture(capsys, cli: "CLI", http_service: HTTPService) -> None:
     """Test error capture functionality."""
-    cli = get_cli()
-
     cli.header("Error Capture Test", "Testing clean error display")
 
     # Test 1: Generate some errors while capturing
@@ -25,11 +27,9 @@ async def test_error_capture() -> None:
     logger.warning("This is a warning message")
     logger.error("This is an error message")
 
-    http = get_http_service()
-
     try:
         # This should fail with 403
-        await http.get("https://dice.fm/test", service="TestService")
+        await http_service.get("https://dice.fm/test", service="TestService")
     except Exception as e:
         logger.error(f"Failed to fetch URL: {e}")
 
@@ -44,15 +44,16 @@ async def test_error_capture() -> None:
     cli.section("Test 2: Context Manager")
 
     async with cli.error_capture.capture():
-        logger = logging.getLogger("app.another")
-        logger.warning("Context manager warning")
-        logger.error("Context manager error", exc_info=Exception("Test exception"))
+        # This should also be captured
+        logger.info("This is in a context manager")
+        try:
+            await http_service.get(
+                "https://dice.fm/another-test", service="TestService"
+            )
+        except Exception as e:
+            logger.error(f"Another failed fetch: {e}")
 
-    cli.success("Context test completed")
     cli.show_captured_errors("Captured in Context")
-
-    # Clean up
-    await close_http_service()
 
 
 if __name__ == "__main__":

@@ -12,8 +12,17 @@ from app.interfaces.cli import get_cli
 from app.interfaces.cli.core import CLI
 from app.schemas import ImportProgress, ImportRequest
 from app.shared.http import close_http_service
+import pytest
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://ra.co/events/1908868",
+        "https://dice.fm/event/l86kmr-framework-presents-paradise-los-angeles-25th-oct-the-dock-at-the-historic-sears-building-los-angeles-tickets",
+    ],
+)
+@pytest.mark.asyncio
 async def test_import(url: str, cli: CLI, show_raw: bool = False) -> None:
     """Test importing an event with progress display."""
     # Clear any previous errors

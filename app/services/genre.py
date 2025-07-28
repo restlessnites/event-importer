@@ -9,7 +9,7 @@ from app.config import Config
 from app.error_messages import ServiceMessages
 from app.errors import retry_on_error
 from app.genres import MusicGenres
-from app.prompts import GENRE_PROMPT
+from app.prompts import GenrePrompts
 from app.schemas import EventData
 from app.services.llm import LLMService
 from app.shared.http import HTTPService
@@ -173,7 +173,7 @@ class GenreService:
         event_context: dict[str, Any],
     ) -> list[str]:
         """Use LLM to extract genres from search text."""
-        prompt = GENRE_PROMPT.build_artist_verification_prompt(
+        prompt = GenrePrompts.build_artist_verification_prompt(
             artist_name,
             search_text,
             event_context,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from app.config import Config
@@ -64,7 +64,7 @@ class Agent(ABC):
             raise ValueError(error_msg)
 
         self.services = services
-        self._start_time = None
+        self._start_time = datetime.now(timezone.utc)
 
     def get_service(self: Agent, service_name: str) -> object:
         """Safely get a service with proper error handling.

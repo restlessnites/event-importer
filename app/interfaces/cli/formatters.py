@@ -21,6 +21,18 @@ from app.interfaces.cli.utils import (
 from app.schemas import EventData, EventTime, ImportResult, ImportStatus
 
 
+def format_event_time(time: EventTime | None) -> str:
+    """Format time for display."""
+    if not time:
+        return ""
+    if hasattr(time, "start"):
+        result = time.start or ""
+        if time.end:
+            result += f" – {time.end}"
+        return result
+    return str(time)
+
+
 class EventCardFormatter:
     """Format event data for display with enhanced image and link support."""
 
@@ -334,7 +346,7 @@ class ImportResultFormatter:
             ("Title", bool(event_data.title), event_data.title),
             ("Venue", bool(event_data.venue), event_data.venue),
             ("Date", bool(event_data.date), event_data.date),
-            ("Time", bool(event_data.time), self._format_time(event_data.time)),
+            ("Time", bool(event_data.time), format_event_time(event_data.time)),
             (
                 "Lineup",
                 bool(event_data.lineup),
@@ -369,14 +381,7 @@ class ImportResultFormatter:
 
     def _format_time(self: ImportResultFormatter, time: EventTime | None) -> str:
         """Format time for display."""
-        if not time:
-            return ""
-        if hasattr(time, "start"):
-            result = time.start or ""
-            if time.end:
-                result += f" – {time.end}"
-            return result
-        return str(time)
+        return format_event_time(time)
 
     def _render_image_results(
         self: ImportResultFormatter,

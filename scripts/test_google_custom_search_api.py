@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 from app.config import get_config
 from app.interfaces.cli import get_cli
 from app.shared.http import close_http_service, get_http_service
+import pytest
+from app.services.zyte import ZyteService
 
 # Load environment variables
 load_dotenv()
@@ -17,11 +19,10 @@ load_dotenv()
 cli = get_cli()
 
 
-async def test_google_api() -> None:
+@pytest.mark.asyncio
+async def test_google_api(cli, http_service) -> None:
     """Test Google Custom Search API directly."""
-    cli.header(
-        "Google Custom Search API Test", "Verifying API credentials and functionality"
-    )
+    cli.header("Google Custom Search API Test", "Testing direct API access")
 
     # Get config which loads .env automatically
     config = get_config()
@@ -32,10 +33,8 @@ async def test_google_api() -> None:
     cli.section("Checking credentials")
 
     if not api_key or not cse_id:
-        cli.error("Google API credentials not found!")
-        cli.info("Set the following in your .env file:")
-        cli.info("  • GOOGLE_API_KEY=your_api_key")
-        cli.info("  • GOOGLE_CSE_ID=your_cse_id")
+        cli.error("Google Search API not configured!")
+        cli.info("Set GOOGLE_API_KEY and GOOGLE_CSE_ID in .env file")
         return
 
     cli.success("Google API credentials found")
@@ -45,10 +44,8 @@ async def test_google_api() -> None:
     }
     cli.table([credentials], title="Credentials (masked)")
 
-    http = get_http_service()
-
     # Test query
-    query = '"Cursive" band photo'
+    query = "Bonobo live set"
 
     params = {
         "key": api_key,
@@ -66,13 +63,13 @@ async def test_google_api() -> None:
     cli.console.print()
 
     # Start capturing errors
-    with cli.error_capture.capture():
+    async with cli.error_capture.capture():
         try:
-            with cli.spinner("Making API request"):
-                response = await http.get_json(
+            with cli.spinner(f"Searching for '{query}'..."):
+                response = await http_service.get_json(
                     "https://www.googleapis.com/customsearch/v1",
-                    service="Google",
                     params=params,
+                    service="GoogleSearch",
                 )
 
             if "error" in response:

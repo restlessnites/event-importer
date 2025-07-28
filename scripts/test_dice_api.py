@@ -3,20 +3,27 @@
 
 import asyncio
 import logging
+import pytest
 
-from app.shared.http import close_http_service, get_http_service
+from app.agents.dice_agent import DiceAgent
+from app.config import get_config
+from app.shared.http import close_http_service, get_http_service, HTTPService
 
 
-async def test_dice_search_clean() -> None:
-    """Test just the Dice search API cleanly."""
+@pytest.mark.parametrize(
+    "query, expected_artist_id",
+    [("lau.ra", "46153")],
+)
+@pytest.mark.asyncio
+async def test_dice_search_clean(query, expected_artist_id, http_service: HTTPService):
+    """Test that Dice search returns the correct artist ID."""
+    http = http_service
 
     url = "https://dice.fm/event/l86kmr-framework-presents-paradise-los-angeles-25th-oct-the-dock-at-the-historic-sears-building-los-angeles-tickets"
 
     print("🔍 Testing Dice unified search API")
     print(f"URL: {url}")
     print()
-
-    http = get_http_service()
 
     try:
         # Extract search query
@@ -61,8 +68,6 @@ async def test_dice_search_clean() -> None:
 
     except Exception as e:
         print(f"❌ Failed: {e}")
-    finally:
-        await close_http_service()
 
 
 if __name__ == "__main__":

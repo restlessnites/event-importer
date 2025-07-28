@@ -273,7 +273,7 @@ class WebAgent(Agent):
                 meta.decompose()
 
             # Remove comments
-            for comment in soup.find_all(text=lambda text: isinstance(text, Comment)):
+            for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
                 comment.extract()
 
             # Remove svg tags (often huge icons)

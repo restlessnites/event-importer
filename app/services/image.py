@@ -2,6 +2,7 @@
 
 import logging
 import re
+import html
 from collections.abc import Awaitable, Callable
 from io import BytesIO
 from typing import Any
@@ -71,6 +72,18 @@ class ImageService:
             logger.warning(
                 "⚠️ Google Custom Search not configured - image search disabled",
             )
+
+    @staticmethod
+    def get_domain(url: str) -> str:
+        """Extract the domain from a URL, ignoring 'www.'."""
+        try:
+            parsed_url = urlparse(url)
+            netloc = parsed_url.netloc
+            if netloc.startswith("www."):
+                return netloc[4:]
+            return netloc
+        except Exception:
+            return ""
 
     @handle_errors_async(reraise=True)
     async def validate_and_download(
@@ -332,28 +345,23 @@ class ImageService:
             if search_result.original:
                 search_result.selected = search_result.original
 
-    def _get_primary_artist_for_search(
-        self: "ImageService",
-        event_data: EventData,
-    ) -> str | None:
-        """Extract the main artist name from event data for image searching."""
-        if event_data.lineup:
-            return event_data.lineup[0]
-
+    def _get_primary_artist_for_search(self: "ImageService", event_data: EventData) -> str:
+        """Extract the primary artist from the event title if lineup is not available."""
+        # Start with the full title
         title = event_data.title
 
-        # Clean up common venue/event prefixes and suffixes from the title
+        # Decode HTML entities
+        title = html.unescape(title)
 
-        clean_patterns = [
-            r"^(live at|at the|concert at|presents?)\s+",
-            r"\s+(live|concert|show|tour)$",
-            r"\s+(tickets?|event)$",
-        ]
+        # Remove "at [Venue]" part
+        if event_data.venue:
+            venue_pattern = re.compile(f"\\s+at\\s+{re.escape(event_data.venue)}\\s*$", re.IGNORECASE)
+            title = venue_pattern.sub("", title)
 
-        for pattern in clean_patterns:
-            title = re.sub(pattern, "", title, flags=re.IGNORECASE)
+        # Basic cleanup of common suffixes
+        title = re.sub(r"\\s+\\(live\\)$|\\s+dj set\\s*$", "", title, flags=re.IGNORECASE).strip()
 
-        return title.strip() if title.strip() else None
+        return title.strip()
 
     def _build_search_queries(self: "ImageService", event_data: EventData) -> list[str]:
         """Build a list of search queries for Google Image Search."""

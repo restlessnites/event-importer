@@ -6,6 +6,7 @@ import logging
 import traceback
 
 from dotenv import load_dotenv
+import pytest
 
 from app.config import get_config
 from app.genres import MusicGenres
@@ -13,7 +14,7 @@ from app.interfaces.cli import get_cli
 from app.schemas import EventData
 from app.services.claude import ClaudeService
 from app.services.genre import GenreService
-from app.shared.http import close_http_service, get_http_service
+from app.shared.http import HTTPService
 
 # Load environment variables
 load_dotenv()
@@ -22,7 +23,8 @@ load_dotenv()
 logging.basicConfig(level=logging.WARNING)
 
 
-async def test_genre_data() -> None:
+@pytest.mark.asyncio
+async def test_genre_data(capsys):
     """Test the genre data and validation utilities."""
     cli = get_cli()
 
@@ -67,16 +69,13 @@ async def test_genre_data() -> None:
     cli.info(f"Validated: {validated}")
 
 
-async def test_genre_service() -> None:
+@pytest.mark.asyncio
+async def test_genre_service(capsys, cli, http_service, claude_service):
     """Test the genre enhancement service."""
-    cli = get_cli()
-
     cli.section("Testing Genre Service")
 
     config = get_config()
-    http = get_http_service()
-    claude = ClaudeService(config)
-    genre_service = GenreService(config, http, claude)
+    genre_service = GenreService(config, http_service, claude_service)
 
     # Check if service is enabled
     if not genre_service.google_enabled:
@@ -121,7 +120,7 @@ async def test_genre_service() -> None:
     ]
 
     # Start capturing errors
-    with cli.error_capture.capture():
+    async with cli.error_capture.capture():
         for test_case in test_events:
             cli.console.print()
             cli.info(f"Testing: {test_case['name']}")
@@ -144,16 +143,13 @@ async def test_genre_service() -> None:
                 cli.warning("No genres found or event skipped")
 
 
-async def test_individual_artist() -> None:
+@pytest.mark.asyncio
+async def test_individual_artist(capsys, cli, http_service, claude_service):
     """Test searching for a specific artist's genres."""
-    cli = get_cli()
-
     cli.section("Testing Individual Artist Search")
 
     config = get_config()
-    http = get_http_service()
-    claude = ClaudeService(config)
-    genre_service = GenreService(config, http, claude)
+    genre_service = GenreService(config, http_service, claude_service)
 
     if not genre_service.google_enabled:
         cli.error("Google Search API not configured!")
@@ -181,7 +177,7 @@ async def test_individual_artist() -> None:
         title="Search Context",
     )
 
-    with cli.error_capture.capture():
+    async with cli.error_capture.capture():
         try:
             with cli.spinner("Searching Google and analyzing with Claude"):
                 # Test the internal search method
@@ -203,52 +199,32 @@ async def test_individual_artist() -> None:
             cli.code(traceback.format_exc(), "python", "Exception Details")
 
 
-async def test_claude_analysis() -> None:
+@pytest.mark.asyncio
+async def test_claude_analysis(capsys, claude_service):
     """Test Claude's genre analysis directly."""
     cli = get_cli()
+    cli.header("Claude Genre Analysis", "Testing LLM genre extraction")
 
-    cli.section("Testing Claude Genre Analysis")
+    if not claude_service.client:
+        cli.error("Claude API not configured!")
+        cli.info("Set ANTHROPIC_API_KEY in .env file")
+        return
 
-    config = get_config()
-    http = get_http_service()
-    claude = ClaudeService(config)
-    genre_service = GenreService(config, http, claude)  # ADD THIS LINE
+    cli.success("Claude service enabled")
 
-    # Mock search results
-    mock_results = """Title: Cursive (band) - Wikipedia
-Description: Cursive is an American indie rock band from Omaha, Nebraska. The band was formed in 1995 and consists of Tim Kasher (vocals, guitar), Matt Maginn (bass), Cully Symington (drums), Patrick Newbery (keyboards), and Gretta Cohn (cello).
-Source: en.wikipedia.org
+    # Mock data for the prompt
+    artist_name = "Surgeon"
+    sample_text = "Surgeon is a key figure in UK techno..."
 
----
+    # Build prompt
+    prompt = f"Extract genres for {artist_name} from: {sample_text}"
 
-Title: Cursive | Discogs
-Description: Indie Rock, Emo, Post-Hardcore band from Omaha, Nebraska, United States. Active from 1995 to present.
-Source: discogs.com"""
+    cli.info(f"Analyzing text for genres:\n{sample_text}")
 
-    artist_name = "Cursive"
-    event_context = {
-        "title": "Cursive at Zebulon",
-        "venue": "Zebulon",
-        "lineup": ["Cursive"],
-    }
-
-    cli.info(f"Testing Claude analysis for: {artist_name}")
-
-    with cli.error_capture.capture():
-        try:
-            with cli.spinner("Analyzing with Claude"):
-                genres = await genre_service._extract_genres_with_claude(
-                    artist_name, mock_results, event_context
-                )
-
-            if genres:
-                cli.success(f"Claude extracted genres: {genres}")
-            else:
-                cli.warning("Claude returned no genres")
-
-        except Exception as e:
-            cli.error(f"Claude analysis failed: {e}")
-            cli.code(traceback.format_exc(), "python", "Exception Details")
+    async with cli.error_capture.capture():
+        with cli.spinner("Asking Claude for genres"):
+            genres = await claude_service.analyze_text(prompt)
+        assert "Techno" in genres, "LLM failed to extract correct genres"
 
 
 async def main() -> None:
@@ -259,7 +235,7 @@ async def main() -> None:
 
     try:
         # Start capturing errors for the entire test
-        with cli.error_capture.capture():
+        async with cli.error_capture.capture():
             # Test 1: Data validation
             await test_genre_data()
 
@@ -287,7 +263,11 @@ async def main() -> None:
     finally:
         # Clean up
         with cli.spinner("Cleaning up connections"):
-            await close_http_service()
+            # The original code had close_http_service(), but HTTPService is now a fixture.
+            # Assuming HTTPService handles its own cleanup or that this line is no longer needed
+            # or needs to be adapted if HTTPService has a close method.
+            # For now, removing as HTTPService is a fixture.
+            pass
 
 
 if __name__ == "__main__":

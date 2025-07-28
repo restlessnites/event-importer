@@ -8,12 +8,13 @@ import logging
 import sys
 
 from dotenv import load_dotenv
+import pytest
 
 from app.config import get_config
 from app.interfaces.cli import get_cli
 from app.schemas import EventData
 from app.services.image import ImageService
-from app.shared.http import close_http_service, get_http_service
+from app.shared.http import HTTPService
 
 # Load environment variables
 load_dotenv()
@@ -22,15 +23,31 @@ load_dotenv()
 logging.basicConfig(level=logging.WARNING)
 
 
-async def test_image_search() -> None:
-    """Test the image search with sample data."""
-    cli = get_cli()
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("https://dice-media.imgix.net/attachments/2025-05-21/82c48e21-b16c-4c30-a32f-395fdf4316d1.jpg", "dice-media.imgix.net"),
+        ("https://example.com/path/to/image.jpg", "example.com"),
+        ("https://sub.example.com/path/to/image.jpg", "sub.example.com"),
+        ("https://www.example.com/path/to/image.jpg", "example.com"),
+        ("https://example.com/path/to/image.jpg?query=1", "example.com"),
+        ("https://example.com/path/to/image.jpg#fragment", "example.com"),
+        ("https://example.com/path/to/image.jpg?query=1#fragment", "example.com"),
+        ("https://example.com/path/to/image.jpg?query=1#fragment", "example.com"),
+        ("https://example.com/path/to/image.jpg?query=1#fragment", "example.com"),
+    ],
+)
+def test_get_domain(url, expected):
+    assert ImageService.get_domain(url) == expected, f"Failed on URL: {url}"
 
+
+@pytest.mark.asyncio
+async def test_image_search(capsys, cli, http_service):
+    """Test the image search with sample data."""
     cli.header("Image Search Test", "Testing Google Custom Search integration")
 
     config = get_config()
-    http = get_http_service()
-    image_service = ImageService(config, http)
+    image_service = ImageService(config, http_service)
 
     if not image_service.google_enabled:
         cli.error("Google Search API not configured!")
@@ -111,29 +128,57 @@ async def test_image_search() -> None:
     cli.table([event_info], title="Event Data")
 
     # Test artist extraction
-    artist = image_service._extract_artist_from_title(title_only_event.title)
+    artist = image_service._get_primary_artist_for_search(title_only_event)
+    cli.info(f"Extracted artist: {artist}")
+    assert artist == "DJ Shadow & Cut Chemist"
+
+    # Search for images
     cli.console.print()
-    cli.info(f"Extracted artist from title: {artist or 'None'}")
+    with cli.spinner("Searching for images"):
+        candidates = await image_service.search_event_images(title_only_event)
 
-    queries = image_service._build_search_queries(title_only_event)
-    cli.info(f"Generated {len(queries)} search queries:")
-    for q in queries:
-        cli.info(f"  • {q}")
+    cli.success(f"Found {len(candidates)} image candidates")
 
-    await close_http_service()
+    # Rate candidates
+    if candidates:
+        cli.console.print()
+        cli.info("Rating top 5 candidates:")
+        rated_results = []
+
+        with cli.progress("Rating images") as progress:
+            for i, candidate in enumerate(candidates[:5]):
+                progress.update_progress(
+                    (i / min(5, len(candidates))) * 100, f"Rating image {i + 1}"
+                )
+
+                rated = await image_service.rate_image(candidate.url)
+                rated_results.append(
+                    {
+                        "Score": rated.score,
+                        "Dimensions": rated.dimensions or "Unknown",
+                        "URL": candidate.url,
+                    }
+                )
+
+        cli.console.print()
+        cli.table(rated_results, title="Image Ratings")
+
     cli.console.print()
     cli.success("Image search test completed")
 
 
-async def test_specific_url() -> None:
+@pytest.mark.asyncio
+async def test_specific_url(capsys, cli, http_service):
     """Test rating a specific image URL."""
-    cli = get_cli()
-
-    cli.header("Image Rating Test", "Testing specific image URL rating")
+    cli.header("Image Rating Test", "Testing rating a specific image URL")
 
     config = get_config()
-    http = get_http_service()
-    image_service = ImageService(config, http)
+    image_service = ImageService(config, http_service)
+
+    if not image_service.google_enabled:
+        cli.error("Google Search API not configured!")
+        cli.info("Set GOOGLE_API_KEY and GOOGLE_CSE_ID in .env file")
+        return
 
     test_url = "https://dice-media.imgix.net/attachments/2025-05-21/82c48e21-b16c-4c30-a32f-395fdf4316d1.jpg"
 
@@ -179,7 +224,6 @@ async def test_specific_url() -> None:
 
         cli.info(f"Final score: {candidate.score}")
 
-    await close_http_service()
     cli.console.print()
     cli.success("Image rating test completed")
 

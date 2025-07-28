@@ -20,6 +20,8 @@ if TYPE_CHECKING:
     pass
 
 from app.interfaces.cli import get_cli
+import pytest
+from app.interfaces.cli.formatters import format_event_time
 
 
 def test_dateutil_directly() -> None:
@@ -139,6 +141,7 @@ def test_fixed_eventdata_parsing() -> None:
             cli.error(f"  • {failure['Input']} → {failure['Note']}")
 
 
+@pytest.mark.asyncio
 async def test_la_bamba_import() -> None:
     """Test importing the actual La Bamba event."""
     cli = get_cli()
