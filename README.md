@@ -1,7 +1,7 @@
 # Event Importer
 
-[![Tests](https://github.com/yourusername/event-importer/actions/workflows/tests.yml/badge.svg)](https://github.com/yourusername/event-importer/actions/workflows/tests.yml)
-[![Coverage](https://codecov.io/gh/yourusername/event-importer/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/event-importer)
+[![Tests](https://github.com/restlessnites/event-importer/actions/workflows/tests.yml/badge.svg)](https://github.com/restlessnites/event-importer/actions/workflows/tests.yml)
+[![Coverage](https://img.shields.io/badge/coverage-45.5%25-orange)](https://github.com/restlessnites/event-importer)
 
 A tool that extracts structured event data from websites, images, and APIs. Use it as a **command-line tool**, **HTTP API server**, or **MCP server** for AI assistants.
 

@@ -31,6 +31,10 @@ test-all:
 quick:
 	@pytest scripts -v --tb=short
 
+badge:
+	@echo "🎨 Generating coverage badge..."
+	@python scripts/generate_badge.py
+
 # Code quality
 lint:
 	@echo "🔍 Running linters..."
@@ -109,6 +113,7 @@ help:
 	@echo "  make coverage-report - Show detailed coverage report"
 	@echo "  make test-all      - Run all tests (scripts + app)"
 	@echo "  make quick         - Quick test run without coverage"
+	@echo "  make badge         - Update coverage badge in README"
 	@echo ""
 	@echo "🔍 Code Quality:"
 	@echo "  make lint          - Run linters (ruff, mypy)"
