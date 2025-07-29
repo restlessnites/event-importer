@@ -17,7 +17,7 @@ class EnvironmentSetup:
 
     def __init__(self, console: Console):
         self.console = console
-        self.file_utils = FileUtils()
+        self.file_utils = FileUtils(console)
 
     def create_env_file(self, project_root: Path) -> bool:
         """Create .env file from example if it doesn't exist."""

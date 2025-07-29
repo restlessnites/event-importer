@@ -11,11 +11,11 @@ from installer.utils import (
 
 
 class ClaudeDesktopConfig:
-    """Manages Claude Desktop configuration."""
+    """Handles Claude Desktop integration."""
 
     def __init__(self, console: Console):
         self.console = console
-        self.file_utils = FileUtils()
+        self.file_utils = FileUtils(console)
         self.system_check = SystemCheck()
 
     def is_claude_desktop_installed(self) -> bool:
@@ -30,8 +30,8 @@ class ClaudeDesktopConfig:
 
         return any(Path(p).exists() for p in app_paths)
 
-    def get_config_path(self) -> Path | None:
-        """Get the Claude Desktop configuration file path."""
+    def _get_claude_config_path(self) -> Path | None:
+        """Get the path to the Claude Desktop config file."""
         # Common config locations
         config_paths = [
             Path.home()
@@ -59,7 +59,7 @@ class ClaudeDesktopConfig:
 
     def configure(self, project_root: Path) -> bool:
         """Configure Claude Desktop to use the Event Importer MCP server."""
-        config_path = self.get_config_path()
+        config_path = self._get_claude_config_path()
         if not config_path:
             self.console.error("Could not determine Claude Desktop config location")
             return False
@@ -130,7 +130,7 @@ class ClaudeDesktopConfig:
 
     def is_already_configured(self, project_root: Path) -> bool:
         """Check if Event Importer is already configured in Claude Desktop."""
-        config_path = self.get_config_path()
+        config_path = self._get_claude_config_path()
         if not config_path or not config_path.exists():
             return False
 
@@ -158,7 +158,7 @@ class ClaudeDesktopConfig:
 
     def verify_configuration(self, project_root: Path) -> bool:
         """Verify that Claude Desktop is properly configured."""
-        config_path = self.get_config_path()
+        config_path = self._get_claude_config_path()
         if not config_path or not config_path.exists():
             return False
 

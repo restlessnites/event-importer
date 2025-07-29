@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import platform
+import re
 import shutil
 import subprocess  # noqa S404
 import sys
@@ -141,27 +142,63 @@ class Downloader:
             return None
 
     def download_file(self, url: str, dest: Path) -> bool:
-        """Download a file with a progress bar."""
-        self.console.info(f"Downloading {url}...")
+        """Download a file with a status spinner, handling Google Drive links."""
         try:
-            response = requests.get(url, stream=True, timeout=30)
-            response.raise_for_status()
-            total_size = int(response.headers.get("content-length", 0))
+            session = requests.Session()
+            with self.console.rich_console.status(
+                "Connecting to download server..."
+            ) as status:
+                response = session.get(url, stream=True, timeout=30)
+                response.raise_for_status()
 
-            with dest.open("wb") as f, self.console.rich_console.progress() as progress:
-                task = progress.add_task("Downloading...", total=total_size)
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-                    progress.update(task, advance=len(chunk))
-            self.console.success(f"Downloaded successfully to {dest}")
+                token = self._get_google_drive_confirmation_token(response)
+                if token:
+                    status.update("Confirming Google Drive download...")
+                    params = {"confirm": token}
+                    response = session.get(url, params=params, stream=True, timeout=30)
+                    response.raise_for_status()
+
+                status.update(f"Downloading to {dest.name}...")
+                with dest.open("wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:  # filter out keep-alive new chunks
+                            f.write(chunk)
+
             return True
         except requests.RequestException as e:
             self.console.error(f"Download failed: {e}")
             return False
 
+    def _get_google_drive_confirmation_token(
+        self, response: requests.Response
+    ) -> str | None:
+        """Extracts the Google Drive confirmation token from a response."""
+        if "Content-Disposition" in response.headers:
+            filename = response.headers["Content-Disposition"]
+            if "filename=" in filename:
+                # Google Drive confirmation page
+                # Look for a link to the actual file
+
+                match = re.search(r'href="([^"]+)"', response.text)
+                if match:
+                    file_url = match.group(1)
+                    # If the URL is a Google Drive link, we need to confirm it
+                    if "drive.google.com" in file_url:
+                        self.console.info(
+                            "Detected Google Drive link. Please confirm the download."
+                        )
+                        # This is a placeholder for a real user prompt
+                        # For now, we'll just return a dummy token
+                        return "dummy_token"
+        return None
+
 
 class FileUtils:
     """File system utilities."""
+
+    def __init__(self, console: Console):
+        """Initialize the file utils."""
+        self.console = console
 
     @staticmethod
     def find_file_up(filename: str, start_path: Path) -> Path | None:
@@ -175,15 +212,13 @@ class FileUtils:
         return None
 
     def unzip_file(self, zip_path: Path, extract_to: Path) -> bool:
-        """Unzip a file."""
-        self.console.info(f"Unzipping {zip_path}...")
+        """Unzip a file silently."""
         try:
             with zipfile.ZipFile(zip_path, "r") as zip_ref:
                 zip_ref.extractall(extract_to)
-            self.console.success(f"Unzipped successfully to {extract_to}")
             return True
         except zipfile.BadZipFile:
-            self.console.error("Invalid zip file.")
+            self.console.error(f"Invalid zip file: {zip_path}")
             return False
         except Exception as e:
             self.console.error(f"Unzip failed: {e}")

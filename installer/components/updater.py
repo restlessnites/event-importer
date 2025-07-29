@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import shutil
-import tempfile
 from pathlib import Path
 
 from app.config import get_config
@@ -24,61 +23,67 @@ class UpdateManager:
         self.console = console
         self.project_root = project_root
         self.downloader = Downloader(self.console)
-        self.file_utils = FileUtils()
+        self.file_utils = FileUtils(self.console)
         self.config = get_config()
-
-    def is_update_available(self, current_version: str) -> tuple[bool, str | None]:
-        """Check if a new version is available."""
-        self.console.info("Checking for new version...")
-        if not self.config.update.file_url:
-            self.console.warning("Update check skipped: manifest URL not configured.")
-            return False, None
-
-        manifest = self.downloader.get_json(self.config.update.file_url)
-        if not manifest:
-            return False, None
-
-        latest_version = manifest.get("version")
-        if latest_version and latest_version > current_version:
-            self.console.success(f"New version available: {latest_version}")
-            return True, manifest.get("url")
-
-        self.console.info("You are on the latest version.")
-        return False, None
 
     def run_update(self) -> bool:
         """Run the complete update process."""
-        current_version = self._get_current_version()
-        if not current_version:
-            self.console.error("Cannot determine current version.")
-            return False
+        self.console.header("Starting application update")
 
-        is_available, release_url = self.is_update_available(current_version)
-        if not is_available or not release_url:
+        if not self.config.update.file_url:
+            self.console.warning("Update check skipped: URL not configured.")
             return True
 
-        with tempfile.TemporaryDirectory() as temp_dir_str:
-            temp_dir = Path(temp_dir_str)
-            if not self._download_and_extract(release_url, temp_dir):
-                return False
+        temp_dir = self.project_root / "tmp_update"
+        try:
+            temp_dir.mkdir(exist_ok=True)
+            zip_path = temp_dir / "update.zip"
+            extract_path = temp_dir / "extracted"
 
-            if not self._backup_current_version():
+            # Step 1: Download
+            if not self.downloader.download_file(self.config.update.file_url, zip_path):
                 return False
+            self.console.success("Download complete.")
 
-            if not self._replace_files(temp_dir):
-                self._restore_from_backup()
-                return False
+            # Step 2: Check Version
+            with self.console.rich_console.status(
+                "Checking for new version..."
+            ) as status:
+                if not self.file_utils.unzip_file(zip_path, extract_path):
+                    return False
 
-            self.console.success("Update completed successfully.")
+                version_file = self.file_utils.find_file_up(".version", extract_path)
+                if not version_file:
+                    self.console.error("Could not find .version file in the update.")
+                    return False
+
+                latest_version = version_file.read_text().strip()
+                current_version = self._get_current_version()
+
+                if current_version and latest_version <= current_version:
+                    self.console.success(
+                        f"You are already on the latest version ({current_version})."
+                    )
+                    return True
+                status.update(f"New version found: {latest_version}")
+
+            # Step 3: Install
+            with self.console.rich_console.status("Installing update...") as status:
+                status.update("Backing up current installation...")
+                if not self._backup_current_version():
+                    return False
+
+                status.update("Replacing files...")
+                if not self._replace_files(extract_path):
+                    self._restore_from_backup()
+                    return False
+
+            self.console.success(f"Update to version {latest_version} complete.")
             return True
 
-    def _download_and_extract(self, release_url: str, temp_dir: Path) -> bool:
-        """Download and extract the latest release."""
-        zip_path = temp_dir / "event-importer.zip"
-        extract_path = temp_dir / "extracted"
-        if not self.downloader.download_file(release_url, zip_path):
-            return False
-        return self.file_utils.unzip_file(zip_path, extract_path)
+        finally:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
 
     def _backup_current_version(self) -> bool:
         """Create a backup of the current installation."""
@@ -93,11 +98,20 @@ class UpdateManager:
             return False
 
     def _replace_files(self, source_dir: Path) -> bool:
-        """Replace old files with new ones."""
+        """Replace old files with new ones, searching for the source."""
         try:
             self.console.info("Replacing application files...")
+
+            # Find the actual source directory inside the extracted folder
+            app_source_dir = source_dir
+            if not (source_dir / "app").exists():
+                for child in source_dir.iterdir():
+                    if child.is_dir() and (child / "app").exists():
+                        app_source_dir = child
+                        break
+
             shutil.copytree(
-                source_dir / "event-importer",
+                app_source_dir,
                 self.project_root,
                 dirs_exist_ok=True,
             )

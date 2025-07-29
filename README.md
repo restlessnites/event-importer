@@ -5,125 +5,50 @@
 
 A tool that extracts structured event data from websites, images, and APIs. Use it as a **command-line tool**, **HTTP API server**, or **MCP server** for AI assistants.
 
-## What It Does
+## Installation
 
-- **Import from anywhere**: Resident Advisor, Ticketmaster, Dice.fm, any event website, or even images of flyers
-- **Flexible AI backend**: Supports both Claude and OpenAI for extraction and enhancement, with automatic fallback.
-- **AI-powered enhancement**: Automatically finds genres, improves images, and generates descriptions
-- **Extensible Integration Framework**: Easily add new integrations (e.g., to submit events to external calendars or databases) using a simple, modular system.
-- **Multiple interfaces**: CLI for developers, HTTP API for web apps, MCP for AI assistants
-- **Smart extraction**: Handles APIs, web scraping, and image text extraction
-- **Analytics & insights**: Comprehensive statistics about imports, success rates, and trends
+These instructions are for a first-time installation. If you are updating an existing installation, see the "Updating" section below.
 
-## Quick Start
+### Step 1: Get the Software
 
-Choose your installation method:
+1. **Get the download link** from the `#curation-and-import` channel on Slack.
+2. **Download the zip file** to your computer.
+3. **Unzip the file.** You should now have a folder named `restless-event-importer-vX.X.X` or similar.
+4. **Rename the folder** to `restless-event-importer`.
+5. **Move the `restless-event-importer` folder** to your `Documents` folder.
 
-### Option 1: Automated Installation (Recommended)
+### Step 2: Open the Terminal
 
-The easiest way to get started is with our automated installer that handles everything for you:
+1. **Open the Terminal app.** You can find it in `Applications/Utilities`, or by searching for it in Spotlight.
+2. **Navigate to the correct folder** by typing the following command and pressing Enter:
+
+    ```bash
+    cd ~/Documents/restless-event-importer
+    ```
+
+### Step 3: Run the Installer
+
+1. **Run the installer** by typing the following command and pressing Enter:
+
+    ```bash
+    make install
+    ```
+
+2. **Follow the on-screen prompts.** The installer will guide you through the rest of the setup process, including configuring your API keys.
+
+## Updating
+
+To update your installation to the latest version, run the following command from inside your `restless-event-importer` folder:
 
 ```bash
-# Clone the repository
-git clone https://github.com/restlessnites/event-importer.git
-cd event-importer
-
-# Run the installer
-make install
+make update
 ```
 
-**What the installer does:**
+The updater will prompt you for a download link to the new version.
 
-The installer will guide you through the following steps:
+## Usage
 
-1. **System Checks**: Verifies that you are on a supported OS (macOS) and have Python 3.10+ installed.
-2. **Dependency Installation**: Checks for and installs Homebrew and `uv`, then syncs all required Python packages.
-3. **Environment Setup**: Creates a `.env` file for your API keys and configuration, and prompts you to enter your API keys for services like OpenAI, Anthropic, and Google.
-4. **Update Configuration**: Prompts for a URL to a JSON file for application updates.
-5. **Data Directory**: Creates a `data` directory to store the local database.
-6. **Claude Desktop Integration**: (Optional) Configures the project to be used as a tool with Claude Desktop.
-7. **Validation**: Verifies that all components are correctly set up.
-
-**Note:** The installer is idempotent - you can run it multiple times safely. It will detect what's already installed and skip those steps.
-
----
-
-### Option 2: Manual Installation
-
-If you prefer to install each component yourself:
-
-1. **Install Homebrew** (if you don't have it):
-
-   ```bash
-   # macOS/Linux
-   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-   ```
-
-2. **Install uv** (if you don't have it):
-
-   ```bash
-   # macOS
-   brew install uv
-   
-   # Linux
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   
-   # Windows  
-   powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-   ```
-
-3. **Install GitHub CLI** (if you don't have it and want to use it):
-
-   ```bash
-   # macOS
-   brew install gh
-
-   # Ubuntu/Debian
-   sudo apt install gh
-
-   # Windows
-   winget install GitHub.cli
-   ```
-
-4. **Clone and setup**:
-
-   ```bash
-   # macOS, Windows
-   cd Documents
-   ```
-
-   NOTE: If you are an experienced developer, clone the repository to your preferred location.
-
-   ```bash
-   # Using GitHub CLI
-   gh repo clone restlessnites/event-importer
-   cd event-importer
-   uv sync
-
-   # Using git
-   git clone https://github.com/restlessnites/event-importer.git
-   cd event-importer
-   uv sync
-   ```
-
-5. **Configure API keys**:
-
-   ```bash
-   cp env.example .env
-   # Edit .env with your API keys (see Getting API Keys below)
-   ```
-
-6. **Create Data Directory**:
-
-   The application requires a `data` directory to store its local database.
-
-   ```bash
-   mkdir data
-   ```
-
-That's it! Manual installation is complete. You can now use the Event Importer.
-
----
+For detailed usage instructions, please see the "Command Line Interface" section below.
 
 ## Makefile Commands
 
@@ -203,48 +128,45 @@ For detailed documentation on the API and MCP interfaces, please see the `docs` 
 
 ## Command Line Interface
 
-Perfect for testing and local development:
+The `Makefile` provides simple shortcuts for all common command-line tasks.
 
 ### Import Events
 
 ```bash
 # Basic usage
-uv run event-importer import "https://ra.co/events/1234567"
+make import URL="https://ra.co/events/1234567"
 
-# Force a specific method
-uv run event-importer import "https://example.com/event" --method web
-
-# Adjust timeout
-uv run event-importer import "https://example.com/event" --timeout 120
+# You can pass any arguments from the command line
+make run-cli ARGS="import https://example.com/event --method web --timeout 120"
 ```
 
 ### View Imported Events & Statistics
 
 ```bash
 # Show database statistics and analytics
-uv run event-importer stats
+make db-stats
 
 # List all events
-uv run event-importer list
+make run-cli ARGS="list"
 
 # List recent events with a limit
-uv run event-importer list --limit 10
+make run-cli ARGS="list --limit 10"
 
 # Search for specific events
-uv run event-importer list --search "artist name"
+make run-cli ARGS="list --search \"artist name\""
 
 # Show detailed view
-uv run event-importer list --details
+make run-cli ARGS="list --details"
 
 # Show specific event by ID
-uv run event-importer show 123
+make run-cli ARGS="show 123"
 ```
 
 ### Update the Application
 
 ```bash
 # Check for updates and install the latest version
-uv run event-importer update
+make update
 ```
 
 ### Integrations Framework
@@ -257,16 +179,16 @@ The `ticketfairy` integration lets you submit events to TicketFairy.
 
 ```bash
 # Check the status of the ticketfairy integration
-uv run event-importer ticketfairy status
+make run-cli ARGS="ticketfairy status"
 
 # Submit unsubmitted events to TicketFairy (dry run)
-uv run event-importer ticketfairy submit --dry-run
+make run-cli ARGS="ticketfairy submit --dry-run"
 
 # Submit a specific URL to TicketFairy
-uv run event-importer ticketfairy submit --url "https://ra.co/events/1234567"
+make run-cli ARGS="ticketfairy submit --url https://ra.co/events/1234567"
 
 # Retry failed submissions for TicketFairy
-uv run event-importer ticketfairy retry-failed
+make run-cli ARGS="ticketfairy retry-failed"
 ```
 
 ## HTTP API Server
@@ -275,10 +197,10 @@ Run as a web service for integration with other applications:
 
 ```bash
 # Start the server
-uv run event-importer api --port 8000
+make run-api
 
-# With custom host and auto-reload
-uv run event-importer api --host 0.0.0.0 --port 8000 --reload
+# To run on a different port, you can use the cli command
+make run-cli ARGS="api --port 8001"
 ```
 
 ### API Endpoints

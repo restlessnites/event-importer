@@ -79,12 +79,9 @@ class EventImporterInstaller:
             self.console.header(
                 f"Event Importer v{current_version} is already installed."
             )
-            is_available, _ = self.update_manager.is_update_available(current_version)
-            if is_available:
-                if self.console.confirm("Do you want to update?", default=True):
-                    return self.update_manager.run_update()
-                return False  # User chose not to update
-            return True  # Already up to date
+            if self.console.confirm("Check for updates?", default=True):
+                return self.update_manager.run_update()
+            return True
 
         self.console.header(f"Installing Event Importer v{self.new_version}")
         return True
@@ -144,15 +141,6 @@ class EventImporterInstaller:
 
     def run_update(self) -> bool:
         """Run the update process."""
-        current_version = self._get_current_version()
-        if not current_version:
-            self.console.error("No existing installation found to update.")
-            return False
-
-        is_available, _ = self.update_manager.is_update_available(current_version)
-        if not is_available:
-            return True  # Already up to date
-
         return self.update_manager.run_update()
 
     def _configure_updater(self) -> bool:

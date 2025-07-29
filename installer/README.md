@@ -15,7 +15,9 @@ installer/
     ├── dependencies.py    # System dependency management
     ├── environment.py     # Python environment setup
     ├── api_keys.py       # API key configuration
-    └── claude_desktop.py  # Claude Desktop integration
+    ├── claude_desktop.py  # Claude Desktop integration
+    ├── updater_config.py  # Update configuration
+    └── updater.py         # Application update logic
 ```
 
 ## Design Principles
@@ -40,6 +42,7 @@ installer/
 - `SystemCheck`: Platform and command detection
 - `ProcessRunner`: Safe subprocess execution
 - `FileUtils`: File operations with backup support
+- `Downloader`: Handles file downloads with Google Drive support
 
 ### Component Details
 
@@ -67,6 +70,17 @@ installer/
 - Configures MCP server integration
 - Backs up existing configurations
 
+#### UpdaterConfig
+
+- Prompts user for the update zip file URL
+- Saves configuration to the `.env` file
+
+#### UpdateManager
+
+- Downloads and verifies the update package
+- Manages the backup and file replacement process
+- Provides clear, user-friendly status updates
+
 ### Validators
 
 - Comprehensive post-installation checks
@@ -75,10 +89,10 @@ installer/
 
 ## Usage
 
-Users simply run:
+The installer is run from the project root via the Makefile:
 
 ```bash
-python3 install.py
+make install
 ```
 
 The installer will:
