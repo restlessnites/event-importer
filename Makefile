@@ -5,6 +5,7 @@
 
 ##@ Installation & Setup
 install: ## Run the interactive installer
+	@if [ ! -d ".venv" ]; then uv venv; fi
 	@. .venv/bin/activate && python install.py
 
 setup: ## Set up the development environment

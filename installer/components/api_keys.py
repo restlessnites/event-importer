@@ -88,7 +88,7 @@ class APIKeyManager:
             return True
 
         self.console.warning(
-            f"\nYou need to configure {len(missing_required)} required API key(s)."
+            f"You need to configure {len(missing_required)} required API key(s)."
         )
 
         for key_name, description, _ in required_keys:

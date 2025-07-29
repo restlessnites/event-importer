@@ -161,12 +161,12 @@ Integrations Framework (reads from DB, uses HTTP)
 
 ### Adding a New Integration
 
-1.  Create a new directory under `app/integrations/`, e.g., `app/integrations/my_service/`.
-2.  Create a `base.py` file with a main integration class inheriting from `app.integrations.base.Integration`.
-3.  Implement the required `Selector`, `Transformer`, `Client`, and `Submitter` classes.
-4.  (Optional) Add interface files like `mcp_tools.py`, `routes.py`, or `cli.py`.
-5.  Register the main integration class as an entry point in `pyproject.toml` under the `[project.entry-points."app.integrations"]` group.
-6.  The integration will be auto-discovered and its components loaded on-demand. Add any required API data to `env.example` and `config.py`.
+1. Create a new directory under `app/integrations/`, e.g., `app/integrations/my_service/`.
+2. Create a `base.py` file with a main integration class inheriting from `app.integrations.base.Integration`.
+3. Implement the required `Selector`, `Transformer`, `Client`, and `Submitter` classes.
+4. (Optional) Add interface files like `mcp_tools.py`, `routes.py`, or `cli.py`.
+5. Register the main integration class as an entry point in `pyproject.toml` under the `[project.entry-points."app.integrations"]` group.
+6. The integration will be auto-discovered and its components loaded on-demand. Add any required API data to `env.example` and `config.py`.
 
 ### Adding a New Import Source
 

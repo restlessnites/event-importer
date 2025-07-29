@@ -93,6 +93,25 @@ class EnvironmentSetup:
         except Exception:
             return False
 
+    def configure_update_url(self, project_root: Path) -> bool:
+        """Prompt for and configure the update file URL."""
+        env_vars = self.get_env_vars(project_root)
+        current_url = env_vars.get("UPDATE_FILE_URL")
+
+        if current_url:
+            self.console.success(f"Update URL already configured: {current_url}")
+            if not self.console.confirm("Do you want to change it?"):
+                return True
+
+        new_url = self.console.prompt("Enter the URL for update packages")
+        if not new_url:
+            self.console.warning(
+                "Update URL not set. Automatic updates will be disabled."
+            )
+            return True
+
+        return self.update_env_var(project_root, "UPDATE_FILE_URL", new_url)
+
     def install_dependencies(self, project_root: Path) -> bool:
         """Install Python dependencies using uv."""
         try:

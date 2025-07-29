@@ -16,7 +16,6 @@ from installer.components.dependencies import DependencyInstaller
 from installer.components.environment import EnvironmentSetup
 from installer.components.migration import MigrationManager
 from installer.components.updater import UpdateManager
-from installer.components.updater_config import UpdaterConfig
 from installer.utils import Console, SystemCheck
 
 
@@ -36,7 +35,6 @@ class EventImporterInstaller:
         self.validator = InstallationValidator()
         self.migration_manager = MigrationManager(self.console, self.project_root)
         self.update_manager = UpdateManager(self.console, self.project_root)
-        self.updater_config = UpdaterConfig(self.console)
 
     def _handle_upgrade_or_new_install(self) -> bool:
         """Handle the initial user interaction for upgrades or new installs."""
@@ -146,7 +144,7 @@ class EventImporterInstaller:
     def _configure_updater(self) -> bool:
         """Configure the updater."""
         self.console.step("Configuring updater...")
-        return self.updater_config.configure_update_url(self.project_root)
+        return self.env_setup.configure_update_url(self.project_root)
 
     def _get_current_version(self) -> str | None:
         """Reads the version from the .version file."""
