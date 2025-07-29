@@ -3,7 +3,7 @@
 import subprocess  # noqa S404
 from pathlib import Path
 
-from installer.components.api_keys import APIKeyManager
+from installer.components.api_keys import APIKeyManager, ALL_KEYS
 from installer.components.claude_desktop import ClaudeDesktopConfig
 from installer.components.environment import EnvironmentSetup
 from installer.utils import ProcessRunner, Console
@@ -28,7 +28,7 @@ class InstallationValidator:
                 "API Keys": {},
                 "CLI": {},
                 "Integration": {},
-            }
+            },
         }
 
         # Check 1: Dependencies installed
@@ -70,7 +70,9 @@ class InstallationValidator:
                 text=True,
             )
             if result.returncode == 0:
-                results["checks"]["Dependencies"]["python version"] = result.stdout.strip()
+                results["checks"]["Dependencies"]["python version"] = (
+                    result.stdout.strip()
+                )
             else:
                 results["errors"].append("Python is not accessible")
         except Exception as e:
@@ -95,14 +97,15 @@ class InstallationValidator:
         # Check required directories
         for dir_name in ["app", "data", "scripts"]:
             dir_path = project_root / dir_name
-            results["checks"]["Environment"][f"{dir_name} directory"] = dir_path.exists()
+            results["checks"]["Environment"][f"{dir_name} directory"] = (
+                dir_path.exists()
+            )
             if not dir_path.exists():
                 results["errors"].append(f"Required directory '{dir_name}' not found")
 
     def _check_api_keys(self, project_root: Path, results: dict):
         """Check API key configuration."""
-        from installer.components.api_keys import ALL_KEYS
-        
+
         api_key_manager = APIKeyManager(self.console, project_root)
         valid = api_key_manager.are_required_keys_present(project_root)
 
@@ -146,14 +149,14 @@ class InstallationValidator:
         except Exception as e:
             results["errors"].append(f"Failed to test CLI: {e}")
 
-    def _check_claude_desktop(self, project_root: Path, results: dict):
+    def _check_claude_desktop(self, project_root: Path, results: dict):  # noqa: ARG002
         """Check Claude Desktop configuration."""
         claude_config = ClaudeDesktopConfig(self.console)
 
         # Check if Claude Desktop is installed
         is_installed = claude_config.is_claude_desktop_installed()
         results["checks"]["Integration"]["Claude Desktop installed"] = is_installed
-        
+
         if not is_installed:
             results["warnings"].append(
                 "Claude Desktop not found - MCP integration unavailable"
@@ -164,14 +167,26 @@ class InstallationValidator:
         self.console.header("Installation Validation Report")
 
         # Print checks
+        self._print_checks(results["checks"])
+
+        # Print errors
+        self._print_errors(results["errors"])
+
+        # Print warnings
+        self._print_warnings(results["warnings"])
+
+        # Overall status
+        self._print_overall_status(results["success"])
+
+    def _print_checks(self, checks: dict):
+        """Print validation checks."""
         self.console.info("\nValidation Checks:")
         self.console.info("-" * 50)
-        for category, checks in results["checks"].items():
-            if checks:
+        for category, category_checks in checks.items():
+            if category_checks:
                 self.console.info(f"\n{category}:")
-                for check, result in checks.items():
+                for check, result in category_checks.items():
                     if isinstance(result, bool):
-                        status = "✓" if result else "✗"
                         if result:
                             self.console.success(f"  {check}")
                         else:
@@ -179,21 +194,24 @@ class InstallationValidator:
                     else:
                         self.console.info(f"  ℹ {check} ({result})")
 
-        # Print errors
-        if results["errors"]:
+    def _print_errors(self, errors: list):
+        """Print validation errors."""
+        if errors:
             self.console.error("\nErrors:")
-            for error in results["errors"]:
+            for error in errors:
                 self.console.error(f"  • {error}")
 
-        # Print warnings
-        if results["warnings"]:
+    def _print_warnings(self, warnings: list):
+        """Print validation warnings."""
+        if warnings:
             self.console.warning("\nWarnings:")
-            for warning in results["warnings"]:
+            for warning in warnings:
                 self.console.warning(f"  • {warning}")
 
-        # Overall status
+    def _print_overall_status(self, success: bool):
+        """Print overall validation status."""
         self.console.info("\n" + "-" * 50)
-        if results["success"]:
+        if success:
             self.console.success("✅ Installation validation PASSED")
         else:
             self.console.error("❌ Installation validation FAILED")

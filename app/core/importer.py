@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -400,14 +399,6 @@ class EventImporter:
             if agent.name == name:
                 return agent
         return None
-
-    def remove_progress_listener(
-        self: EventImporter,
-        request_id: str,
-        callback: Callable[[ImportProgress], None],
-    ) -> None:
-        """Remove a progress listener for a specific request."""
-        self.progress_tracker.remove_listener(request_id, callback)
 
     def get_progress_history(
         self: EventImporter,
