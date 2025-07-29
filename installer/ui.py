@@ -2,7 +2,7 @@
 Provides a centralized console object for consistent UI output.
 """
 
-from rich.console import Console
+from installer.utils import Console
 
 _console: Console | None = None
 

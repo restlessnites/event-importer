@@ -45,7 +45,9 @@ class LLMService:
         """Initialize LLM service with configured providers."""
         self.config = config
         self.primary_service = ClaudeService(config)
-        self.fallback_service = OpenAIService(config) if config.api.openai_api_key else None
+        self.fallback_service = (
+            OpenAIService(config) if config.api.openai_api_key else None
+        )
 
         # Validate that at least one service is properly configured
         self._validate_configuration()

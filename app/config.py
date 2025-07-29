@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import sys
 from functools import cache
+from typing import Any
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.shared.path import get_project_root
+from app.shared.path import get_project_root, get_user_data_dir
 
 
 class HTTPConfig(BaseSettings):
@@ -19,42 +22,98 @@ class HTTPConfig(BaseSettings):
     user_agent: str = "EventImporter/1.0"
 
 
+def load_config_json() -> dict[str, Any]:
+    """Load configuration from config.json file (only for packaged app)."""
+    # Only use config.json when running as packaged app
+    if getattr(sys, "frozen", False):
+        config_path = get_user_data_dir() / "config.json"
+        if config_path.exists():
+            try:
+                with config_path.open() as f:
+                    return json.load(f)
+            except (OSError, json.JSONDecodeError):
+                pass
+    return {}
+
+
 class APIConfig(BaseSettings):
     """API key configurations."""
+
+    anthropic_api_key: str | None = Field(None, alias="ANTHROPIC_API_KEY")
+    openai_api_key: str | None = Field(None, alias="OPENAI_API_KEY")
+    zyte_api_key: str | None = Field(None, alias="ZYTE_API_KEY")
+    ticketmaster_api_key: str | None = Field(None, alias="TICKETMASTER_API_KEY")
+    google_api_key: str | None = Field(None, alias="GOOGLE_API_KEY")
+    google_cse_id: str | None = Field(None, alias="GOOGLE_CSE_ID")
+    ticketfairy_api_key: str | None = Field(None, alias="TICKETFAIRY_API_KEY")
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls,
+        init_settings,
+        env_settings,
+        dotenv_settings,
+        file_secret_settings,
+    ):
+        # For packaged app: config.json -> env vars
+        # For development: .env -> env vars
+        del settings_cls  # Required by pydantic but unused
+        return (
+            init_settings,
+            lambda: load_config_json(),  # Only loads in packaged app
+            env_settings,
+            dotenv_settings,  # Only loads in development
+            file_secret_settings,
+        )
 
     model_config = SettingsConfigDict(
         env_file=get_project_root() / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
-
-    anthropic_api_key: str | None = None
-    openai_api_key: str | None = None
-    zyte_api_key: str | None = None
-    ticketmaster_api_key: str | None = None
-    google_api_key: str | None = None
-    google_cse_id: str | None = None
-    ticketfairy_api_key: str | None = None
 
 
 class Config(BaseSettings):
     """Main configuration container."""
 
+    # API configurations
+    api: APIConfig = Field(default_factory=APIConfig)
+
+    # HTTP configurations
+    http: HTTPConfig = Field(default_factory=HTTPConfig)
+
+    # Runtime settings
+    debug: bool = Field(False, alias="DEBUG")
+    log_level: str = Field("INFO", alias="LOG_LEVEL")
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls,
+        init_settings,
+        env_settings,
+        dotenv_settings,
+        file_secret_settings,
+    ):
+        # For packaged app: config.json -> env vars
+        # For development: .env -> env vars
+        del settings_cls  # Required by pydantic but unused
+        return (
+            init_settings,
+            lambda: load_config_json(),  # Only loads in packaged app
+            env_settings,
+            dotenv_settings,  # Only loads in development
+            file_secret_settings,
+        )
+
     model_config = SettingsConfigDict(
         env_file=get_project_root() / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
-
-    # API configurations
-    api: APIConfig = APIConfig()
-
-    # HTTP configurations
-    http: HTTPConfig = HTTPConfig()
-
-    # Runtime settings
-    debug: bool = False
-    log_level: str = "INFO"
 
     def get_enabled_features(self) -> list[str]:
         """Get list of enabled features based on available API keys."""

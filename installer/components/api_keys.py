@@ -30,11 +30,10 @@ class APIKeyManager:
         for key, details in ALL_KEYS.items():
             has_key = self.app_config.get_value(key)
             status = "[green]✓[/green]" if has_key else "[red]✗[/red]"
-            if not has_key and details["required"]:
+            if not has_key:
                 missing_required_keys += 1
 
-            req_text = " (REQUIRED)" if details["required"] else " (optional)"
-            key_text = f"{status} {key}{req_text}"
+            key_text = f"{status} {key} (REQUIRED)"
             table.add_row(key_text, details["description"])
 
         self.console.print(table)
@@ -47,15 +46,14 @@ class APIKeyManager:
     def configure_required_keys(self) -> bool:
         """Configure all required API keys."""
         for key, details in ALL_KEYS.items():
-            if details["required"] and not self._configure_key(key, details):
+            if not self._configure_key(key, details):
                 return False
         return True
 
     def configure_optional_keys(self) -> None:
         """Configure all optional API keys."""
-        for key, details in ALL_KEYS.items():
-            if not details["required"]:
-                self._configure_key(key, details)
+        # All keys are now required, so this method does nothing
+        pass
 
     def _configure_key(self, key: str, details: dict) -> bool:
         """Prompt user for a single API key."""
@@ -71,14 +69,12 @@ class APIKeyManager:
 
     def are_required_keys_present(self) -> bool:
         """Check if all required API keys are present."""
-        for key, details in ALL_KEYS.items():
-            if details["required"] and not self.app_config.get_value(key):
+        for key in ALL_KEYS:
+            if not self.app_config.get_value(key):
                 return False
         return True
 
     def has_missing_optional_keys(self) -> bool:
         """Check if there are any missing optional keys."""
-        for key, details in ALL_KEYS.items():
-            if not details["required"] and not self.app_config.get_value(key):
-                return True
+        # All keys are now required, so there are no optional keys
         return False

@@ -38,10 +38,14 @@ async def test_submit_by_url_dry_run():
     submitter.transformer.transform = MagicMock(return_value={"transformed": True})
 
     submitter.client = MagicMock()
-    submitter.client.submit = AsyncMock(return_value={"submitted": True, "dry_run": True})
+    submitter.client.submit = AsyncMock(
+        return_value={"submitted": True, "dry_run": True}
+    )
 
     # Since submit_by_url calls submit_events, we need to mock that too
-    submitter.submit_events = AsyncMock(return_value={"submitted": True, "dry_run": True})
+    submitter.submit_events = AsyncMock(
+        return_value={"submitted": True, "dry_run": True}
+    )
 
     result = await submitter.submit_by_url("http://example.com", dry_run=True)
 

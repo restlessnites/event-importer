@@ -70,9 +70,7 @@ clean-all: clean ## Deep clean the project (includes venv)
 
 
 ##@ Distribution
-package: clean
-	@echo "📦 Synchronizing version..."
-	@uv run python scripts/sync_version.py
+package: clean ## Build standalone executable with PyInstaller
 	@echo "📦 Packaging application..."
 	@uv run pyinstaller --noconfirm event-importer.spec
 

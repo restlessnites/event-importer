@@ -26,7 +26,8 @@ def get_project() -> Project:
     with pyproject_path.open("rb") as f:
         data = tomllib.load(f)
 
-    project_name = data.get("project", {}).get("name", "UnknownProject")
-    version = data.get("tool", {}).get("poetry", {}).get("version", "0.0.0")
+    project_data = data.get("project", {})
+    project_name = project_data.get("name", "UnknownProject")
+    version = project_data.get("version", "0.0.0")
 
     return Project(name=project_name, version=version)
