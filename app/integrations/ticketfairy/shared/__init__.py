@@ -1,0 +1,1 @@
+"""TicketFairy shared components."""

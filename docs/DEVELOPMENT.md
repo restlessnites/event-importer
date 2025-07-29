@@ -57,7 +57,7 @@ The application uses a hierarchical configuration system that is designed to wor
 Settings are loaded from the following sources, in order of precedence (where 1 overrides 2, and 2 overrides 3):
 
 1. **`.env` file (for Developers)**: A `.env` file located in the project root. This is the primary way for developers to configure the application and override any global settings for local testing.
-2. **`config.json` (for Users)**: A `config.json` file located in the user's application data directory. This is the primary configuration file for the packaged application.
+2. **SQLite Storage (for Users)**: Settings are stored in an SQLite database located in the user's application data directory. This is the primary configuration storage for the packaged application. Falls back to `config.json` if SQLite storage fails.
 3. **Default Values**: Default values are hardcoded in the `app.config.Config` class.
 
 ### File Locations
@@ -69,12 +69,12 @@ The application stores its persistent data in the standard user data directory f
 
 Within this directory, you will find:
 
-- `config.json`: Stores all user-configured settings, including API keys.
-- `events.db`: The SQLite database containing all imported event data.
+- `events.db`: The SQLite database containing all imported event data and application settings.
+- `config.json`: Legacy configuration file (automatically migrated to SQLite storage).
 
 ### Security
 
-To protect your API keys, the `config.json` file is saved with file permissions that restrict access to the current user only (`600`).
+Settings are stored in the SQLite database with appropriate file permissions to protect your API keys.
 
 ### Developer Workflow
 
@@ -84,7 +84,7 @@ To get started, copy the `env.example` file to `.env`:
 cp env.example .env
 ```
 
-Now, you can edit the `.env` file with your API keys. Any values you set in this file will override the settings in the global `config.json` file, allowing you to easily switch between different configurations for development and testing without affecting your main setup.
+Now, you can edit the `.env` file with your API keys. Any values you set in this file will override the settings in the global SQLite storage, allowing you to easily switch between different configurations for development and testing without affecting your main setup.
 
 ---
 
@@ -113,6 +113,16 @@ app/
 ├── integrations/       # Integrations (e.g., TicketFairy)
 ├── shared/             # Shared utilities
 └── data/               # Reference data
+
+config/                 # Shared configuration system
+├── settings.py         # Pydantic settings definitions
+└── storage.py          # SQLite settings storage
+
+installer/              # Standalone installer
+├── components/         # Installer components
+├── main.py            # Installer entry point
+├── downloader.py      # App download functionality
+└── paths.py           # Path utilities
 ```
 
 For detailed architecture information, see [docs/ARCHITECTURE.md](ARCHITECTURE.md).

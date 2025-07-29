@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     pass
 
 import pytest
-
 from app.interfaces.cli.runner import get_cli
 
 

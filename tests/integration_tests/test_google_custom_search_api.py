@@ -5,10 +5,10 @@ import asyncio
 import traceback
 
 import pytest
+from app.interfaces.cli.runner import get_cli
 from dotenv import load_dotenv
 
 from app.config import get_config
-from app.interfaces.cli.runner import get_cli
 
 # Load environment variables
 load_dotenv()

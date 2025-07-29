@@ -9,47 +9,65 @@ A tool that extracts structured event data from websites, images, and APIs. Use 
 
 ## Installation
 
-There are two ways to install the Event Importer, depending on your needs.
-
 ### For Most Users (Recommended)
 
-This method is for non-technical users who want to use the application without having to set up a development environment.
+This method is for non-technical users who want to use the application without setting up a development environment.
 
-1. **Download**: Get the latest `Restless-Event-Importer.zip` file from the project's releases page or the link provided in Slack.
-2. **Unzip**: Unzip the file to a location of your choice (e.g., your `Documents` folder).
-3. **Run Setup**: Open the Terminal app, navigate to the unzipped folder, and run the setup command:
+1. **Download**: Get the latest `restless-event-importer-installer.zip` file from the releases page or the link provided in Slack.
 
-    ```bash
-    # Example if you unzipped it in your Documents folder
-    cd ~/Documents/event-importer
-    event-importer setup
-    ```
+2. **Extract and Run**: Double-click the downloaded zip file to extract it, then double-click the `event-importer-installer` file to run it.
 
-The interactive setup process will guide you through configuring your API keys and connecting the tool to the Claude Desktop app. All API keys for all features are required.
+The installer will automatically:
+
+- Create the `~/Applications/restless-event-importer` directory
+- Move itself to the proper location
+- Clean up the downloaded files
+- Download the latest Event Importer application
+- Guide you through configuring API keys
+- Set up Claude Desktop integration (if installed)
+- Optionally configure your shell to make `event-importer` globally accessible
+- Launch the Event Importer when complete
+
+After installation, the Event Importer will be available at:
+
+```bash
+~/Applications/restless-event-importer/event-importer
+```
+
+### Making the Command Globally Accessible
+
+If you chose not to configure PATH during installation, you can still make `event-importer` globally accessible:
+
+```bash
+# Add to your shell profile (~/.zshrc, ~/.bash_profile, etc.)
+export PATH="$HOME/Applications/restless-event-importer:$PATH"
+
+# Or create a symlink in a directory already in your PATH
+ln -s ~/Applications/restless-event-importer/event-importer /usr/local/bin/event-importer
+```
+
+After restarting your terminal or running `source ~/.zshrc`, you can use `event-importer` from any directory.
 
 ### For Developers (From Source)
 
 This method is for developers who want to run the application from source or contribute to its development.
 
 1. **Clone the Repository**:
-
-    ```bash
-    git clone https://github.com/restlessnites/event-importer.git
-    cd event-importer
-    ```
+   ```bash
+   git clone https://github.com/restlessnites/event-importer.git
+   cd event-importer
+   ```
 
 2. **Set Up the Environment**:
-
-    ```bash
-    make dev-setup
-    ```
+   ```bash
+   make dev-setup
+   ```
 
 3. **Configure API Keys**:
-
-    ```bash
-    cp env.example .env
-    # Now edit .env
-    ```
+   ```bash
+   cp env.example .env
+   # Edit .env with your API keys
+   ```
 
 ---
 

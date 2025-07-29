@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import pytest
+from app.interfaces.cli.core import CLI
 from rich.console import Console
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.config import get_config
-from app.interfaces.cli.core import CLI
 from app.services.claude import ClaudeService
 from app.services.llm import LLMService
 from app.services.openai import OpenAIService

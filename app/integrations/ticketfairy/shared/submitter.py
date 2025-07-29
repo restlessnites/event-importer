@@ -10,15 +10,15 @@ from app.integrations.base import (
     BaseSubmitter,
     BaseTransformer,
 )
-from app.integrations.ticketfairy.client import TicketFairyClient
-from app.integrations.ticketfairy.selectors import (
+from app.integrations.ticketfairy.shared.client import TicketFairyClient
+from app.integrations.ticketfairy.utils.selectors import (
     AllEventsSelector,
     FailedSelector,
     PendingSelector,
     UnsubmittedSelector,
     URLSelector,
 )
-from app.integrations.ticketfairy.transformer import TicketFairyTransformer
+from app.integrations.ticketfairy.utils.transformer import TicketFairyTransformer
 
 
 class TicketFairySubmitter(BaseSubmitter):

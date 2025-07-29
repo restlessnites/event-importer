@@ -4,6 +4,7 @@
 import traceback
 
 from app.interfaces.cli.runner import get_cli
+
 from app.shared.url_analyzer import URLAnalyzer
 
 

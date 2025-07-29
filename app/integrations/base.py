@@ -29,7 +29,23 @@ class Integration(ABC):
     def get_mcp_tools(self) -> Any | None:
         """Dynamically load and return the MCP tools module, if it exists."""
         try:
-            return importlib.import_module(f"app.integrations.{self.name}.mcp_tools")
+            return importlib.import_module(f"app.integrations.{self.name}.mcp.tools")
+        except ImportError:
+            return None
+
+    @final
+    def get_api_routes(self) -> Any | None:
+        """Dynamically load and return the API routes module, if it exists."""
+        try:
+            return importlib.import_module(f"app.integrations.{self.name}.api.routes")
+        except ImportError:
+            return None
+
+    @final
+    def get_cli_commands(self) -> Any | None:
+        """Dynamically load and return the CLI commands module, if it exists."""
+        try:
+            return importlib.import_module(f"app.integrations.{self.name}.cli.commands")
         except ImportError:
             return None
 

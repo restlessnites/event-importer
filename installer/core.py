@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
-from rich.padding import Padding
-from rich.panel import Panel
-
-from app.config import clear_config_cache
+import app
 from app.shared.project import get_project
 from app.validators import InstallationValidator
 from installer.components.api_keys import APIKeyManager
@@ -16,26 +14,44 @@ from installer.components.claude_desktop import ClaudeDesktopConfig
 from installer.components.migration import MigrationManager
 from installer.components.updater import UpdateManager
 from installer.paths import get_user_data_dir
-from installer.ui import get_console
 from installer.utils import SystemCheck
 
 
+@dataclass
+class InstallationStatus:
+    """Status of the installation."""
+
+    is_upgrade: bool = False
+    current_version: str | None = None
+    new_version: str = ""
+    needs_migration: bool = False
+    is_packaged: bool = False
+
+
+@dataclass
+class InstallationResult:
+    """Result of an installation step."""
+
+    success: bool
+    message: str
+    details: dict | None = None
+
+
 class EventImporterInstaller:
-    """Main installer orchestrator."""
+    """Main installer orchestrator - handles business logic only."""
 
     def __init__(self):
-        self.console = get_console()
         self.is_packaged = self._is_packaged()
         self.project_root = self._get_project_root()
         project = get_project()
         self.version_file = self.project_root / ".version"
         self.new_version = project.version
         self.system_check = SystemCheck()
-        self.claude_config = ClaudeDesktopConfig(self.console, self.is_packaged)
+        self.claude_config = ClaudeDesktopConfig(self.is_packaged)
         self.api_key_manager = APIKeyManager()
         self.validator = InstallationValidator()
         self.migration_manager = MigrationManager()
-        self.update_manager = UpdateManager(self.console, self.project_root)
+        self.update_manager = UpdateManager(self.project_root)
 
     def _is_packaged(self) -> bool:
         """Check if the application is running as a packaged executable."""
@@ -48,272 +64,182 @@ class EventImporterInstaller:
             return get_user_data_dir()
 
         # Running in a normal Python environment
-        return Path(__file__).parent.parent
-
-    def _handle_upgrade_or_new_install(self) -> bool:
-        """Handle the initial user interaction for upgrades or new installs."""
-        is_upgrade = self.version_file.exists()
-        current_version = self._get_current_version()
-
-        self.console.header(f"RESTLESS / EVENT IMPORTER v{self.new_version}")
-
-        if self.is_packaged:
-            self.console.info(
-                "This setup tool will guide you through configuring your application."
-            )
-            self.console.print()
-            return True
-
-        if is_upgrade:
-            self.console.info("An existing installation was found.")
-            self.console.print()
-            if current_version == self.new_version:
-                self.console.info(
-                    f"Version [bold green]{self.new_version}[/bold green] is already installed."
-                )
-                prompt = "Do you want to re-check dependencies and configurations?"
-            else:
-                version_info = f" from v{current_version}" if current_version else ""
-                self.console.info(f"Upgrading{version_info} to v{self.new_version}.")
-                prompt = "Do you want to proceed with the upgrade?"
-
-            self.console.print()
-            if not self.console.confirm(prompt, default=True):
-                self.console.info("Installation cancelled.")
-                return False
-            self.console.print()
-        else:
-            self.console.info(
-                "This installer will check and configure all required components."
-            )
-            self.console.info("Previously installed components will be skipped.")
-            self.console.print()
-            self.migration_manager.check_and_run()
-        return True
-
-    def _handle_update_or_new_install(self) -> bool:
-        """Determine whether to run an update or a new installation."""
-        current_version = self._get_current_version()
-        if current_version:
-            self.console.header(
-                f"Event Importer v{current_version} is already installed."
-            )
-            if self.console.confirm("Check for updates?", default=True):
-                return self.update_manager.run_update()
-            return True
-
-        self.console.header(f"Installing Event Importer v{self.new_version}")
-        return True
-
-    def _run_installation_steps(self) -> bool:
-        """Run the core installation steps in sequence."""
-        return all(
-            [
-                self._pre_flight_checks(),
-                self._configure_api_keys(),
-                self._configure_updater(),
-                self._configure_claude_desktop(),
-                self._validate_installation(),
-            ]
-        )
-
-    def _validate_installation(self) -> bool:
-        """Run post-installation validation checks."""
-        self.console.step("Validating installation...")
-        clear_config_cache()
-        is_valid, messages = self.validator.validate()
-        if is_valid:
-            self.console.success("Validation passed")
-            return True
-
-        self.console.error("Validation failed:")
-        for message in messages:
-            self.console.error(f"  - {message}")
-        return False
-
-    def run(self, is_packaged: bool = False) -> bool:
-        """Run the complete installation process."""
-        self.is_packaged = is_packaged or self._is_packaged()
-        self.claude_config.is_packaged = self.is_packaged
-
-        try:
-            if not self._handle_upgrade_or_new_install():
-                return True
-
-            if self.is_packaged:
-                if not self._run_packaged_install():
-                    return False
-            else:
-                if not self._run_full_install():
-                    return False
-
-            self._write_version_file()
-            self.console.print()
-            self.console.success("Event Importer is ready to use!")
-            self._print_next_steps()
-            return True
-
-        except KeyboardInterrupt:
-            self.console.print()
-            self.console.error("Installation cancelled by user.")
-            return False
-        except Exception as e:
-            self.console.print()
-            self.console.error(f"Installation failed: {e}")
-            return False
-
-    def run_update(self) -> bool:
-        """Run the update process."""
-        return self.update_manager.run_update()
-
-    def _configure_updater(self) -> bool:
-        """Configure the updater."""
-        self.console.step("Configuring updater...")
-        # TODO: Implement a more robust updater configuration
-        self.console.success("Updater configured (skipping for now)")
-        return True
+        return Path(app.__file__).parent.parent
 
     def _get_current_version(self) -> str | None:
-        """Reads the version from the .version file."""
-        if not self.version_file.exists():
-            return None
-        return self.version_file.read_text().strip()
+        """Get the currently installed version, if any."""
+        if self.version_file.exists():
+            return self.version_file.read_text().strip()
+        return None
 
-    def _get_new_version(self) -> str:
-        """Get the version from pyproject.toml."""
-        return get_project().version
+    def get_status(self) -> InstallationStatus:
+        """Get the current installation status."""
+        current_version = self._get_current_version()
+        return InstallationStatus(
+            is_upgrade=bool(current_version),
+            current_version=current_version,
+            new_version=self.new_version,
+            needs_migration=self.migration_manager.has_previous_installation(),
+            is_packaged=self.is_packaged,
+        )
 
-    def _write_version_file(self) -> None:
-        """Writes the current app version to the .version file."""
-        # This is only relevant for non-packaged installs
-        self.version_file.write_text(self.new_version)
-
-    def _pre_flight_checks(self) -> bool:
-        """Perform pre-installation checks."""
-        self.console.step("Performing system checks...")
-
+    def check_system_requirements(self) -> InstallationResult:
+        """Check system requirements."""
         # Check OS
         if not self.system_check.is_macos():
-            self.console.error("This installer is currently only supported on macOS.")
-            return False
+            return InstallationResult(
+                success=False,
+                message="This installer is currently only supported on macOS.",
+            )
 
         # Check Python version
-        if self.is_packaged:  # Skip Python check in packaged app
-            self.console.success("System checks passed")
-            return True
-
         python_version = self.system_check.get_python_version()
         if python_version < (3, 10):
-            self.console.error(f"Python 3.10+ required. Found: {python_version}")
-            return False
+            return InstallationResult(
+                success=False,
+                message=f"Python 3.10+ required. Found: {python_version[0]}.{python_version[1]}",
+            )
 
-        self.console.success("System checks passed")
-        return True
+        return InstallationResult(success=True, message="System checks passed")
 
-    def _configure_api_keys(self) -> bool:
-        """Configure API keys interactively."""
-        self.console.step("Configuring API keys...")
+    def configure_api_keys(self, interactive: bool = True) -> InstallationResult:
+        """Configure API keys."""
+        # Load existing keys
+        self.api_key_manager.load_keys()
 
-        # Show current status
-        self.api_key_manager.show_key_status()
+        # Get status
+        missing_required = self.api_key_manager.get_missing_required_keys()
+        missing_optional = self.api_key_manager.get_missing_optional_keys()
 
-        # Configure required keys
-        if not self.api_key_manager.configure_required_keys():
-            return False
+        if not missing_required and not missing_optional:
+            return InstallationResult(
+                success=True,
+                message="All API keys configured",
+                details={"missing_required": [], "missing_optional": []},
+            )
 
-        # Offer to configure optional keys
-        if self.api_key_manager.has_missing_optional_keys() and self.console.confirm(
-            "\nWould you like to configure optional API keys for enhanced features?"
-        ):
-            self.api_key_manager.configure_optional_keys()
+        if not interactive:
+            return InstallationResult(
+                success=False,
+                message="API keys need configuration",
+                details={
+                    "missing_required": missing_required,
+                    "missing_optional": missing_optional,
+                },
+            )
 
-        self.console.success("API access configured")
-        return True
+        # This will be handled by the CLI layer
+        return InstallationResult(
+            success=False,
+            message="API keys need configuration",
+            details={
+                "missing_required": missing_required,
+                "missing_optional": missing_optional,
+            },
+        )
 
-    def _configure_claude_desktop(self) -> bool:
-        """Configure Claude Desktop MCP integration."""
-        self.console.step("Checking Claude Desktop configuration...")
-
-        # Check if Claude Desktop is installed
+    def configure_claude_desktop(self) -> InstallationResult:
+        """Configure Claude Desktop integration."""
         if not self.claude_config.is_claude_desktop_installed():
-            self.console.warning(
-                "Claude Desktop not found. Skipping MCP configuration."
+            return InstallationResult(
+                success=True,
+                message="Claude Desktop not found - skipping configuration",
             )
-            self.console.info(
-                "You can manually configure it later following the documentation."
+
+        # Check if already configured
+        if self.claude_config.is_configured():
+            return InstallationResult(
+                success=True, message="Claude Desktop already configured"
             )
-            return True
 
-        # Configure MCP for a new installation
-        if not self.console.confirm("Configure Claude Desktop for project?"):
-            return True
+        return InstallationResult(
+            success=False,
+            message="Claude Desktop needs configuration",
+            details={"config_needed": True},
+        )
 
-        if not self.claude_config.configure(self.project_root):
-            return bool(
-                self.console.confirm(
-                    "Failed to configure. Continue without Claude Desktop?"
+    def apply_claude_desktop_config(
+        self, enable_all_features: bool = True
+    ) -> InstallationResult:
+        """Apply Claude Desktop configuration."""
+        try:
+            if self.is_packaged:
+                success = self.claude_config.configure_for_packaged()
+            else:
+                success = self.claude_config.configure_for_development(
+                    enable_all_features
                 )
+
+            if success:
+                return InstallationResult(
+                    success=True, message="Claude Desktop configured successfully"
+                )
+            return InstallationResult(
+                success=False, message="Failed to configure Claude Desktop"
+            )
+        except Exception as e:
+            return InstallationResult(
+                success=False, message=f"Error configuring Claude Desktop: {e}"
             )
 
-        self.console.success("Claude Desktop ready")
-        return True
-
-    def _print_next_steps(self):
-        """Print next steps for the user."""
-        self.console.print()
-        self.console.print(
-            Panel(
-                Padding(
-                    "\n"
-                    "1. Test the CLI:\n"
-                    '   [cyan]make import URL="https://ra.co/events/1234567"[/cyan]\n\n'
-                    "2. Start the API server:\n"
-                    "   [cyan]make run-api[/cyan]\n\n"
-                    "3. Use with Claude Desktop:\n"
-                    "   - Restart Claude Desktop\n"
-                    "   - Ask Claude to 'import an event from [URL]'\n\n"
-                    "For more information, see the [bold]README.md[/bold] file.",
-                    (1, 2),
-                ),
-                title="Next Steps",
-                border_style="green",
-                expand=False,
+    def run_migration(self, source_path: Path | None = None) -> InstallationResult:
+        """Run data migration."""
+        if source_path:
+            success = self.migration_manager.migrate_from_path(source_path)
+            if success:
+                return InstallationResult(
+                    success=True, message=f"Data migrated from {source_path}"
+                )
+            return InstallationResult(
+                success=False, message=f"Failed to migrate data from {source_path}"
             )
+
+        # Auto-detect migration
+        candidates = self.migration_manager.find_previous_installations()
+        if not candidates:
+            return InstallationResult(
+                success=True, message="No previous installation found"
+            )
+
+        return InstallationResult(
+            success=False,
+            message="Previous installation found",
+            details={"candidates": candidates},
         )
 
-    def _run_full_install(self) -> bool:
-        """Run the installation steps for a development environment."""
-        (self.project_root / "data").mkdir(exist_ok=True)
+    def validate_installation(self) -> InstallationResult:
+        """Validate the installation."""
+        is_valid, messages = self.validator.validate()
 
-        return all(
-            [
-                self._pre_flight_checks(),
-                self._configure_api_keys(),
-                self._configure_updater(),
-                self._configure_claude_desktop(),
-                self._validate_installation(),
-            ]
+        if is_valid:
+            return InstallationResult(
+                success=True, message="Installation validated successfully"
+            )
+        return InstallationResult(
+            success=False,
+            message="Installation validation failed",
+            details={"errors": messages},
         )
 
-    def _run_packaged_install(self) -> bool:
-        """Run the installation steps for a packaged application."""
-        self.migration_manager.check_and_run()  # Run migrations first
-        return all(
-            [
-                self._configure_api_keys(),
-                self._configure_updater(),
-                self._configure_claude_desktop(),
-                self._validate_installation(),
-            ]
-        )
+    def save_version(self) -> InstallationResult:
+        """Save the current version."""
+        try:
+            self.version_file.write_text(self.new_version)
+            return InstallationResult(
+                success=True, message=f"Version {self.new_version} saved"
+            )
+        except Exception as e:
+            return InstallationResult(
+                success=False, message=f"Failed to save version: {e}"
+            )
 
-
-def main():
-    """Entry point for the installer."""
-    installer = EventImporterInstaller()
-    success = installer.run()
-    sys.exit(0 if success else 1)
-
-
-if __name__ == "__main__":
-    main()
+    def create_data_directory(self) -> InstallationResult:
+        """Create the data directory."""
+        try:
+            data_dir = self.project_root / "data"
+            data_dir.mkdir(exist_ok=True)
+            return InstallationResult(success=True, message="Data directory created")
+        except Exception as e:
+            return InstallationResult(
+                success=False, message=f"Failed to create data directory: {e}"
+            )

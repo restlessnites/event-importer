@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.integrations.ticketfairy.client import TicketFairyClient
+from app.integrations.ticketfairy.shared.client import TicketFairyClient
 
 
 @pytest.fixture

@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.integrations.ticketfairy.mcp_tools import handle_submit_ticketfairy
+from app.integrations.ticketfairy.mcp.tools import handle_submit_ticketfairy
 
 
 @pytest.mark.asyncio

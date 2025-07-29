@@ -24,9 +24,9 @@ def ensure_database_ready() -> None:
 
     except (OperationalError, sqlite3.OperationalError) as e:
         if "no such table" in str(e).lower():
-            logger.info("Database tables not found, initializing database...")
+            logger.debug("Database tables not found, initializing database...")
             init_db()
-            logger.info("Database initialized successfully")
+            logger.debug("Database initialized successfully")
         else:
             logger.exception("Database error")
             raise
@@ -39,7 +39,7 @@ def startup_checks() -> None:
     """Run all startup checks and initialization.
     Call this from main entry points.
     """
-    logger.info("Running startup checks...")
+    logger.debug("Running startup checks...")
 
     # Ensure database is ready
     ensure_database_ready()
@@ -47,7 +47,7 @@ def startup_checks() -> None:
     # Check data directory exists
     data_dir = Path("data")
     if not data_dir.exists():
-        logger.info("Creating data directory...")
+        logger.debug("Creating data directory...")
         data_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info("Startup checks completed")
+    logger.debug("Startup checks completed")

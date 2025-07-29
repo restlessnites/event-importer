@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from functools import cache
 from typing import Any
@@ -11,6 +12,9 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.shared.path import get_project_root, get_user_data_dir
+from config.storage import SettingsStorage
+
+logger = logging.getLogger(__name__)
 
 
 class HTTPConfig(BaseSettings):
@@ -22,10 +26,20 @@ class HTTPConfig(BaseSettings):
     user_agent: str = "EventImporter/1.0"
 
 
-def load_config_json() -> dict[str, Any]:
-    """Load configuration from config.json file (only for packaged app)."""
-    # Only use config.json when running as packaged app
+def load_config() -> dict[str, Any]:
+    """Load configuration from SQLite storage (for packaged app) or fallback to JSON."""
+    # Only use storage when running as packaged app
     if getattr(sys, "frozen", False):
+        try:
+            # Try SQLite storage first
+            storage = SettingsStorage(get_user_data_dir() / "events.db")
+            settings = storage.get_all()
+            if settings:
+                return settings
+        except Exception as e:
+            logger.debug("Failed to load config from SQLite storage: %s", e)
+
+        # Fallback to old config.json if SQLite fails
         config_path = get_user_data_dir() / "config.json"
         if config_path.exists():
             try:
@@ -61,7 +75,7 @@ class APIConfig(BaseSettings):
         del settings_cls  # Required by pydantic but unused
         return (
             init_settings,
-            lambda: load_config_json(),  # Only loads in packaged app
+            lambda: load_config(),  # Only loads in packaged app
             env_settings,
             dotenv_settings,  # Only loads in development
             file_secret_settings,
@@ -102,7 +116,7 @@ class Config(BaseSettings):
         del settings_cls  # Required by pydantic but unused
         return (
             init_settings,
-            lambda: load_config_json(),  # Only loads in packaged app
+            lambda: load_config(),  # Only loads in packaged app
             env_settings,
             dotenv_settings,  # Only loads in development
             file_secret_settings,

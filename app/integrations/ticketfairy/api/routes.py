@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func
 
-from app.integrations.ticketfairy.submitter import TicketFairySubmitter
+from app.integrations.ticketfairy.shared.submitter import TicketFairySubmitter
 from app.shared.database.connection import get_db_session, init_db
 from app.shared.database.models import EventCache, Submission
 

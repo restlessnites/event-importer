@@ -8,10 +8,10 @@ import logging
 import sys
 
 import pytest
+from app.interfaces.cli.runner import get_cli
 from dotenv import load_dotenv
 
 from app.config import get_config
-from app.interfaces.cli.runner import get_cli
 from app.services.image import ImageService
 
 # Load environment variables

@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.integrations.ticketfairy.submitter import TicketFairySubmitter
+from app.integrations.ticketfairy.shared.submitter import TicketFairySubmitter
 
 
 @pytest.mark.asyncio

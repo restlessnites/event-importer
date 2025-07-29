@@ -1,0 +1,1 @@
+"""TicketFairy API interface."""

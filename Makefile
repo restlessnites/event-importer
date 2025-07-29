@@ -37,21 +37,6 @@ format: ## Auto-format code with ruff
 
 check: lint test ## Run all checks (linting and tests)
 
-##@ Running
-run-cli: ## Run the CLI interface (pass args with ARGS="...")
-	@uv run --active event-importer $(ARGS)
-
-run-api: ## Start the HTTP API server
-	@uv run --active event-importer api
-
-run-mcp: ## Start the MCP server
-	@uv run --active event-importer mcp
-
-import: ## Import an event from a URL (pass url with URL="...")
-	@uv run --active event-importer import $(URL)
-
-db-stats: ## Show database statistics
-	@uv run --active event-importer stats
 
 
 ##@ Cleanup
@@ -70,9 +55,15 @@ clean-all: clean ## Deep clean the project (includes venv)
 
 
 ##@ Distribution
-package: clean ## Build standalone executable with PyInstaller
-	@echo "📦 Packaging application..."
+package-app: clean ## Build standalone Event Importer executable
+	@echo "📦 Packaging Event Importer application..."
 	@uv run pyinstaller --noconfirm event-importer.spec
+
+package-installer: clean ## Build standalone installer executable
+	@echo "📦 Packaging Event Importer installer..."
+	@uv run pyinstaller --noconfirm event-importer-installer.spec
+
+package: package-app package-installer ## Build both app and installer executables
 
 ##@ Validation
 validate: ## Validate the installation

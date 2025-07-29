@@ -1,0 +1,1 @@
+"""TicketFairy CLI interface."""

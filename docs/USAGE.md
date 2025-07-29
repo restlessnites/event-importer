@@ -6,45 +6,47 @@ This document provides detailed instructions for using the Event Importer throug
 
 ## Command Line Interface
 
-The `Makefile` provides simple shortcuts for all common command-line tasks.
+All CLI commands are available through the `event-importer` command.
 
 ### Import Events
 
 ```bash
 # Basic usage
-make import URL="https://ra.co/events/1234567"
+event-importer import-event "https://ra.co/events/1234567"
 
-# You can pass any arguments from the command line
-make run-cli ARGS="import https://example.com/event --method web --timeout 120"
+# With specific method and timeout
+event-importer import-event "https://example.com/event" --method web --timeout 120
+
+# Force fresh import (ignore cache)
+event-importer import-event "https://ra.co/events/1234567" --ignore-cache
+
+# Enable verbose logging
+event-importer import-event "https://ra.co/events/1234567" --verbose
 ```
 
 ### View Imported Events & Statistics
 
 ```bash
-# Show database statistics and analytics
-make db-stats
+# Show database statistics
+event-importer stats
 
-# List all events
-make run-cli ARGS="list"
+# Show detailed statistics breakdown
+event-importer stats --detailed
 
-# List recent events with a limit
-make run-cli ARGS="list --limit 10"
+# Show combined statistics
+event-importer stats --combined
 
-# Search for specific events
-make run-cli ARGS="list --search \"artist name\""
+# List recent events (default 10)
+event-importer list-events
 
-# Show detailed view
-make run-cli ARGS="list --details"
+# List specific number of events
+event-importer list-events --limit 20
 
-# Show specific event by ID
-make run-cli ARGS="show 123"
-```
+# Filter events by source
+event-importer list-events --source "ra.co"
 
-### Update the Application
-
-```bash
-# Check for updates and install the latest version
-make update
+# Show details of a specific event by ID
+event-importer event-details 123
 ```
 
 ### Integrations Framework
@@ -53,20 +55,20 @@ The integration framework allows interactions with external services.
 
 #### TicketFairy
 
-The `ticketfairy` integration lets you submit events to TicketFairy.
+The `ticketfairy-submit` command provides a separate CLI for TicketFairy operations.
 
 ```bash
 # Check the status of the ticketfairy integration
-make run-cli ARGS="ticketfairy status"
+ticketfairy-submit status
 
 # Submit unsubmitted events to TicketFairy (dry run)
-make run-cli ARGS="ticketfairy submit --dry-run"
+ticketfairy-submit submit --dry-run
 
 # Submit a specific URL to TicketFairy
-make run-cli ARGS="ticketfairy submit --url https://ra.co/events/1234567"
+ticketfairy-submit submit --url "https://ra.co/events/1234567"
 
 # Retry failed submissions for TicketFairy
-make run-cli ARGS="ticketfairy retry-failed"
+ticketfairy-submit retry-failed
 ```
 
 ---
@@ -76,11 +78,8 @@ make run-cli ARGS="ticketfairy retry-failed"
 Run as a web service for integration with other applications. For full details, see the [HTTP API Guide](API.md).
 
 ```bash
-# Start the server
-make run-api
-
-# To run on a different port, you can use the cli command
-make run-cli ARGS="api --port 8001"
+# Start the server (default port 8000)
+event-importer api
 ```
 
 ### API Endpoints
@@ -134,7 +133,7 @@ Use with Claude Desktop or other MCP-compatible AI assistants. For full details,
 
 ```bash
 # Start MCP server
-make run-mcp
+event-importer mcp
 ```
 
 ### Claude Desktop Configuration
@@ -170,7 +169,7 @@ The Event Importer provides comprehensive statistics and analytics about your im
 
 ```bash
 # Show comprehensive database statistics
-make db-stats
+event-importer stats --detailed
 ```
 
 This displays:

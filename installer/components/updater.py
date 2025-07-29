@@ -7,7 +7,6 @@ import shutil
 from pathlib import Path
 
 from app.config import get_config
-from installer.utils import Console, Downloader, FileUtils
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +17,9 @@ BACKUP_DIR_NAME = "backup"
 class UpdateManager:
     """Manages the application update process."""
 
-    def __init__(self: UpdateManager, console: Console, project_root: Path) -> None:
+    def __init__(self: UpdateManager, project_root: Path) -> None:
         """Initialize the update manager."""
-        self.console = console
         self.project_root = project_root
-        self.downloader = Downloader(self.console)
-        self.file_utils = FileUtils(self.console)
         self.config = get_config()
 
     def run_update(self) -> bool:

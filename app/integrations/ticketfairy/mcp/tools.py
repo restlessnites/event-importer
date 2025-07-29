@@ -6,7 +6,7 @@ from typing import Any
 
 from mcp import types
 
-from app.integrations.ticketfairy.submitter import TicketFairySubmitter
+from app.integrations.ticketfairy.shared.submitter import TicketFairySubmitter
 
 
 async def handle_submit_ticketfairy(arguments: dict) -> dict[str, Any]:
