@@ -2,21 +2,24 @@
 
 import json
 from pathlib import Path
+import sys
 
 from installer.utils import (
     Console,
     FileUtils,
     SystemCheck,
 )
+from installer.paths import get_user_data_dir
 
 
 class ClaudeDesktopConfig:
     """Handles Claude Desktop integration."""
 
-    def __init__(self, console: Console):
+    def __init__(self, console: Console, is_packaged: bool = False):
         self.console = console
         self.file_utils = FileUtils(console)
         self.system_check = SystemCheck()
+        self.is_packaged = is_packaged
 
     def is_claude_desktop_installed(self) -> bool:
         """Check if Claude Desktop is installed."""
@@ -64,18 +67,29 @@ class ClaudeDesktopConfig:
             self.console.error("Could not determine Claude Desktop config location")
             return False
 
-        # Get uv path
-        uv_path = self.system_check.get_command_path("uv")
-        if not uv_path:
-            self.console.error("uv not found in PATH")
-            return False
+        user_data_dir = get_user_data_dir()
 
-        # Prepare the MCP server configuration
-        mcp_config = {
-            "command": uv_path,
-            "args": ["--directory", str(project_root), "run", "event-importer-mcp"],
-            "cwd": str(project_root),
-        }
+        if self.is_packaged:
+            # When packaged, the executable is in the directory of the installer script
+            executable_path = Path(sys.executable)
+            mcp_config = {
+                "command": str(executable_path),
+                "args": ["mcp"],
+                "cwd": str(user_data_dir),
+            }
+        else:
+            # Get uv path
+            uv_path = self.system_check.get_command_path("uv")
+            if not uv_path:
+                self.console.error("uv not found in PATH")
+                return False
+
+            # Prepare the MCP server configuration
+            mcp_config = {
+                "command": uv_path,
+                "args": ["--directory", str(project_root), "run", "event-importer-mcp"],
+                "cwd": str(project_root),
+            }
 
         # Load or create config
         config = self._load_config(config_path)
@@ -126,61 +140,4 @@ class ClaudeDesktopConfig:
             return True
         except Exception as e:
             self.console.error(f"Error saving config: {e}")
-            return False
-
-    def is_already_configured(self, project_root: Path) -> bool:
-        """Check if Event Importer is already configured in Claude Desktop."""
-        config_path = self._get_claude_config_path()
-        if not config_path or not config_path.exists():
-            return False
-
-        try:
-            config = self._load_config(config_path)
-            if "mcpServers" not in config:
-                return False
-
-            if "event-importer" not in config["mcpServers"]:
-                return False
-
-            server_config = config["mcpServers"]["event-importer"]
-
-            # Verify the configuration points to the right place
-            if "args" in server_config:
-                args = server_config["args"]
-                if "--directory" in args:
-                    idx = args.index("--directory")
-                    if idx + 1 < len(args):
-                        configured_path = Path(args[idx + 1])
-                        return configured_path == project_root
-            return False
-        except Exception:
-            return False
-
-    def verify_configuration(self, project_root: Path) -> bool:
-        """Verify that Claude Desktop is properly configured."""
-        config_path = self._get_claude_config_path()
-        if not config_path or not config_path.exists():
-            return False
-
-        try:
-            config = self._load_config(config_path)
-            if "mcpServers" not in config:
-                return False
-
-            if "event-importer" not in config["mcpServers"]:
-                return False
-
-            server_config = config["mcpServers"]["event-importer"]
-
-            # Verify the configuration points to the right place
-            if "args" in server_config:
-                args = server_config["args"]
-                if "--directory" in args:
-                    idx = args.index("--directory")
-                    if idx + 1 < len(args):
-                        configured_path = Path(args[idx + 1])
-                        return configured_path == project_root
-
-            return True
-        except Exception:
             return False

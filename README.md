@@ -453,6 +453,71 @@ LOG_LEVEL=INFO                     # Logging level
 - **[Image Enhancement](docs/IMAGE_ENHANCER.md)** - How AI image enhancement works
 - **[Integrations](docs/INTEGRATIONS.md)** - How to build and use integrations
 
+## Packaging for Distribution
+
+To make the application easier to run on other computers, you can package it as a standalone executable. This bundles the application and all its dependencies into a single folder that can be easily shared.
+
+To create the package, run the following command:
+
+```bash
+make package
+```
+
+This will create a `dist/event-importer` folder containing the executable and all its dependencies. You can then zip this folder and distribute it to others.
+
+### How to Use the Packaged Application
+
+Once you have the `dist/event-importer` folder, you can run the application without any installation. Here's the recommended way to get started:
+
+1.  **Run the Interactive Setup**:
+    *   Open your terminal and navigate into the `dist/event-importer` folder.
+    *   Run the guided setup command:
+    ```bash
+    ./event-importer setup
+    ```
+    *   The installer will guide you through creating your `.env` file, configuring API keys, and setting up Claude Desktop integration.
+
+2.  **Run Other Commands**:
+    *   After the setup is complete, you can use the application normally.
+
+    For example:
+    ```bash
+    # Import an event
+    ./event-importer import "https://ra.co/events/1234567"
+
+    # List all events
+    ./event-importer list
+    ```
+3.  **Find Your Data**:
+    *   The application will automatically create a `data` directory inside the `dist/event-importer` folder to store the `events.db` database file.
+
+### Using with Claude Desktop
+
+To use the packaged application with Claude Desktop, you'll need to update your Claude configuration to point to the new executable.
+
+1.  **Find the Full Path**:
+    *   Navigate to the `dist/event-importer` folder in your terminal.
+    *   Run `pwd` to get the full path to the directory.
+
+2.  **Update Claude's `mcp_servers.json`**:
+    *   Open Claude's configuration file (usually found in its application support directory).
+    *   Update the `command` and `args` to use the new path.
+
+    ```json
+    {
+      "mcpServers": {
+        "event-importer": {
+          "command": "/path/to/your/dist/event-importer/event-importer",
+          "args": [
+            "mcp"
+          ],
+        }
+      }
+    }
+    ```
+
+3.  **Restart Claude**: After saving the configuration, restart Claude to apply the changes.
+
 ## Development
 
 ### Entry Points

@@ -1,18 +1,66 @@
 """Main application entry point and factory with database initialization."""
 
 import asyncio
-import logging.config
+import logging
+import os
+import sys
 from argparse import ArgumentParser, Namespace
+from multiprocessing import freeze_support
+from pathlib import Path
 
 from app import __version__
 from app.error_messages import CommonMessages
-from app.integrations.ticketfairy.cli import main as run_ticketfairy_cli
 from app.interfaces.api.server import run as api_run
 from app.interfaces.cli.events import run_events_cli
 from app.interfaces.cli.runner import run_cli, run_validation_cli
 from app.interfaces.mcp.server import run as mcp_run
 from app.startup import startup_checks
 from installer.core import EventImporterInstaller
+
+
+def discover_and_load_integration_clis(subparsers: object) -> None:
+    """Discover and load CLI subparsers from integrations."""
+    if getattr(sys, "frozen", False):
+        # The application is running in a bundled environment (e.g., PyInstaller)
+        integrations_dir = Path(sys._MEIPASS) / "app" / "integrations"
+    else:
+        # The application is running in a normal Python environment
+        integrations_dir = Path(__file__).parent / "integrations"
+    for integration_name in os.listdir(integrations_dir):
+        cli_module_path = integrations_dir / integration_name / "cli.py"
+        if cli_module_path.exists():
+            try:
+                module_name = f"app.integrations.{integration_name}.cli"
+                module = __import__(module_name, fromlist=["main"])
+                if hasattr(module, "main"):
+                    # Create a subparser for the integration
+                    integration_parser = subparsers.add_parser(
+                        integration_name, help=f"Run {integration_name} CLI"
+                    )
+                    # You might need to add more arguments to the subparser here
+                    # depending on the needs of the integration's CLI.
+            except ImportError as e:
+                logging.warning(
+                    f"Could not import CLI for integration '{integration_name}': {e}"
+                )
+
+
+def change_to_user_data_dir() -> None:
+    """Change the current working directory to the user's data directory."""
+    if not getattr(sys, "frozen", False):
+        # Don't change directory in a normal development environment
+        return
+
+    app_name = "EventImporter"
+    if sys.platform == "darwin":
+        path = Path.home() / "Library" / "Application Support" / app_name
+    elif sys.platform == "linux":
+        path = Path.home() / ".local" / "share" / app_name
+    else:
+        path = Path.home() / f".{app_name.lower()}"
+
+    path.mkdir(parents=True, exist_ok=True)
+    os.chdir(path)
 
 
 def configure_logging(verbose: bool = False) -> None:
@@ -109,6 +157,9 @@ def create_parser() -> ArgumentParser:
     )
     rebuild_parser.add_argument("event_id", type=int, help="Event ID to rebuild")
 
+    # Setup command
+    subparsers.add_parser("setup", help="Run the interactive setup process")
+
     # Validate command
     subparsers.add_parser("validate", help="Validate the installation")
 
@@ -124,8 +175,8 @@ def create_parser() -> ArgumentParser:
     api_parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
     api_parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
 
-    # Ticketfairy interface
-    subparsers.add_parser("ticketfairy", help="Run Ticketfairy CLI")
+    # Discover and load integration CLIs
+    discover_and_load_integration_clis(subparsers)
 
     return parser
 
@@ -136,6 +187,9 @@ def route_command(parser: ArgumentParser, args: Namespace) -> None:
         run_cli(args)
     elif args.command in ["list", "show", "stats", "rebuild-descriptions"]:
         asyncio.run(run_events_cli(args))
+    elif args.command == "setup":
+        installer = EventImporterInstaller()
+        installer.run(is_packaged=True)
     elif args.command == "update":
         installer = EventImporterInstaller()
         installer.run_update()
@@ -143,14 +197,29 @@ def route_command(parser: ArgumentParser, args: Namespace) -> None:
         mcp_run()
     elif args.command == "api":
         api_run(host=args.host, port=args.port, reload=args.reload)
-    elif args.command == "ticketfairy":
-        run_ticketfairy_cli(args)
+    elif args.command is not None:
+        # Handle dynamically loaded integration commands
+        try:
+            module_name = f"app.integrations.{args.command}.cli"
+            module = __import__(module_name, fromlist=["main"])
+            if hasattr(module, "main"):
+                module.main(args)
+            else:
+                parser.print_help()
+        except ImportError:
+            parser.print_help()
     else:
         parser.print_help()
 
 
 def main() -> int:
     """Main entry point that routes to appropriate interface."""
+    # This is required for PyInstaller to work correctly when spawning processes
+    freeze_support()
+
+    # Set the current working directory to a writable location
+    change_to_user_data_dir()
+
     parser = create_parser()
     args = parser.parse_args()
 
@@ -167,8 +236,12 @@ def main() -> int:
         return 0
 
     # For commands that don't need the full startup procedure
-    if args.command == "validate":
-        run_validation_cli()
+    if args.command in ["validate", "setup"]:
+        if args.command == "validate":
+            run_validation_cli()
+        else:
+            installer = EventImporterInstaller()
+            installer.run(is_packaged=True)
         return 0
 
     # Run startup checks and database initialization for all commands
@@ -192,4 +265,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())

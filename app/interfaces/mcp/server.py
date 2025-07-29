@@ -358,18 +358,25 @@ class CoreMCPTools:
 
 def get_all_tools() -> list[types.Tool]:
     """Get all available tools including integration tools"""
+    logger.info("Getting all tools...")
     # Start with core tools
     tools = CoreMCPTools.TOOLS.copy()
+    logger.info(f"Core tools: {[tool.name for tool in tools]}")
 
     # Add integration tools
     integrations = get_available_integrations()
+    logger.info(f"Discovered integrations: {list(integrations.keys())}")
     for name, integration_class in integrations.items():
+        logger.info(f"Loading tools for integration: {name}")
         integration = integration_class()
         mcp_tools = integration.get_mcp_tools()
         if mcp_tools and hasattr(mcp_tools, "TOOLS"):
             logger.info(f"Adding MCP tools for integration: {name}")
             tools.extend(mcp_tools.TOOLS)
+        else:
+            logger.warning(f"No MCP tools found for integration: {name}")
 
+    logger.info(f"All tools: {[tool.name for tool in tools]}")
     return tools
 
 

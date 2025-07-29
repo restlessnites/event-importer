@@ -9,6 +9,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from app.shared.path import get_project_root
+
 
 @dataclass
 class APIConfig:
@@ -169,7 +171,7 @@ _config: Config | None = None
 def get_config() -> Config:
     """Get the global configuration instance."""
     # Ensure .env is loaded
-    env_path = Path(".env")
+    env_path = get_project_root() / ".env"
     load_dotenv(dotenv_path=env_path)
     return Config.from_env()
 

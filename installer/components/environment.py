@@ -7,33 +7,33 @@ import shutil
 import subprocess  # noqa S404
 from pathlib import Path
 
-from installer.utils import Console, FileUtils
+from installer.utils import Console
 
 logger = logging.getLogger(__name__)
 
 
 class EnvironmentSetup:
-    """Handle environment configuration."""
+    """Handles environment setup tasks."""
 
-    def __init__(self, console: Console):
+    def __init__(self, console: Console, project_root: Path):
         self.console = console
-        self.file_utils = FileUtils(console)
+        self.project_root = project_root
 
     def create_env_file(self, project_root: Path) -> bool:
-        """Create .env file from example if it doesn't exist."""
-        env_file = project_root / ".env"
-        env_example = project_root / "env.example"
+        """Create .env from env.example."""
+        env_example_path = Path(__file__).parent.parent.parent / "env.example"
+        env_path = project_root / ".env"
 
-        if env_file.exists():
+        if env_path.exists():
             self.console.success(".env file already exists")
             return True
 
-        if not env_example.exists():
-            self.console.error("env.example file not found")
+        if not env_example_path.exists():
+            self.console.error("env.example not found, cannot create .env file.")
             return False
 
         try:
-            shutil.copy(env_example, env_file)
+            shutil.copy(env_example_path, env_path)
             self.console.success("Created .env file from template")
             return True
         except Exception as e:
@@ -41,15 +41,15 @@ class EnvironmentSetup:
             return False
 
     def get_env_vars(self, project_root: Path) -> dict[str, str]:
-        """Read environment variables from .env file."""
-        env_file = project_root / ".env"
+        """Get all variables from the .env file."""
+        env_path = project_root / ".env"
         env_vars = {}
 
-        if not env_file.exists():
+        if not env_path.exists():
             return env_vars
 
         try:
-            with env_file.open() as f:
+            with env_path.open() as f:
                 for line in f:
                     line = line.strip()
                     if line and not line.startswith("#") and "=" in line:
@@ -61,16 +61,15 @@ class EnvironmentSetup:
 
         return env_vars
 
-    def update_env_var(self, project_root: Path, key: str, value: str) -> bool:
-        """Update or add an environment variable."""
-        env_file = project_root / ".env"
-
-        if not env_file.exists():
+    def update_env_var(self, key: str, value: str, project_root: Path) -> bool:
+        """Update a single variable in the .env file."""
+        env_path = project_root / ".env"
+        if not env_path.exists():
             return False
 
         try:
             # Read all lines
-            with env_file.open() as f:
+            with env_path.open() as f:
                 lines = f.readlines()
 
             # Update or add the variable
@@ -86,7 +85,7 @@ class EnvironmentSetup:
                 lines.append(f"\n{key}={value}\n")
 
             # Write back
-            with env_file.open("w") as f:
+            with env_path.open("w") as f:
                 f.writelines(lines)
 
             return True
@@ -94,7 +93,16 @@ class EnvironmentSetup:
             return False
 
     def configure_update_url(self, project_root: Path) -> bool:
-        """Prompt for and configure the update file URL."""
+        """Configure the update URL in the .env file."""
+        # This assumes the env file is already created
+        env_path = project_root / ".env"
+        if not env_path.exists():
+            self.console.warning(
+                ".env file not found. Skipping update URL configuration."
+            )
+            return True
+
+        # Check if URL is already set
         env_vars = self.get_env_vars(project_root)
         current_url = env_vars.get("UPDATE_FILE_URL")
 
@@ -103,14 +111,12 @@ class EnvironmentSetup:
             if not self.console.confirm("Do you want to change it?"):
                 return True
 
-        new_url = self.console.prompt("Enter the URL for update packages")
-        if not new_url:
-            self.console.warning(
-                "Update URL not set. Automatic updates will be disabled."
-            )
-            return True
+        new_url = self.console.prompt(
+            "Enter the new update URL",
+            default=current_url,
+        )
 
-        return self.update_env_var(project_root, "UPDATE_FILE_URL", new_url)
+        return self.update_env_var("UPDATE_FILE_URL", new_url, project_root)
 
     def install_dependencies(self, project_root: Path) -> bool:
         """Install Python dependencies using uv."""

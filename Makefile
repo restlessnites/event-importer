@@ -109,6 +109,14 @@ clean-all: clean ## Deep clean the project (includes venv)
 dist: ## Generate the installer package
 	@bash scripts/create_installer_package.sh
 
+# ==============================================================================
+# Packaging
+# ==============================================================================
+package: clean
+	@echo "📦 Synchronizing version..."
+	@uv run python scripts/sync_version.py
+	@echo "📦 Packaging application..."
+	@uv run pyinstaller --noconfirm event-importer.spec
 
 ##@ Validation
 validate: ## Validate the installation

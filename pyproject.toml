@@ -37,6 +37,9 @@ event-importer-mcp = "app.interfaces.mcp.server:run"
 event-importer-api = "app.interfaces.api.server:run"
 ticketfairy-submit = "app.integrations.ticketfairy.cli:main"
 
+[project.urls]
+Homepage = "https://www.restlessnites.com"
+
 [project.entry-points."app.integrations"]
 ticketfairy = "app.integrations.ticketfairy.base:TicketFairyIntegration"
 
@@ -145,3 +148,7 @@ skip_covered = false
 
 [tool.coverage.html]
 directory = "htmlcov"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]

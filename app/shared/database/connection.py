@@ -8,9 +8,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from .models import Base
+from installer.paths import get_user_data_dir
 
 # Database configuration
-DB_PATH = Path("data") / "events.db"  # This creates data/events.db
+DB_PATH = get_user_data_dir() / "events.db"
 DB_URL = f"sqlite:///{DB_PATH}"
 
 # Create engine with SQLite optimizations

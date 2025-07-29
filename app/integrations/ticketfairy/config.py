@@ -9,6 +9,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from app.shared.path import get_project_root
+
 load_dotenv()
 
 logger = logging.getLogger(__name__)
@@ -78,5 +80,6 @@ def get_ticketfairy_config(
     """Get the TicketFairy configuration instance."""
     global _config
     if _config is None:
+        project_root = get_project_root()
         _config = TicketFairyConfig.from_env(project_root)
     return _config

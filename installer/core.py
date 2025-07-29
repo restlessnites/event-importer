@@ -16,6 +16,7 @@ from installer.components.dependencies import DependencyInstaller
 from installer.components.environment import EnvironmentSetup
 from installer.components.migration import MigrationManager
 from installer.components.updater import UpdateManager
+from installer.paths import get_user_data_dir
 from installer.utils import Console, SystemCheck
 
 
@@ -24,17 +25,31 @@ class EventImporterInstaller:
 
     def __init__(self):
         self.console = Console()
-        self.project_root = Path(__file__).parent.parent
+        self.is_packaged = self._is_packaged()
+        self.project_root = self._get_project_root()
         self.version_file = self.project_root / ".version"
         self.new_version = self._get_new_version()
         self.system_check = SystemCheck()
         self.dependency_installer = DependencyInstaller(self.console)
-        self.env_setup = EnvironmentSetup(self.console)
-        self.claude_config = ClaudeDesktopConfig(self.console)
-        self.api_key_manager = APIKeyManager(self.console)
+        self.env_setup = EnvironmentSetup(self.console, self.project_root)
+        self.claude_config = ClaudeDesktopConfig(self.console, self.is_packaged)
+        self.api_key_manager = APIKeyManager(self.console, self.project_root)
         self.validator = InstallationValidator()
         self.migration_manager = MigrationManager(self.console, self.project_root)
         self.update_manager = UpdateManager(self.console, self.project_root)
+
+    def _is_packaged(self) -> bool:
+        """Check if the application is running as a packaged executable."""
+        return getattr(sys, "frozen", False)
+
+    def _get_project_root(self) -> Path:
+        """Get the project root, handling both normal and packaged execution."""
+        if getattr(sys, "frozen", False):
+            # Running in a PyInstaller bundle, use the app support directory
+            return get_user_data_dir()
+
+        # Running in a normal Python environment
+        return Path(__file__).parent.parent
 
     def _handle_upgrade_or_new_install(self) -> bool:
         """Handle the initial user interaction for upgrades or new installs."""
@@ -42,6 +57,13 @@ class EventImporterInstaller:
         current_version = self._get_current_version()
 
         self.console.header(f"RESTLESS / EVENT IMPORTER v{self.new_version}")
+
+        if self.is_packaged:
+            self.console.info(
+                "This setup tool will guide you through configuring your application."
+            )
+            self.console.print()
+            return True
 
         if is_upgrade:
             self.console.info("An existing installation was found.")
@@ -113,14 +135,21 @@ class EventImporterInstaller:
             self.console.error(f"  - {message}")
         return False
 
-    def run(self) -> bool:
+    def run(self, is_packaged: bool = False) -> bool:
         """Run the complete installation process."""
+        self.is_packaged = is_packaged or self._is_packaged()
+        self.claude_config.is_packaged = self.is_packaged
+
         try:
             if not self._handle_upgrade_or_new_install():
-                return True  # User cancelled, not an error
+                return True
 
-            if not self._run_installation_steps():
-                return False
+            if self.is_packaged:
+                if not self._run_packaged_install():
+                    return False
+            else:
+                if not self._run_full_install():
+                    return False
 
             self._write_version_file()
             self.console.print()
@@ -129,7 +158,7 @@ class EventImporterInstaller:
             return True
 
         except KeyboardInterrupt:
-            self.console.print()  # Move to a new line for the cancellation message
+            self.console.print()
             self.console.error("Installation cancelled by user.")
             return False
         except Exception as e:
@@ -163,10 +192,11 @@ class EventImporterInstaller:
             for line in f:
                 if line.strip().startswith("version"):
                     return line.split("=")[1].strip().replace('"', "")
-        return "N/A"
+        return "N/a"
 
     def _write_version_file(self) -> None:
         """Writes the current app version to the .version file."""
+        # This is only relevant for non-packaged installs
         self.version_file.write_text(self.new_version)
 
     def _pre_flight_checks(self) -> bool:
@@ -179,6 +209,10 @@ class EventImporterInstaller:
             return False
 
         # Check Python version
+        if self.is_packaged:  # Skip Python check in packaged app
+            self.console.success("System checks passed")
+            return True
+
         python_version = self.system_check.get_python_version()
         if python_version < (3, 10):
             self.console.error(f"Python 3.10+ required. Found: {python_version}")
@@ -190,6 +224,10 @@ class EventImporterInstaller:
     def _install_dependencies(self) -> bool:
         """Install required dependencies."""
         self.console.step("Checking dependencies...")
+
+        if self.is_packaged:
+            self.console.success("Dependencies are included in the package.")
+            return True
 
         # Check and install Homebrew if needed
         if self.dependency_installer.check_homebrew():
@@ -279,34 +317,16 @@ class EventImporterInstaller:
             )
             return True
 
-        # Check if already configured
-        if self.claude_config.is_already_configured(self.project_root):
-            self.console.success("Claude Desktop already configured for this project")
-            # In an upgrade scenario, just verify. The user might have
-            # moved the project folder, so we may need to re-configure.
-            if self.claude_config.verify_configuration(self.project_root):
-                return True
-            self.console.info(
-                "Project path seems to have changed. "
-                "Updating Claude Desktop configuration..."
-            )
-            if not self.claude_config.configure(self.project_root):
-                return bool(
-                    self.console.confirm(
-                        "Failed to update. Continue without Claude Desktop?"
-                    )
-                )
-        else:
-            # Configure MCP for a new installation
-            if not self.console.confirm("Configure Claude Desktop for project?"):
-                return True
+        # Configure MCP for a new installation
+        if not self.console.confirm("Configure Claude Desktop for project?"):
+            return True
 
-            if not self.claude_config.configure(self.project_root):
-                return bool(
-                    self.console.confirm(
-                        "Failed to configure. Continue without Claude Desktop?"
-                    )
+        if not self.claude_config.configure(self.project_root):
+            return bool(
+                self.console.confirm(
+                    "Failed to configure. Continue without Claude Desktop?"
                 )
+            )
 
         self.console.success("Claude Desktop ready")
         return True
@@ -332,6 +352,31 @@ class EventImporterInstaller:
                 border_style="green",
                 expand=False,
             )
+        )
+
+    def _run_full_install(self) -> bool:
+        """Run the installation steps for a development environment."""
+        return all(
+            [
+                self._pre_flight_checks(),
+                self._install_dependencies(),
+                self._configure_api_keys(),
+                self._configure_updater(),
+                self._configure_claude_desktop(),
+                self._validate_installation(),
+            ]
+        )
+
+    def _run_packaged_install(self) -> bool:
+        """Run the installation steps for a packaged application."""
+        self.migration_manager.check_and_run()  # Run migrations first
+        return all(
+            [
+                self._configure_api_keys(),
+                self._configure_updater(),
+                self._configure_claude_desktop(),
+                self._validate_installation(),
+            ]
         )
 
 
