@@ -22,11 +22,8 @@ from app.interfaces.cli.components import (
 from app.interfaces.cli.error_capture import CLIErrorDisplay, get_error_capture
 from app.interfaces.cli.formatters import (
     EventCardFormatter,
-    ImportResultFormatter,
-    ProgressUpdateFormatter,
 )
 from app.interfaces.cli.theme import Theme
-from app.schemas import ImportResult
 
 
 class CLI:
@@ -101,13 +98,6 @@ class CLI:
         self._progress = None
         self._task_id = None
 
-    def update_progress(self: CLI, percent: float, message: str | None = None) -> None:
-        """Update progress bar."""
-        if self._progress and self._task_id is not None:
-            if message:
-                self._progress.update(self._task_id, description=message)
-            self._progress.update(self._task_id, completed=percent)
-
     @contextmanager
     def spinner(self: CLI, message: str) -> Iterator[None]:
         """Show a spinner for indeterminate progress."""
@@ -154,25 +144,11 @@ class CLI:
 
     # ============= Error Capture Methods =============
 
-    def clear_errors(self: CLI) -> None:
-        """Clear captured errors."""
-        self.error_capture.clear()
-
     def show_captured_errors(self: CLI, title: str = "Captured Errors") -> None:
         """Display any captured errors."""
         self.error_display.show_captured_errors(self.error_capture, title)
 
     # ============= Your existing event methods, now using theme =============
-
-    def progress_update(self: CLI, update: dict) -> None:
-        """Display a progress update from the import system."""
-        formatter = ProgressUpdateFormatter(self.console, self.theme)
-        formatter.render(update)
-
-    def import_result(self: CLI, result: ImportResult, show_raw: bool = False) -> None:
-        """Display import result with all details."""
-        formatter = ImportResultFormatter(self.console, self.theme)
-        formatter.render(result, show_raw)
 
     def event_card(self: CLI, event_data: dict) -> None:
         """Display event data in a nice card format."""

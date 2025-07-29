@@ -401,14 +401,6 @@ class EventImporter:
                 return agent
         return None
 
-    def add_progress_listener(
-        self: EventImporter,
-        request_id: str,
-        callback: Callable[[ImportProgress], None],
-    ) -> None:
-        """Add a progress listener for a specific request."""
-        self.progress_tracker.add_listener(request_id, callback)
-
     def remove_progress_listener(
         self: EventImporter,
         request_id: str,

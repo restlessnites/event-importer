@@ -28,11 +28,6 @@ class ResidentAdvisorAgent(Agent):
         # Use shared services with proper error handling
         self.http = self.get_service("http")
 
-    @staticmethod
-    def is_valid_genre(genre_id: str) -> bool:
-        """Check if a genre ID is valid."""
-        return genre_id.isdigit() and int(genre_id) > 0 and int(genre_id) < 99
-
     @property
     def name(self: ResidentAdvisorAgent) -> str:
         return "ResidentAdvisor"
@@ -190,55 +185,6 @@ class ResidentAdvisorAgent(Agent):
         )
 
         return data.get("data", {}).get("event")
-
-    async def _fetch_event_listings(
-        self: ResidentAdvisorAgent, limit: int = 20
-    ) -> list:
-        """Fetch event listings from GraphQL API."""
-        query = """
-        query GET_EVENT_LISTINGS($pageSize: Int, $page: Int) {
-          eventListings(pageSize: $pageSize, page: $page) {
-            data {
-              event {
-                id
-                title
-                date
-                content
-                venue {
-                  name
-                  area {
-                    name
-                    country {
-                      name
-                    }
-                  }
-                }
-                genres {
-                  name
-                }
-                artists {
-                    name
-                }
-              }
-            }
-          }
-        }
-        """
-        variables = {"pageSize": limit, "page": 1}
-        data = await self.http.post_json(
-            self.GRAPHQL_URL,
-            service="RA",
-            json={
-                "operationName": "GET_EVENT_LISTINGS",
-                "variables": variables,
-                "query": query,
-            },
-        )
-        if not data or "errors" in data:
-            return []
-
-        listings = data.get("data", {}).get("eventListings", {}).get("data", [])
-        return [item["event"] for item in listings if "event" in item]
 
     def _parse_images(self: ResidentAdvisorAgent, event: dict) -> dict[str, str] | None:
         """Parse images from RA event data, returning the first valid image."""

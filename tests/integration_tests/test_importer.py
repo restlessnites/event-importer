@@ -12,7 +12,7 @@ from app.config import get_config
 from app.core.importer import EventImporter
 from app.interfaces.cli.core import CLI
 from app.interfaces.cli.runner import get_cli
-from app.schemas import ImportProgress, ImportRequest
+from app.schemas import ImportRequest
 from app.shared.http import close_http_service
 
 
@@ -26,9 +26,6 @@ from app.shared.http import close_http_service
 @pytest.mark.asyncio
 async def test_import(url: str, cli: CLI, show_raw: bool = False) -> None:
     """Test importing an event with progress display."""
-    # Clear any previous errors
-    cli.clear_errors()
-
     # Start capturing errors during the import
     cli.error_capture.start()
 
@@ -44,34 +41,11 @@ async def test_import(url: str, cli: CLI, show_raw: bool = False) -> None:
         url=url, include_raw_data=show_raw, ignore_cache=True, timeout=120
     )
 
-    # Store progress updates for display
-    progress_history = []
-
-    # Track progress with our CLI
-    async def handle_progress(progress: ImportProgress) -> None:
-        update = progress.model_dump()
-        progress_history.append(update)
-        cli.progress_update(update)
-
-    importer.add_progress_listener(request.request_id, handle_progress)
-
     try:
         # Run import with progress context
-        with cli.progress("Importing event") as progress_cli:
+        with cli.progress("Importing event"):
             # Start the import
-            import_task = asyncio.create_task(importer.import_event(request))
-
-            # Update progress bar while import runs
-            while not import_task.done():
-                # Get latest progress
-                history = importer.get_progress_history(request.request_id)
-                if history:
-                    latest = history[-1]
-                    progress_cli.update_progress(latest.progress * 100, latest.message)
-                await asyncio.sleep(0.1)
-
-            # Get the result
-            result = await import_task
+            result = await importer.import_event(request)
 
         # Display results using CLI helper
         cli.import_result(result, show_raw)

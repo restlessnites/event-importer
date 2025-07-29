@@ -452,13 +452,8 @@ async def main() -> None:
     router = Router()
 
     # Get all tools and handlers
-    all_tools = get_all_tools()
+    get_all_tools()
     all_handlers = get_all_tool_handlers()
-
-    @server.list_tools()
-    async def handle_list_tools() -> list[types.Tool]:
-        """List available tools."""
-        return all_tools
 
     @server.call_tool()
     async def call_tool_wrapper(

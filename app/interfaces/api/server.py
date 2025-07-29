@@ -13,7 +13,6 @@ from app.config import get_config
 from app.error_messages import CommonMessages
 from app.integrations import get_available_integrations
 from app.interfaces.api.middleware.cors import add_cors_middleware
-from app.interfaces.api.middleware.logging import add_logging_middleware
 from app.interfaces.api.routes import events, health, statistics
 from app.shared.http import close_http_service
 from app.startup import startup_checks
@@ -61,7 +60,6 @@ def create_app() -> FastAPI:
 
     # Add middleware
     add_cors_middleware(app)
-    add_logging_middleware(app)
 
     # Add main routes
     app.include_router(events.router)

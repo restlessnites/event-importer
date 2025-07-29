@@ -8,7 +8,6 @@ import pytest
 from dotenv import load_dotenv
 
 from app.config import get_config
-from app.genres import MusicGenres
 from app.interfaces.cli.runner import get_cli
 from app.schemas import EventData
 from app.services.genre import GenreService
@@ -18,44 +17,6 @@ load_dotenv()
 
 # Set logging to WARNING to reduce noise
 logging.basicConfig(level=logging.WARNING)
-
-
-@pytest.mark.asyncio
-async def test_genre_data(capsys):
-    """Test the genre data and validation utilities."""
-    cli = get_cli()
-
-    cli.section("Testing Genre Data & Validation")
-
-    # Test genre normalization
-    test_genres = [
-        "Electronic Music",  # Should normalize to "electronic"
-        "Hip-Hop",  # Should normalize to "hip hop"
-        "Alternative Rock",  # Should stay as "alternative rock"
-        "EDM",  # Should alias to "electronic"
-        "Indie",  # Should alias to "indie rock"
-        "Random Genre",  # Should be filtered out
-        "Techno",  # Should stay as "techno"
-    ]
-
-    results = []
-    for genre in test_genres:
-        normalized = MusicGenres.normalize_genre(genre)
-        category = MusicGenres.get_category(normalized)
-        is_valid = normalized in MusicGenres.ALL_GENRES
-
-        results.append(
-            {
-                "Input": genre,
-                "Normalized": normalized,
-                "Category": category,
-                "Valid": is_valid,
-            }
-        )
-
-    cli.table(results, title="Genre Normalization Results")
-    captured = capsys.readouterr()
-    assert "TESTING GENRE DATA & VALIDATION" in captured.out
 
 
 @pytest.mark.asyncio
@@ -195,9 +156,6 @@ async def main() -> None:
     try:
         # Start capturing errors for the entire test
         async with cli.error_capture.capture():
-            # Test 1: Data validation
-            await test_genre_data()
-
             # Test 2: Service functionality
             await test_genre_service()
 

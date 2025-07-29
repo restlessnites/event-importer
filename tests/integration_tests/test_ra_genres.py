@@ -15,20 +15,6 @@ from app.shared.http import close_http_service
 logging.basicConfig(level=logging.WARNING)
 
 
-@pytest.mark.parametrize(
-    "genre_id, expected",
-    [
-        ("1", True),  # Electronic
-        ("13", True),  # Techno
-        ("99", False),  # Not a valid genre
-    ],
-)
-def test_is_valid_genre(genre_id, expected):
-    assert ResidentAdvisorAgent.is_valid_genre(genre_id) == expected, (
-        f"Failed on genre ID: {genre_id}"
-    )
-
-
 @pytest.mark.asyncio
 async def test_ra_genres(cli, http_service, claude_service) -> None:
     """Test RA API for genre data."""
@@ -40,12 +26,10 @@ async def test_ra_genres(cli, http_service, claude_service) -> None:
     )
 
     await _test_individual_events(cli, agent)
-    await _test_event_listings(cli, agent)
     _print_summary(cli)
 
     await close_http_service()
     cli.console.print()
-    cli.success("Test completed!")
 
 
 if __name__ == "__main__":

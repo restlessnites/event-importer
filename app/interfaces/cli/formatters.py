@@ -379,10 +379,6 @@ class ImportResultFormatter:
                 f"{display_value}",
             )
 
-    def _format_time(self: ImportResultFormatter, time: EventTime | None) -> str:
-        """Format time for display."""
-        return format_event_time(time)
-
     def _render_image_results(
         self: ImportResultFormatter,
         search_data: dict[str, Any],

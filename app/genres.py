@@ -349,14 +349,3 @@ class MusicGenres:
                 validated.append(normalized)
 
         return list(set(validated))  # Remove duplicates
-
-    @classmethod
-    def get_category(cls: type[MusicGenres], genre: str) -> str:
-        """Get the category for a given genre."""
-        normalized = cls.normalize_genre(genre)
-
-        for category, genres in cls.CATEGORIES.items():
-            if normalized in genres:
-                return category
-
-        return "other"

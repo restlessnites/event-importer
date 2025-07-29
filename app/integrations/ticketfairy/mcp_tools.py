@@ -17,8 +17,7 @@ async def handle_submit_ticketfairy(arguments: dict) -> dict[str, Any]:
 
     dry_run = arguments.get("dry_run", False)
     submitter = TicketFairySubmitter()
-    result = await submitter.submit_by_url(url, dry_run=dry_run)
-    return result
+    return await submitter.submit_by_url(url, dry_run=dry_run)
 
 
 TOOLS = [

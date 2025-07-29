@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
 
 from app.config import Config
-from app.errors import handle_errors_async, retry_on_error
+from app.errors import handle_errors_async
 from app.schemas import EventData, ImageCandidate, ImageSearchResult
 from app.shared.http import HTTPService
 
@@ -72,18 +72,6 @@ class ImageService:
             logger.warning(
                 "⚠️ Google Custom Search not configured - image search disabled",
             )
-
-    @staticmethod
-    def get_domain(url: str) -> str:
-        """Extract the domain from a URL, ignoring 'www.'."""
-        try:
-            parsed_url = urlparse(url)
-            netloc = parsed_url.netloc
-            if netloc.startswith("www."):
-                return netloc[4:]
-            return netloc
-        except Exception:
-            return ""
 
     @handle_errors_async(reraise=True)
     async def validate_and_download(
@@ -179,42 +167,6 @@ class ImageService:
                 candidate.reason = f"Rating error: {e}"
 
             return candidate
-
-    @handle_errors_async(reraise=True)
-    @retry_on_error(max_attempts=2)
-    async def search_event_images(
-        self: "ImageService",
-        event_data: EventData,
-        limit: int = 10,
-    ) -> list[ImageCandidate]:
-        """Search for event images using Google Custom Search."""
-        if not self.google_enabled:
-            return []
-
-        # Build search queries
-        queries = self._build_search_queries(event_data)
-        candidates: list[ImageCandidate] = []
-
-        # Search each query
-        for query in queries:
-            results = await self._search_google_images(query, limit)
-            for result in results:
-                url = result.get("link")
-                if not url:
-                    continue
-
-                # Skip if we already have this URL
-                if any(c.url == url for c in candidates):
-                    continue
-
-                # Rate the image
-                candidate = await self.rate_image(url)
-                if candidate.score > 0:
-                    candidates.append(candidate)
-
-        # Sort by score and limit
-        candidates.sort(key=lambda x: x.score, reverse=True)
-        return candidates[:limit]
 
     @handle_errors_async(reraise=True)
     async def enhance_event_image(

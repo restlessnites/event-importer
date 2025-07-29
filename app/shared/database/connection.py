@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
-from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from .models import Base
 from installer.paths import get_user_data_dir
+
+from .models import Base
 
 # Database configuration
 DB_PATH = get_user_data_dir() / "events.db"
@@ -50,8 +50,3 @@ def get_db_session() -> Generator[Session, None, None]:
         raise
     finally:
         db.close()
-
-
-def get_db_session_sync() -> Session:
-    """Get a database session (for dependency injection)"""
-    return SessionLocal()

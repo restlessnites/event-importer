@@ -9,7 +9,6 @@ import re
 from typing import Any
 
 from openai import AsyncOpenAI
-from openai.types.chat import ChatCompletionMessageParam
 
 from app.config import Config
 from app.errors import APIError, ConfigurationError, handle_errors_async
@@ -506,60 +505,3 @@ class OpenAIService:
             error_msg = f"Vision call failed: {e}"
             service_name = "OpenAI"
             raise APIError(service_name, error_msg) from e
-
-    async def _call(
-        self: OpenAIService,
-        model: str,
-        messages: list[ChatCompletionMessageParam],
-        temperature: float,
-    ) -> str | None:
-        """Make a call to the OpenAI API."""
-        if not self.client:
-            raise ConfigurationError(OPENAI_CLIENT_NOT_INITIALIZED)
-
-        logger.debug(f"Calling OpenAI with model {model}")
-        try:
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=self.max_tokens,
-            )
-            return response.choices[0].message.content
-        except Exception:
-            logger.exception("OpenAI call failed")
-            return None
-
-    async def _call_json(
-        self: OpenAIService,
-        messages: list[ChatCompletionMessageParam],
-        temperature: float = 0.0,
-    ) -> dict | None:
-        try:
-            response = await self.client.chat.completions.create(
-                model="gpt-4o",
-                messages=messages,
-                temperature=temperature,
-                response_format={"type": "json_object"},
-            )
-            content = response.choices[0].message.content
-            try:
-                return json.loads(content)
-            except json.JSONDecodeError:
-                logger.exception("Failed to parse JSON from OpenAI response")
-                return None
-        except Exception:
-            logger.exception("OpenAI call failed")
-            return None
-
-    async def get_embedding(
-        self: OpenAIService,
-        text: str,
-        model: str = "text-embedding-3-small",
-    ) -> list[float]:
-        text = text.replace("\n", " ")
-        return (
-            (await self.client.embeddings.create(input=[text], model=model))
-            .data[0]
-            .embedding
-        )

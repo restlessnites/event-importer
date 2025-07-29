@@ -7,6 +7,7 @@ from pathlib import Path
 
 APP_NAME = "EventImporter"
 
+
 def get_user_data_dir() -> Path:
     """
     Get the platform-specific user data directory where the application will run.
@@ -17,7 +18,7 @@ def get_user_data_dir() -> Path:
         path = Path.home() / ".local" / "share" / APP_NAME
     else:
         path = Path.home() / f".{APP_NAME.lower()}"
-    
+
     # Ensure the directory exists.
     path.mkdir(parents=True, exist_ok=True)
     return path

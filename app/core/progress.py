@@ -80,17 +80,3 @@ class ProgressTracker:
     def get_history(self: "ProgressTracker", request_id: str) -> list[ImportProgress]:
         """Get progress history for a request."""
         return list(self._history.get(request_id, []))
-
-    def clear_history(self: "ProgressTracker", request_id: str) -> None:
-        """Clear history for a request."""
-        self._history.pop(request_id, None)
-
-    def get_latest_status(
-        self: "ProgressTracker",
-        request_id: str,
-    ) -> ImportStatus | None:
-        """Get the latest status for a request."""
-        history = self._history.get(request_id)
-        if history:
-            return history[-1].status
-        return None

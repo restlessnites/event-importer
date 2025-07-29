@@ -140,12 +140,6 @@ class Agent(ABC):
         """Start timing the import."""
         self._start_time = datetime.now(UTC)
 
-    def get_elapsed_time(self: Agent) -> float:
-        """Get elapsed time in seconds."""
-        if self._start_time:
-            return (datetime.now(UTC) - self._start_time).total_seconds()
-        return 0.0
-
     def create_event_time(
         self: Agent,
         start: str | None = None,

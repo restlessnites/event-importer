@@ -88,29 +88,3 @@ def get_submission_status(event_id: int, service_name: str) -> Submission | None
             .order_by(Submission.submitted_at.desc())
             .first()
         )
-
-
-def has_been_submitted(event_id: int, service_name: str) -> bool:
-    """Check if event has been successfully submitted to a service"""
-    submission = get_submission_status(event_id, service_name)
-    return submission is not None and submission.status == "success"
-
-
-def mark_submission_failed(submission_id: int, error_message: str) -> None:
-    """Mark a submission as failed"""
-    with get_db_session() as db:
-        submission = db.query(Submission).filter(Submission.id == submission_id).first()
-        if submission:
-            submission.status = "failed"
-            submission.error_message = error_message
-            submission.retry_count += 1
-
-
-def mark_submission_success(submission_id: int, response_data: dict[str, Any]) -> None:
-    """Mark a submission as successful"""
-    with get_db_session() as db:
-        submission = db.query(Submission).filter(Submission.id == submission_id).first()
-        if submission:
-            submission.status = "success"
-            submission.response_data = response_data
-            submission.error_message = None

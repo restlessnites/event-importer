@@ -17,30 +17,36 @@ from app.interfaces.mcp.server import run as mcp_run
 from app.startup import startup_checks
 from installer.core import EventImporterInstaller
 
+logger = logging.getLogger(__name__)
 
-def discover_and_load_integration_clis(subparsers: object) -> None:
-    """Discover and load CLI subparsers from integrations."""
+
+def discover_and_load_integration_clis(subparsers: ArgumentParser) -> None:
+    """Discover and load integration CLIs dynamically."""
     if getattr(sys, "frozen", False):
         # The application is running in a bundled environment (e.g., PyInstaller)
         integrations_dir = Path(sys._MEIPASS) / "app" / "integrations"
     else:
         # The application is running in a normal Python environment
         integrations_dir = Path(__file__).parent / "integrations"
-    for integration_name in os.listdir(integrations_dir):
-        cli_module_path = integrations_dir / integration_name / "cli.py"
+    for integration_dir in integrations_dir.iterdir():
+        if not integration_dir.is_dir():
+            continue
+        cli_module_path = integration_dir / "cli.py"
         if cli_module_path.exists():
+            integration_name = integration_dir.name
             try:
                 module_name = f"app.integrations.{integration_name}.cli"
                 module = __import__(module_name, fromlist=["main"])
                 if hasattr(module, "main"):
                     # Create a subparser for the integration
-                    integration_parser = subparsers.add_parser(
+                    subparsers.add_parser(
                         integration_name, help=f"Run {integration_name} CLI"
                     )
-                    # You might need to add more arguments to the subparser here
-                    # depending on the needs of the integration's CLI.
+                    # The actual argument parsing and execution for this integration's
+                    # CLI will be handled by its own `main` function. We just need
+                    # to ensure the subparser is created.
             except ImportError as e:
-                logging.warning(
+                logger.warning(
                     f"Could not import CLI for integration '{integration_name}': {e}"
                 )
 

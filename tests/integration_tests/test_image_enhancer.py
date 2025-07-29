@@ -6,14 +6,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
-from unittest.mock import patch
 
 import pytest
 from dotenv import load_dotenv
 
 from app.config import get_config
 from app.interfaces.cli.runner import get_cli
-from app.schemas import EventData, ImageCandidate
 from app.services.image import ImageService
 
 # Load environment variables
@@ -21,184 +19,6 @@ load_dotenv()
 
 # Set logging to WARNING to reduce noise (but still capture them)
 logging.basicConfig(level=logging.WARNING)
-
-
-@pytest.mark.parametrize(
-    "url, expected",
-    [
-        (
-            "https://dice-media.imgix.net/attachments/2025-05-21/82c48e21-b16c-4c30-a32f-395fdf4316d1.jpg",
-            "dice-media.imgix.net",
-        ),
-        ("https://example.com/path/to/image.jpg", "example.com"),
-        ("https://sub.example.com/path/to/image.jpg", "sub.example.com"),
-        ("https://www.example.com/path/to/image.jpg", "example.com"),
-        ("https://example.com/path/to/image.jpg?query=1", "example.com"),
-        ("https://example.com/path/to/image.jpg#fragment", "example.com"),
-        ("https://example.com/path/to/image.jpg?query=1#fragment", "example.com"),
-        ("https://example.com/path/to/image.jpg?query=1#fragment", "example.com"),
-        ("https://example.com/path/to/image.jpg?query=1#fragment", "example.com"),
-    ],
-)
-def test_get_domain(url, expected):
-    assert ImageService.get_domain(url) == expected, f"Failed on URL: {url}"
-
-
-@pytest.mark.asyncio
-@patch("app.services.image.ImageService.rate_image")
-@patch("app.services.image.ImageService._search_google_images")
-async def test_image_search(
-    mock_search_google_images, mock_rate_image, capsys, cli, http_service
-):
-    """Test the image search with sample data."""
-    config = get_config()
-
-    # Configure the mock to return a sample response
-    mock_search_google_images.return_value = [
-        {"link": "https://example.com/image1.jpg"},
-        {"link": "https://example.com/image2.jpg"},
-    ]
-
-    # Configure the mock for image rating to avoid actual downloads
-    async def mock_rate_side_effect(url: str, *args, **kwargs):
-        return ImageCandidate(url=url, score=80, reason="Mocked OK")
-
-    mock_rate_image.side_effect = mock_rate_side_effect
-
-    cli.header("Image Search Test", "Testing Google Custom Search integration")
-    image_service = ImageService(config, http_service)
-    image_service.google_enabled = True  # Ensure the service is active for the test
-
-    # Test case 1: Cursive event
-    cli.section("Test 1: Artist with lineup")
-
-    cursive_event = EventData(
-        title="Cursive",
-        venue="Zebulon",
-        date="2024-09-13",
-        lineup=["Cursive"],
-        genres=["Rock", "Indie Rock"],
-    )
-
-    event_info = {
-        "Title": cursive_event.title,
-        "Lineup": ", ".join(cursive_event.lineup),
-        "Genres": ", ".join(cursive_event.genres),
-    }
-    cli.table([event_info], title="Event Data")
-
-    # Test artist extraction from title when lineup is missing
-    cli.section("Testing artist extraction from title")
-    title_only_event = EventData(
-        title="DJ Shadow & Cut Chemist at Hollywood Bowl",
-        venue="Hollywood Bowl",
-        date="2024-06-23",
-    )
-    event_info = {
-        "Title": title_only_event.title,
-        "Venue": title_only_event.venue,
-    }
-    cli.table([event_info], title="Event Data")
-
-    # Test artist extraction
-    artist = image_service._get_primary_artist_for_search(title_only_event)
-    cli.info(f"Extracted artist: {artist}")
-    assert artist == "DJ Shadow & Cut Chemist"
-    captured = capsys.readouterr()
-    assert "IMAGE SEARCH TEST" in captured.out
-
-    # Test query building
-    queries = image_service._build_search_queries(cursive_event)
-    cli.console.print()
-    cli.info(f"Generated {len(queries)} search queries:")
-    for q in queries:
-        cli.info(f"  • {q}")
-
-    # Search for images
-    cli.console.print()
-    with cli.spinner("Searching for images"):
-        candidates = await image_service.search_event_images(cursive_event)
-
-    cli.success(f"Found {len(candidates)} image candidates")
-
-    # Rate candidates
-    if candidates:
-        cli.console.print()
-        cli.info("Rating top 5 candidates:")
-        rated_results = []
-
-        with cli.progress("Rating images") as progress:
-            for i, candidate in enumerate(candidates[:5]):
-                progress.update_progress(
-                    (i / min(5, len(candidates))) * 100, f"Rating image {i + 1}"
-                )
-
-                rated = await image_service.rate_image(candidate.url)
-                rated_results.append(
-                    {
-                        "Score": rated.score,
-                        "Dimensions": rated.dimensions or "Unknown",
-                        "URL": candidate.url,
-                    }
-                )
-
-        cli.console.print()
-        cli.table(rated_results, title="Image Ratings")
-
-    # Test case 2: Event with no lineup
-    cli.section("Test 2: Event with title only")
-
-    title_only_event = EventData(
-        title="DJ Shadow & Cut Chemist at The Fillmore",
-        venue="The Fillmore",
-        date="2024-12-31",
-    )
-
-    event_info = {
-        "Title": title_only_event.title,
-        "Venue": title_only_event.venue,
-        "Lineup": "None",
-    }
-    cli.table([event_info], title="Event Data")
-
-    # Test artist extraction
-    artist = image_service._get_primary_artist_for_search(title_only_event)
-    cli.info(f"Extracted artist: {artist}")
-    assert artist == "DJ Shadow & Cut Chemist"
-
-    # Search for images
-    cli.console.print()
-    with cli.spinner("Searching for images"):
-        candidates = await image_service.search_event_images(title_only_event)
-
-    cli.success(f"Found {len(candidates)} image candidates")
-
-    # Rate candidates
-    if candidates:
-        cli.console.print()
-        cli.info("Rating top 5 candidates:")
-        rated_results = []
-
-        with cli.progress("Rating images") as progress:
-            for i, candidate in enumerate(candidates[:5]):
-                progress.update_progress(
-                    (i / min(5, len(candidates))) * 100, f"Rating image {i + 1}"
-                )
-
-                rated = await image_service.rate_image(candidate.url)
-                rated_results.append(
-                    {
-                        "Score": rated.score,
-                        "Dimensions": rated.dimensions or "Unknown",
-                        "URL": candidate.url,
-                    }
-                )
-
-        cli.console.print()
-        cli.table(rated_results, title="Image Ratings")
-
-    cli.console.print()
-    cli.success("Image search test completed")
 
 
 @pytest.mark.asyncio
@@ -256,8 +76,6 @@ async def main() -> None:
         with cli.error_capture.capture():
             if len(sys.argv) > 1 and sys.argv[1] == "url":
                 await test_specific_url()
-            else:
-                await test_image_search()
 
         # Show any captured errors
         if cli.error_capture.has_errors() or cli.error_capture.has_warnings():

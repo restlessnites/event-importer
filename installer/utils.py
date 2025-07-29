@@ -245,3 +245,24 @@ class FileUtils:
                 console = Console()
                 console.error(f"Failed to create backup for {file_path}: {e}")
         return None
+
+
+class ProcessRunner:
+    """Utility for running subprocess commands."""
+
+    def run(
+        self,
+        cmd: list[str],
+        cwd: str | None = None,
+        capture_output: bool = False,
+        check: bool = True,
+        **kwargs,
+    ) -> subprocess.CompletedProcess:
+        """Run a subprocess command with standard options."""
+        return subprocess.run(
+            cmd,
+            cwd=cwd,
+            capture_output=capture_output,
+            check=check,
+            **kwargs,
+        )

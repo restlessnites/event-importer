@@ -119,10 +119,6 @@ class ValidationError(ExtractionError):
         super().__init__(f"Validation error for '{field}': {message}")
 
 
-class NotFoundError(ExtractionError):
-    """Raised when a requested resource is not found."""
-
-
 @dataclass
 class ErrorContext:
     """Context information for error handling."""
@@ -249,39 +245,3 @@ def retry_on_error(
         before_sleep=before_sleep_log(logger, logging.WARNING),
         reraise=True,
     )
-
-
-def format_error_response(
-    error: Exception,
-    context: ErrorContext | None = None,
-) -> dict:
-    """Format an error for API response.
-
-    Args:
-        error: The exception
-        context: Optional error context
-
-    Returns:
-        Dictionary with error details
-
-    """
-    response = {
-        "error": type(error).__name__,
-        "message": str(error),
-    }
-
-    if isinstance(error, APIError):
-        response["service"] = error.service
-        if error.status_code:
-            response["status_code"] = error.status_code
-
-    if isinstance(error, ValidationError):
-        response["field"] = error.field
-
-    if isinstance(error, RateLimitError) and error.retry_after:
-        response["retry_after"] = error.retry_after
-
-    if context:
-        response["context"] = context.to_dict()
-
-    return response

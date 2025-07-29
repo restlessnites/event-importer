@@ -12,7 +12,6 @@ from app.config import clear_config_cache
 from app.validators import InstallationValidator
 from installer.components.api_keys import APIKeyManager
 from installer.components.claude_desktop import ClaudeDesktopConfig
-from installer.components.dependencies import DependencyInstaller
 from installer.components.environment import EnvironmentSetup
 from installer.components.migration import MigrationManager
 from installer.components.updater import UpdateManager
@@ -30,7 +29,6 @@ class EventImporterInstaller:
         self.version_file = self.project_root / ".version"
         self.new_version = self._get_new_version()
         self.system_check = SystemCheck()
-        self.dependency_installer = DependencyInstaller(self.console)
         self.env_setup = EnvironmentSetup(self.console, self.project_root)
         self.claude_config = ClaudeDesktopConfig(self.console, self.is_packaged)
         self.api_key_manager = APIKeyManager(self.console, self.project_root)
@@ -221,66 +219,6 @@ class EventImporterInstaller:
         self.console.success("System checks passed")
         return True
 
-    def _install_dependencies(self) -> bool:
-        """Install required dependencies."""
-        self.console.step("Checking dependencies...")
-
-        if self.is_packaged:
-            self.console.success("Dependencies are included in the package.")
-            return True
-
-        # Check and install Homebrew if needed
-        if self.dependency_installer.check_homebrew():
-            self.console.success("Homebrew is already installed")
-        else:
-            if not self.console.confirm("Homebrew is required. Install it now?"):
-                self.console.error("Homebrew is required to continue.")
-                return False
-            if not self.dependency_installer.install_homebrew():
-                return False
-
-        # Check and install uv if needed
-        if self.dependency_installer.check_uv():
-            self.console.success("uv is already installed")
-        else:
-            self.console.info("uv not found, installing...")
-            if not self.dependency_installer.install_uv():
-                return False
-
-        # Install Python dependencies
-        with self.console.rich_console.status(
-            "[bold green]Syncing Python dependencies..."
-        ):
-            if not self.env_setup.install_dependencies(self.project_root):
-                self.console.error("Failed to install Python dependencies.")
-                return False
-
-        self.console.success("Python dependencies installed")
-        self.console.success("All dependencies ready")
-        return True
-
-    def _setup_environment(self) -> bool:
-        """Setup the project environment."""
-        self.console.step("Setting up environment...")
-
-        # Create .env file if it doesn't exist
-        if not self.env_setup.create_env_file(self.project_root):
-            return False
-
-        self.console.success("Environment configured")
-        return True
-
-    def _create_data_directory(self) -> bool:
-        """Create the data directory if it doesn't exist."""
-        self.console.step("Creating data directory...")
-        try:
-            (self.project_root / "data").mkdir(exist_ok=True)
-            self.console.success("Data directory ready")
-            return True
-        except Exception as e:
-            self.console.error(f"Failed to create data directory: {e}")
-            return False
-
     def _configure_api_keys(self) -> bool:
         """Configure API keys interactively."""
         self.console.step("Configuring API keys...")
@@ -356,10 +294,13 @@ class EventImporterInstaller:
 
     def _run_full_install(self) -> bool:
         """Run the installation steps for a development environment."""
+        self.env_setup.create_env_file(self.project_root)
+        (self.project_root / "data").mkdir(exist_ok=True)
+
         return all(
             [
                 self._pre_flight_checks(),
-                self._install_dependencies(),
+                self.env_setup.install_dependencies(self.project_root),
                 self._configure_api_keys(),
                 self._configure_updater(),
                 self._configure_claude_desktop(),

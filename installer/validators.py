@@ -18,7 +18,18 @@ class InstallationValidator:
 
     def validate(self, project_root: Path) -> dict[str, any]:
         """Run comprehensive validation checks."""
-        results = {"success": True, "errors": [], "warnings": [], "checks": {}}
+        results = {
+            "success": True,
+            "errors": [],
+            "warnings": [],
+            "checks": {
+                "Dependencies": {},
+                "Environment": {},
+                "API Keys": {},
+                "CLI": {},
+                "Integration": {},
+            }
+        }
 
         # Check 1: Dependencies installed
         self._check_dependencies(results)
@@ -48,7 +59,7 @@ class InstallationValidator:
                 ["uv", "--version"], capture_output=True, check=False
             )
             uv_installed = result.returncode == 0
-            results["checks"]["uv installed"] = uv_installed
+            results["checks"]["Dependencies"]["uv installed"] = uv_installed
             if not uv_installed:
                 results["errors"].append("uv is not installed or not in PATH")
 
@@ -59,7 +70,7 @@ class InstallationValidator:
                 text=True,
             )
             if result.returncode == 0:
-                results["checks"]["python version"] = result.stdout.strip()
+                results["checks"]["Dependencies"]["python version"] = result.stdout.strip()
             else:
                 results["errors"].append("Python is not accessible")
         except Exception as e:
@@ -69,13 +80,13 @@ class InstallationValidator:
         """Check environment setup."""
         # Check .env file
         env_file = project_root / ".env"
-        results["checks"][".env file exists"] = env_file.exists()
+        results["checks"]["Environment"][".env file exists"] = env_file.exists()
         if not env_file.exists():
             results["errors"].append(".env file not found")
 
         # Check virtual environment
         venv_path = project_root / ".venv"
-        results["checks"]["virtual environment"] = venv_path.exists()
+        results["checks"]["Environment"]["virtual environment"] = venv_path.exists()
         if not venv_path.exists():
             results["warnings"].append(
                 "Virtual environment not found - uv sync may not have completed"
@@ -84,22 +95,27 @@ class InstallationValidator:
         # Check required directories
         for dir_name in ["app", "data", "scripts"]:
             dir_path = project_root / dir_name
-            results["checks"][f"{dir_name} directory"] = dir_path.exists()
+            results["checks"]["Environment"][f"{dir_name} directory"] = dir_path.exists()
             if not dir_path.exists():
                 results["errors"].append(f"Required directory '{dir_name}' not found")
 
     def _check_api_keys(self, project_root: Path, results: dict):
         """Check API key configuration."""
-        api_key_manager = APIKeyManager()
-        valid, missing = api_key_manager.validate_keys(project_root)
+        from installer.components.api_keys import ALL_KEYS
+        
+        api_key_manager = APIKeyManager(self.console, project_root)
+        valid = api_key_manager.are_required_keys_present(project_root)
 
-        results["checks"]["required API keys"] = valid
+        results["checks"]["API Keys"]["required API keys"] = valid
         if not valid:
-            for key in missing:
-                results["errors"].append(f"Required API key not configured: {key}")
+            env_setup = EnvironmentSetup(self.console, project_root)
+            env_vars = env_setup.get_env_vars(project_root)
+            for key, details in ALL_KEYS.items():
+                if details["required"] and not env_vars.get(key):
+                    results["errors"].append(f"Required API key not configured: {key}")
 
         # Check optional keys as well
-        env_setup = EnvironmentSetup()
+        env_setup = EnvironmentSetup(self.console, project_root)
         env_vars = env_setup.get_env_vars(project_root)
         optional_keys = [
             ("OPENAI_API_KEY", "OpenAI API key"),
@@ -110,7 +126,7 @@ class InstallationValidator:
 
         for key, desc in optional_keys:
             if key in env_vars and env_vars[key]:
-                results["checks"][f"{desc} (optional)"] = True
+                results["checks"]["API Keys"][f"{desc} (optional)"] = True
 
     def _check_import_functionality(self, project_root: Path, results: dict):
         """Test basic import functionality."""
@@ -122,7 +138,7 @@ class InstallationValidator:
                 capture_output=True,
             )
 
-            results["checks"]["CLI accessible"] = result.returncode == 0
+            results["checks"]["CLI"]["CLI accessible"] = result.returncode == 0
             if result.returncode != 0:
                 results["errors"].append("CLI tool not accessible")
                 if result.stderr:
@@ -132,57 +148,52 @@ class InstallationValidator:
 
     def _check_claude_desktop(self, project_root: Path, results: dict):
         """Check Claude Desktop configuration."""
-        claude_config = ClaudeDesktopConfig()
+        claude_config = ClaudeDesktopConfig(self.console)
 
         # Check if Claude Desktop is installed
-        if claude_config.is_claude_desktop_installed():
-            # Check if configured for this project
-            is_configured = claude_config.is_already_configured(project_root)
-            results["checks"]["Claude Desktop configured"] = is_configured
-            if not is_configured:
-                results["warnings"].append(
-                    "Claude Desktop is installed but not configured for this project"
-                )
-        else:
-            results["checks"]["Claude Desktop installed"] = False
+        is_installed = claude_config.is_claude_desktop_installed()
+        results["checks"]["Integration"]["Claude Desktop installed"] = is_installed
+        
+        if not is_installed:
             results["warnings"].append(
                 "Claude Desktop not found - MCP integration unavailable"
             )
 
     def print_report(self, results: dict):
         """Print a formatted validation report."""
-        self.console.print_header("Installation Validation Report")
+        self.console.header("Installation Validation Report")
 
         # Print checks
-        print("\nValidation Checks:")
-        print("-" * 50)
-        for check, result in results["checks"].items():
-            if isinstance(result, bool):
-                status = "✓" if result else "✗"
-                color = self.console.GREEN if result else self.console.RED
-            else:
-                status = "ℹ"
-                color = self.console.CYAN
-                result = f" ({result})"
-            print(
-                f"{color}{status}{self.console.RESET} {check}{result if not isinstance(result, bool) else ''}"
-            )
+        self.console.info("\nValidation Checks:")
+        self.console.info("-" * 50)
+        for category, checks in results["checks"].items():
+            if checks:
+                self.console.info(f"\n{category}:")
+                for check, result in checks.items():
+                    if isinstance(result, bool):
+                        status = "✓" if result else "✗"
+                        if result:
+                            self.console.success(f"  {check}")
+                        else:
+                            self.console.error(f"  {check}")
+                    else:
+                        self.console.info(f"  ℹ {check} ({result})")
 
         # Print errors
         if results["errors"]:
-            print(f"\n{self.console.RED}Errors:{self.console.RESET}")
+            self.console.error("\nErrors:")
             for error in results["errors"]:
-                print(f"  • {error}")
+                self.console.error(f"  • {error}")
 
         # Print warnings
         if results["warnings"]:
-            print(f"\n{self.console.YELLOW}Warnings:{self.console.RESET}")
+            self.console.warning("\nWarnings:")
             for warning in results["warnings"]:
-                print(f"  • {warning}")
+                self.console.warning(f"  • {warning}")
 
         # Overall status
-        print("\n" + "-" * 50)
+        self.console.info("\n" + "-" * 50)
         if results["success"]:
-            self.console.print_success("✅ Installation validation PASSED")
+            self.console.success("✅ Installation validation PASSED")
         else:
-            self.console.print_error("❌ Installation validation FAILED")
+            self.console.error("❌ Installation validation FAILED")

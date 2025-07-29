@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
@@ -11,4 +10,4 @@ def get_project_root() -> Path:
         # The application is running in a bundled environment (e.g., PyInstaller)
         return Path.home() / "Library" / "Application Support" / "EventImporter"
     # The application is running in a normal Python environment
-    return Path(os.path.abspath(__file__)).parent.parent.parent
+    return Path(Path(__file__).resolve()).parent.parent.parent

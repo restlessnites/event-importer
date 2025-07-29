@@ -22,7 +22,6 @@ class TicketFairyClient(BaseClient):
     def __init__(self: TicketFairyClient) -> None:
         self.http = get_http_service()
         self.config = get_ticketfairy_config()
-        logger.info("TicketFairyClient initialized")
 
     @handle_errors_async(reraise=True)
     async def submit(self: TicketFairyClient, data: dict[str, Any]) -> dict[str, Any]:
@@ -41,7 +40,6 @@ class TicketFairyClient(BaseClient):
         """
         if not self.config.api_key:
             error_msg = "TicketFairy API key not configured"
-            logger.error(error_msg)
             raise ValueError(error_msg)
 
         # Prepare headers
@@ -51,10 +49,6 @@ class TicketFairyClient(BaseClient):
             "Accept": "application/json",
             "Origin": self.config.origin,
         }
-
-        logger.info(
-            f"Submitting to TicketFairy with URL: {self.config.api_base_url}{self.config.draft_events_endpoint}"
-        )
 
         # Make request using the lower-level post method to handle custom response parsing
         response = await self.http.post(
@@ -66,13 +60,11 @@ class TicketFairyClient(BaseClient):
             raise_for_status=False,
         )
 
-        logger.info(f"TicketFairy response status: {response.status_code}")
         # Handle empty response
         response_text = await response.text()
         if not response_text or response_text.strip() == "":
             service_name = "TicketFairy"
             error_msg = "Empty response from API"
-            logger.error(error_msg)
             raise APIError(service_name, error_msg)
 
         # Parse response
@@ -81,7 +73,6 @@ class TicketFairyClient(BaseClient):
         except json.JSONDecodeError as e:
             service_name = "TicketFairy"
             error_msg = f"Invalid JSON response: {e}. Response: {response_text}"
-            logger.error(error_msg)
             raise APIError(service_name, error_msg) from e
 
         # Check for API errors
@@ -92,6 +83,5 @@ class TicketFairyClient(BaseClient):
                     error_msg = response_data["message"]
                 elif "error" in response_data:
                     error_msg = response_data["error"]
-            logger.error(f"TicketFairy API error: {error_msg}")
 
         return response_data

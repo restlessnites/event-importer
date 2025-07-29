@@ -45,10 +45,6 @@ class TicketFairySubmitter(BaseSubmitter):
             "all": AllEventsSelector(),
         }
 
-    def get_url_selector(self: TicketFairySubmitter, url: str) -> BaseSelector:
-        """Create a URL-specific selector"""
-        return URLSelector(url)
-
     async def submit_by_url(
         self: TicketFairySubmitter,
         url: str,

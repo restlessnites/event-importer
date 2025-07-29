@@ -196,10 +196,3 @@ class TicketmasterAgent(Agent):
             country=venue_data.get("country", {}).get("countryCode"),
             coordinates=coordinates,
         )
-
-
-def get_ticketmaster_id_from_url(url: str) -> str | None:
-    """Extract Ticketmaster event ID from a URL."""
-    # Regex to find event IDs, which are typically alphanumeric
-    match = re.search(r"event/([a-zA-Z0-9]+)", url)
-    return match.group(1) if match else None

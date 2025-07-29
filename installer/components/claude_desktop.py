@@ -1,15 +1,15 @@
 """Claude Desktop configuration component."""
 
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
+from installer.paths import get_user_data_dir
 from installer.utils import (
     Console,
     FileUtils,
     SystemCheck,
 )
-from installer.paths import get_user_data_dir
 
 
 class ClaudeDesktopConfig:

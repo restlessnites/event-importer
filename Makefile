@@ -1,14 +1,11 @@
-.PHONY: install setup test test-verbose coverage-report test-all clean lint format run-cli run-api run-mcp help dist
+.PHONY: setup test test-verbose coverage-report test-all clean lint format run-cli run-api run-mcp help
 
 # Default target
 .DEFAULT_GOAL := help
 
 ##@ Installation & Setup
-install: ## Run the interactive installer
-	@if [ ! -d ".venv" ]; then uv venv; fi
-	@. .venv/bin/activate && python install.py
-
 setup: ## Set up the development environment
+	@if [ ! -d ".venv" ]; then uv venv; fi
 	@. .venv/bin/activate && uv sync
 	@cp -n env.example .env || true
 
@@ -22,45 +19,12 @@ update: ## Check for updates and install the latest version
 ##@ Testing
 test: ## Run all tests with coverage
 	@uv run --active pytest --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml
-	@make badge
 
 coverage-report: ## Show detailed coverage report in the console
 	@python scripts/coverage_report.py
 
 quick: ## Run a quick test run without coverage
 	@uv run --active pytest tests -v --tb=short
-
-badge: ## Generate and update the coverage badge in README.md
-	@python scripts/generate_badge.py
-
-
-##@ Integration Tests
-test-genre-enhancer: ## Run the Genre Enhancer integration tests
-	@uv run --active pytest tests/integration_tests/test_genre_enhancer.py
-
-test-url-analyzer: ## Run the URL Analyzer integration tests
-	@uv run --active pytest tests/integration_tests/test_url_analyzer.py
-
-test-date-parser: ## Run the Date Parser integration tests
-	@uv run --active pytest tests/integration_tests/test_date_parser.py
-
-test-ra-genres: ## Run the RA Genres integration tests
-	@uv run --active pytest tests/integration_tests/test_ra_genres.py
-
-test-google-custom-search-api: ## Run the Google Custom Search API integration tests
-	@uv run --active pytest tests/integration_tests/test_google_custom_search_api.py
-
-test-image-enhancer: ## Run the Image Enhancer integration tests
-	@uv run --active pytest tests/integration_tests/test_image_enhancer.py
-
-test-importer: ## Run the Importer integration tests
-	@uv run --active pytest tests/integration_tests/test_importer.py
-
-test-error-capture: ## Run the Error Capture integration tests
-	@uv run --active pytest tests/integration_tests/test_error_capture.py
-
-test-dice-api: ## Run the Dice API integration tests
-	@uv run --active pytest tests/integration_tests/test_dice_api.py
 
 
 ##@ Code Quality
@@ -106,12 +70,6 @@ clean-all: clean ## Deep clean the project (includes venv)
 
 
 ##@ Distribution
-dist: ## Generate the installer package
-	@bash scripts/create_installer_package.sh
-
-# ==============================================================================
-# Packaging
-# ==============================================================================
 package: clean
 	@echo "📦 Synchronizing version..."
 	@uv run python scripts/sync_version.py

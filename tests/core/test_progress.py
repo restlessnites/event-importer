@@ -108,17 +108,6 @@ def test_get_history(progress_tracker):
     # (Note: this would normally be done via send_progress)
 
 
-def test_clear_history(progress_tracker):
-    """Test clearing progress history."""
-    request_id = "test-clear"
-
-    # Clear should work even on empty history
-    progress_tracker.clear_history(request_id)
-
-    history = progress_tracker.get_history(request_id)
-    assert history == []
-
-
 @pytest.mark.asyncio
 async def test_listener_exception_handling(progress_tracker):
     """Test that exceptions in listeners don't break progress tracking."""

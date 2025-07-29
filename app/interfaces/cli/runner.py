@@ -15,7 +15,7 @@ from app.core.router import Router
 from app.error_messages import CommonMessages, InterfaceMessages
 from app.interfaces.cli.core import CLI
 from app.shared.http import close_http_service
-from app.validators import InstallationValidator
+from installer.validators import InstallationValidator
 
 # Global instance
 _cli: CLI | None = None

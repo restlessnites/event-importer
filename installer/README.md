@@ -12,21 +12,19 @@ installer/
 ├── utils.py               # Shared utilities
 ├── validators.py          # Installation validation
 └── components/            # Modular components
-    ├── dependencies.py    # System dependency management
     ├── environment.py     # Python environment setup
     ├── api_keys.py       # API key configuration
     ├── claude_desktop.py  # Claude Desktop integration
-    ├── updater_config.py  # Update configuration
     └── updater.py         # Application update logic
 ```
 
 ## Design Principles
 
-1. **Modular Components**: Each major functionality is isolated in its own module
-2. **Consistent Error Handling**: All components use the same error handling patterns
-3. **User-Friendly Output**: Color-coded console output with clear progress indicators
-4. **Validation**: Comprehensive post-installation validation
-5. **Rollback Support**: Configuration backups before modifications
+1.  **Modular Components**: Each major functionality is isolated in its own module
+2.  **Consistent Error Handling**: All components use the same error handling patterns
+3.  **User-Friendly Output**: Color-coded console output with clear progress indicators
+4.  **Validation**: Comprehensive post-installation validation
+5.  **Rollback Support**: Configuration backups before modifications
 
 ## Components
 
@@ -46,17 +44,10 @@ installer/
 
 ### Component Details
 
-#### DependencyInstaller
-
-- Checks and installs Homebrew
-- Installs uv package manager
-- Handles PATH configuration
-
 #### EnvironmentSetup
 
 - Creates .env from template
-- Manages Python dependencies via uv
-- Validates environment structure
+- Manages Python dependencies via uv (for development)
 
 #### APIKeyManager
 
@@ -69,11 +60,6 @@ installer/
 - Auto-detects Claude Desktop installation
 - Configures MCP server integration
 - Backs up existing configurations
-
-#### UpdaterConfig
-
-- Prompts user for the update zip file URL
-- Saves configuration to the `.env` file
 
 #### UpdateManager
 
@@ -89,20 +75,23 @@ installer/
 
 ## Usage
 
-The installer is run from the project root via the Makefile:
+The installer is run from the project root via the Makefile for development, or by running the packaged application for end-users.
 
 ```bash
+# Development
 make install
+
+# Packaged App
+./EventImporter setup
 ```
 
 The installer will:
 
-1. Check system requirements
-2. Install missing dependencies
-3. Configure the environment
-4. Set up API keys interactively
-5. Configure Claude Desktop automatically
-6. Validate the installation
+1. Check system requirements (for development)
+2. Configure the environment
+3. Set up API keys interactively
+4. Configure Claude Desktop automatically
+5. Validate the installation
 
 ## Extension Points
 

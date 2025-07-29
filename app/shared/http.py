@@ -8,7 +8,6 @@ import logging
 import ssl
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from types import TracebackType
 from typing import Any, Unpack
 
 import aiohttp
@@ -69,9 +68,7 @@ class HTTPService:
 
     async def __aexit__(
         self: HTTPService,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
+        *args: Any,
     ) -> None:
         """Context manager exit."""
         await self.close()
@@ -425,47 +422,6 @@ class HTTPService:
                         raise ValueError(error_msg)
 
         return bytes(data)
-
-    @handle_errors_async(reraise=True)
-    async def stream(
-        self: HTTPService,
-        url: str,
-        *,
-        service: str = "HTTP",
-        headers: dict[str, str] | None = None,
-        params: dict[str, Any] | None = None,
-        timeout: float | None = None,
-        **kwargs: Unpack[dict[str, Any]],
-    ) -> AsyncGenerator[bytes, None]:
-        """Stream response data.
-
-        Args:
-            url: URL to request
-            service: Service name for error messages
-            headers: Additional headers
-            params: Query parameters
-            timeout: Override default timeout
-            **kwargs: Additional arguments for aiohttp
-
-        Yields:
-            Response chunks
-
-        Raises:
-            APIError: On API errors
-            TimeoutError: On timeout
-
-        """
-        response = await self.get(
-            url,
-            service=service,
-            headers=headers,
-            params=params,
-            timeout=timeout,
-            **kwargs,
-        )
-
-        async for chunk in response.content.iter_chunked(8192):
-            yield chunk
 
 
 # Global HTTP service instance

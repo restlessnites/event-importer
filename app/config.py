@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from functools import cache
-from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -41,7 +40,6 @@ class ExtractionConfig:
     """Settings for data extraction."""
 
     use_cache: bool = True
-    cache_ttl_hours: int = 24
     max_image_size: int = 1024 * 1024 * 5  # 5 MB
     min_image_width: int = 500
     min_image_height: int = 500
@@ -141,9 +139,6 @@ class Config:
         if use_cache := os.getenv("USE_CACHE"):
             config.extraction.use_cache = use_cache.lower() in ("true", "1", "yes")
 
-        if cache_ttl := os.getenv("CACHE_TTL_HOURS"):
-            config.extraction.cache_ttl_hours = int(cache_ttl)
-
         if use_proxy := os.getenv("ZYTE_USE_RESIDENTIAL_PROXY"):
             config.zyte.use_residential_proxy = use_proxy.lower() in (
                 "true",
@@ -174,12 +169,6 @@ def get_config() -> Config:
     env_path = get_project_root() / ".env"
     load_dotenv(dotenv_path=env_path)
     return Config.from_env()
-
-
-def set_config(config: Config) -> None:
-    """Set the global configuration instance (mainly for testing)."""
-    global _config
-    _config = config
 
 
 def clear_config_cache() -> None:
