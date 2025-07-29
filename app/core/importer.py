@@ -14,7 +14,7 @@ from app.agents.image_agent import ImageAgent
 from app.agents.ra_agent import ResidentAdvisorAgent
 from app.agents.ticketmaster_agent import TicketmasterAgent
 from app.agents.web_agent import WebAgent
-from app.config import Config
+from app.config import Config, get_config
 from app.core.progress import ProgressTracker
 from app.error_messages import AgentMessages, CommonMessages, ServiceMessages
 from app.errors import UnsupportedURLError, handle_errors_async
@@ -43,7 +43,7 @@ class EventImporter:
 
     def __init__(self: EventImporter, config: Config | None = None) -> None:
         """Initialize the importer."""
-        self.config = config or Config.from_env()
+        self.config = config or get_config()
         self.progress_tracker = ProgressTracker()
         self.http = get_http_service()
 
@@ -333,7 +333,7 @@ class EventImporter:
         )
 
         # Conditionally available - check if API key is configured
-        if self.config.api.ticketmaster_key:
+        if self.config.api.ticketmaster_api_key:
             agents.append(
                 TicketmasterAgent(
                     self.config,
@@ -375,7 +375,7 @@ class EventImporter:
         if analysis.get("type") == "ticketmaster":
             agent = self._get_agent_by_name("Ticketmaster")
             # Only return if API key is configured
-            return agent if self.config.api.ticketmaster_key else None
+            return agent if self.config.api.ticketmaster_api_key else None
         if analysis.get("type") == "dice":
             return self._get_agent_by_name("Dice")
 

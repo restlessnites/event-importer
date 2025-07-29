@@ -15,8 +15,8 @@ def mock_config():
     """Create a mock config with API keys."""
     config = MagicMock(spec=Config)
     config.api = MagicMock()
-    config.api.anthropic_key = "test-claude-key"
-    config.api.openai_key = "test-openai-key"
+    config.api.anthropic_api_key = "test-claude-key"
+    config.api.openai_api_key = "test-openai-key"
     return config
 
 
@@ -25,8 +25,8 @@ def mock_config_claude_only():
     """Create a mock config with only Claude API key."""
     config = MagicMock(spec=Config)
     config.api = MagicMock()
-    config.api.anthropic_key = "test-claude-key"
-    config.api.openai_key = None
+    config.api.anthropic_api_key = "test-claude-key"
+    config.api.openai_api_key = None
     return config
 
 
@@ -35,8 +35,8 @@ def mock_config_no_keys():
     """Create a mock config with no API keys."""
     config = MagicMock(spec=Config)
     config.api = MagicMock()
-    config.api.anthropic_key = None
-    config.api.openai_key = None
+    config.api.anthropic_api_key = None
+    config.api.openai_api_key = None
     return config
 
 

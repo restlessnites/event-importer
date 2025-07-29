@@ -45,15 +45,15 @@ class LLMService:
         """Initialize LLM service with configured providers."""
         self.config = config
         self.primary_service = ClaudeService(config)
-        self.fallback_service = OpenAIService(config) if config.api.openai_key else None
+        self.fallback_service = OpenAIService(config) if config.api.openai_api_key else None
 
         # Validate that at least one service is properly configured
         self._validate_configuration()
 
     def _validate_configuration(self: LLMService) -> None:
         """Validate that at least one LLM provider is properly configured."""
-        claude_configured = bool(self.config.api.anthropic_key)
-        openai_configured = bool(self.config.api.openai_key)
+        claude_configured = bool(self.config.api.anthropic_api_key)
+        openai_configured = bool(self.config.api.openai_api_key)
 
         if not claude_configured and not openai_configured:
             raise ConfigurationError(LLM_NO_PROVIDERS_CONFIGURED)

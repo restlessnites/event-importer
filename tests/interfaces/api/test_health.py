@@ -36,9 +36,9 @@ def test_health_check_with_api_keys(client):
     # Create a config with some API keys
     test_config = Config()
     test_config.api = APIConfig()
-    test_config.api.ticketmaster_key = "test-tm-key"
-    test_config.api.zyte_key = "test-zyte-key"
-    test_config.api.anthropic_key = "test-claude-key"
+    test_config.api.ticketmaster_api_key = "test-tm-key"
+    test_config.api.zyte_api_key = "test-zyte-key"
+    test_config.api.anthropic_api_key = "test-claude-key"
 
     with patch("app.interfaces.api.routes.health.get_config", return_value=test_config):
         response = client.get("/api/v1/health")

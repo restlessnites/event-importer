@@ -44,7 +44,7 @@ class TicketmasterAgent(Agent):
         self.start_timer()
 
         try:
-            api_key = self.config.api.ticketmaster_key
+            api_key = self.config.api.ticketmaster_api_key
             if not api_key:
                 raise ValueError("Ticketmaster API key not configured")
 

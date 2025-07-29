@@ -128,9 +128,9 @@ class OpenAIService:
 
     def __init__(self: OpenAIService, config: Config) -> None:
         """Initialize OpenAI service."""
-        if not config.api.openai_key:
+        if not config.api.openai_api_key:
             raise ConfigurationError(OPENAI_API_KEY_NOT_FOUND)
-        self.client = AsyncOpenAI(api_key=config.api.openai_key)
+        self.client = AsyncOpenAI(api_key=config.api.openai_api_key)
         self.model = "gpt-4-turbo-preview"
         self.max_tokens = 4096
 

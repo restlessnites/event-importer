@@ -30,7 +30,7 @@ class ClaudeService:
         self.max_tokens = 4096
 
         # Get API key from config (match existing pattern)
-        api_key = config.api.anthropic_key
+        api_key = config.api.anthropic_api_key
         if api_key:
             self.client = AsyncAnthropic(api_key=api_key)
 

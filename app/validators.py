@@ -2,44 +2,54 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from pathlib import Path
+
+from rich.console import Console
+from sqlalchemy import text
 
 from app.config import get_config
-from app.shared.database.connection import init_db
-from app.shared.http import close_http_service
-from installer.components.api_keys import APIKeyManager
-from installer.utils import Console
+from app.shared.api_keys_info import ALL_KEYS
+from app.shared.database.connection import get_db_session, init_db
+from app.shared.path import get_user_data_dir
 
 logger = logging.getLogger(__name__)
 
 
 class InstallationValidator:
-    """Validator for the application installation."""
+    """Validate the Event Importer installation."""
 
     def __init__(self) -> None:
-        """Initialize the validator."""
+        # NOTE: We are NOT using get_console() here because this validator
+        # is also used by the installer, and we don't want to create a
+        # circular dependency.
+        self.console = Console()
+        self.messages: list[str] = []
         self.config = get_config()
-        self.messages = []
 
-    def validate(self, project_root: Path) -> tuple[bool, list[str]]:
+    def validate(self) -> tuple[bool, list[str]]:
         """Run all validation checks."""
         self.messages = []
-        self.api_key_manager = APIKeyManager(Console(), project_root)
-        self._validate_api_keys(project_root)
-        self._validate_database_connection()
+        self._check_api_keys()
+        self._check_database()
         return len(self.messages) == 0, self.messages
 
-    def _validate_api_keys(self, project_root: Path) -> None:
-        """Validate that all required API keys are configured."""
-        if not self.api_key_manager.are_required_keys_present(project_root):
-            self.messages.append("Required API keys are not fully configured.")
+    def _check_api_keys(self) -> None:
+        """Check if API keys are present."""
+        for key in ALL_KEYS:
+            # Convert the ENV_VAR_CASE to the dataclass_case for the check
+            attribute_name = key.lower()
+            if not getattr(self.config.api, attribute_name, None):
+                self.messages.append(f"API key not configured: {key}")
 
-    def _validate_database_connection(self) -> None:
-        """Validate the database connection and schema."""
+    def _check_database(self) -> None:
+        """Check if the database is accessible and initialized."""
         try:
-            init_db()
-            asyncio.run(close_http_service())
+            db_path = get_user_data_dir() / "events.db"
+            if not db_path.exists():
+                init_db()
+            else:
+                # Attempt a simple query to ensure the DB is not corrupt
+                with get_db_session() as db:
+                    db.execute(text("SELECT 1"))
         except Exception as e:
             self.messages.append(f"Database connection failed: {e}")

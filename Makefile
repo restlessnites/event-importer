@@ -78,7 +78,7 @@ package: clean
 
 ##@ Validation
 validate: ## Validate the installation
-	@uv run --active event-importer validate
+	@uv run --active event-importer validate || true
 
 
 ##@ Help

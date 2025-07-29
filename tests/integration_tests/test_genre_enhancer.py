@@ -114,7 +114,7 @@ async def test_claude_analysis(capsys, claude_service):
     cli = get_cli()
     config = get_config()
 
-    if not config.api.anthropic_key:
+    if not config.api.anthropic_api_key:
         cli.error("Anthropic API key not set!")
         return
 

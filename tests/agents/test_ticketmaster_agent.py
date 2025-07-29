@@ -12,7 +12,7 @@ from app.schemas import EventData, EventLocation
 def mock_config():
     """Return a mock config object."""
     config = MagicMock()
-    config.api.ticketmaster_key = "test_key"
+    config.api.ticketmaster_api_key = "test_key"
     return config
 
 
