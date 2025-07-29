@@ -143,5 +143,6 @@ Thumbs.db
 # Databases
 *.db
 
-# Our private development notes
+# "Our" private development notes
 development_notes.md
+CLAUDE.md
