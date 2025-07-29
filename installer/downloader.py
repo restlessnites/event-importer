@@ -17,25 +17,29 @@ class AppDownloader:
         self.chunk_size = 8192
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=4, max=10)
+        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
     )
     async def download(self, destination: Path) -> bool:
         """Download the app with retry logic."""
-        async with aiohttp.ClientSession() as session, session.get(self.download_url) as response:
+        async with (
+            aiohttp.ClientSession() as session,
+            session.get(self.download_url) as response,
+        ):
             response.raise_for_status()
 
             # Get total size for progress bar
-            total_size = int(response.headers.get('Content-Length', 0))
+            total_size = int(response.headers.get("Content-Length", 0))
 
             # Download with progress
-            temp_path = destination.with_suffix('.tmp')
+            temp_path = destination.with_suffix(".tmp")
             downloaded = 0
 
-            with clicycle.progress(
-                total=total_size,
-                description="Downloading Event Importer"
-            ) as progress, temp_path.open('wb') as file:
+            with (
+                clicycle.progress(
+                    total=total_size, description="Downloading Event Importer"
+                ) as progress,
+                temp_path.open("wb") as file,
+            ):
                 async for chunk in response.content.iter_chunked(self.chunk_size):
                     file.write(chunk)
                     downloaded += len(chunk)
@@ -45,7 +49,9 @@ class AppDownloader:
             temp_path.rename(destination)
 
             # Make executable (macOS/Linux)
-            destination.chmod(destination.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            destination.chmod(
+                destination.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+            )
 
             return True
 

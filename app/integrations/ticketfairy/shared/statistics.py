@@ -16,7 +16,9 @@ class TicketFairyStatistics:
         """Get submission status statistics."""
         with get_db_session() as session:
             # Get total events in cache
-            total_events = session.execute(select(func.count(EventCache.id))).scalar() or 0
+            total_events = (
+                session.execute(select(func.count(EventCache.id))).scalar() or 0
+            )
 
             # Get submission counts by status
             status_counts = (
@@ -39,5 +41,5 @@ class TicketFairyStatistics:
             return {
                 "total_events": total_events,
                 "unsubmitted_count": unsubmitted_count,
-                "status_counts": status_counts
+                "status_counts": status_counts,
             }

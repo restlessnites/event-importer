@@ -10,7 +10,7 @@ from app.integrations.ticketfairy.mcp.tools import handle_submit_ticketfairy
 @pytest.mark.asyncio
 async def test_handle_submit_ticketfairy_success():
     """Test successful submission."""
-    with patch("app.integrations.ticketfairy.mcp_tools.TicketFairySubmitter") as mock:
+    with patch("app.integrations.ticketfairy.mcp.tools.TicketFairySubmitter") as mock:
         mock_submitter = mock.return_value
         mock_submitter.submit_by_url = AsyncMock(return_value={"success": True})
 
@@ -34,7 +34,7 @@ async def test_handle_submit_ticketfairy_no_url():
 @pytest.mark.asyncio
 async def test_handle_submit_ticketfairy_dry_run():
     """Test dry run submission."""
-    with patch("app.integrations.ticketfairy.mcp_tools.TicketFairySubmitter") as mock:
+    with patch("app.integrations.ticketfairy.mcp.tools.TicketFairySubmitter") as mock:
         mock_submitter = mock.return_value
         mock_submitter.submit_by_url = AsyncMock(
             return_value={"success": True, "dry_run": True}

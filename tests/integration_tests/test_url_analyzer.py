@@ -3,20 +3,18 @@
 
 import traceback
 
-from app.interfaces.cli.runner import get_cli
+import clicycle
 
 from app.shared.url_analyzer import URLAnalyzer
 
 
 def test_url_analyzer() -> None:
     """Test URL analyzer with various URL types."""
-    cli = get_cli()
+    clicycle.configure(app_name="event-importer-test")
     analyzer = URLAnalyzer()
 
-    cli.header("URL Analyzer Test", "Testing URL type detection and routing")
-
-    # Start capturing any potential errors
-    cli.error_capture.start()
+    clicycle.header("URL Analyzer Test")
+    clicycle.info("Testing URL type detection and routing")
 
     try:
         test_urls = [
@@ -44,25 +42,21 @@ def test_url_analyzer() -> None:
         # Prepare results for table display
         results = []
 
-        with cli.progress("Analyzing URLs") as progress:
-            for i, url in enumerate(test_urls):
-                progress.update_progress(
-                    (i / len(test_urls)) * 100,
-                    f"Analyzing URL {i + 1}/{len(test_urls)}",
-                )
+        clicycle.info("Analyzing URLs...")
+        for i, url in enumerate(test_urls):
 
-                analysis = analyzer.analyze(url)
+            analysis = analyzer.analyze(url)
 
-                result = {
-                    "URL": url if len(url) <= 40 else url[:37] + "...",
-                    "Type": analysis["type"],
-                    "Event ID": analysis.get("event_id", "-"),
-                }
+            result = {
+                "URL": url if len(url) <= 40 else url[:37] + "...",
+                "Type": analysis["type"],
+                "Event ID": analysis.get("event_id", "-"),
+            }
 
-                results.append(result)
+            results.append(result)
 
-        cli.section("Analysis Results")
-        cli.table(results, title="URL Analysis Summary")
+        clicycle.section("Analysis Results")
+        clicycle.table(results, title="URL Analysis Summary")
 
         # Show detailed results for URLs with extracted IDs
         detailed = []
@@ -78,28 +72,20 @@ def test_url_analyzer() -> None:
                 )
 
         if detailed:
-            cli.section("URLs with Extracted IDs")
+            clicycle.section("URLs with Extracted IDs")
             for item in detailed:
-                cli.info(f"• {item['URL']}")
-                cli.info(f"  Type: {item['Type']} | ID: {item['Event ID']}")
-                cli.console.print()
+                clicycle.list_item(f"{item['URL']}")
+                clicycle.info(f"  Type: {item['Type']} | ID: {item['Event ID']}")
 
-        cli.success("URL analyzer test completed")
+        clicycle.success("URL analyzer test completed")
 
     except Exception as e:
-        cli.error(f"Test failed: {e}")
-        cli.code(traceback.format_exc(), "python", "Exception Traceback")
-    finally:
-        # Stop capturing and show any errors
-        cli.error_capture.stop()
-
-        if cli.error_capture.has_errors() or cli.error_capture.has_warnings():
-            cli.show_captured_errors("Issues During Test")
+        clicycle.error(f"Test failed: {e}")
+        clicycle.error(f"Exception Traceback: {traceback.format_exc()}")
 
 
 if __name__ == "__main__":
     try:
         test_url_analyzer()
     except KeyboardInterrupt:
-        cli = get_cli()
-        cli.warning("\nTest interrupted by user")
+        clicycle.warning("Test interrupted by user")

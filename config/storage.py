@@ -48,18 +48,20 @@ class SettingsStorage:
         with sqlite3.connect(self.db_path) as conn:
             for key, info in all_settings.items():
                 # Insert with default value (empty string) if not exists
-                conn.execute("""
+                conn.execute(
+                    """
                     INSERT OR IGNORE INTO app_settings (key, value, updated_at)
                     VALUES (?, ?, ?)
-                """, (key, info.default or "", datetime.now().isoformat()))
+                """,
+                    (key, info.default or "", datetime.now().isoformat()),
+                )
             conn.commit()
 
     def get(self, key: str) -> str | None:
         """Get a setting value."""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
-                "SELECT value FROM app_settings WHERE key = ?",
-                (key,)
+                "SELECT value FROM app_settings WHERE key = ?", (key,)
             )
             row = cursor.fetchone()
             return row[0] if row else None
@@ -67,10 +69,13 @@ class SettingsStorage:
     def set(self, key: str, value: str) -> None:
         """Set a setting value."""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO app_settings (key, value, updated_at)
                 VALUES (?, ?, ?)
-            """, (key, value, datetime.now().isoformat()))
+            """,
+                (key, value, datetime.now().isoformat()),
+            )
             conn.commit()
 
     def get_all(self) -> dict[str, str]:

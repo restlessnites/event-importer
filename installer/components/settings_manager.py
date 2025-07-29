@@ -14,7 +14,9 @@ class SettingsManager:
 
         # Migrate from old config.json if it exists
         old_config_path = get_user_data_dir() / "config.json"
-        if old_config_path.exists() and self.storage.migrate_from_json_file(old_config_path):
+        if old_config_path.exists() and self.storage.migrate_from_json_file(
+            old_config_path
+        ):
             # Rename old file to backup
             old_config_path.rename(old_config_path.with_suffix(".json.backup"))
 

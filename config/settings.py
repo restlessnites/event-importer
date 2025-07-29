@@ -2,8 +2,7 @@
 Shared settings configuration using Pydantic.
 """
 
-
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class SettingInfo(BaseModel):
@@ -17,13 +16,15 @@ class SettingInfo(BaseModel):
 
 class Settings(BaseModel):
     """All available settings for the application."""
+    
+    model_config = ConfigDict(extra="allow")
 
     # API Keys
     ANTHROPIC_API_KEY: SettingInfo = Field(
         default=SettingInfo(
             display_name="Anthropic API Key",
             description="API key for Claude (primary LLM)",
-            instructions="https://console.anthropic.com"
+            instructions="https://console.anthropic.com",
         )
     )
 
@@ -31,7 +32,7 @@ class Settings(BaseModel):
         default=SettingInfo(
             display_name="OpenAI API Key",
             description="API key for ChatGPT (fallback LLM)",
-            instructions="https://platform.openai.com"
+            instructions="https://platform.openai.com",
         )
     )
 
@@ -39,7 +40,7 @@ class Settings(BaseModel):
         default=SettingInfo(
             display_name="Zyte API Key",
             description="API key for web scraping",
-            instructions="https://www.zyte.com"
+            instructions="https://www.zyte.com",
         )
     )
 
@@ -47,7 +48,7 @@ class Settings(BaseModel):
         default=SettingInfo(
             display_name="Ticketmaster API Key",
             description="API key for Ticketmaster events",
-            instructions="https://developer.ticketmaster.com"
+            instructions="https://developer.ticketmaster.com",
         )
     )
 
@@ -55,7 +56,7 @@ class Settings(BaseModel):
         default=SettingInfo(
             display_name="Google API Key",
             description="API key for image and genre enhancement",
-            instructions="https://developers.google.com/custom-search"
+            instructions="https://developers.google.com/custom-search",
         )
     )
 
@@ -63,7 +64,7 @@ class Settings(BaseModel):
         default=SettingInfo(
             display_name="Google CSE ID",
             description="Custom Search Engine ID for Google searches",
-            instructions="https://programmablesearchengine.google.com"
+            instructions="https://programmablesearchengine.google.com",
         )
     )
 
@@ -71,7 +72,7 @@ class Settings(BaseModel):
         default=SettingInfo(
             display_name="TicketFairy API Key",
             description="API key for event submission",
-            instructions=None
+            instructions=None,
         )
     )
 
@@ -80,15 +81,13 @@ class Settings(BaseModel):
         default=SettingInfo(
             display_name="Update URL",
             description="URL to download Event Importer updates",
-            default="https://github.com/restlessnites/event-importer/releases/latest/download/event-importer-macos"
+            default="https://github.com/restlessnites/event-importer/releases/latest/download/event-importer-macos",
         )
     )
 
     version: SettingInfo = Field(
         default=SettingInfo(
-            display_name="Version",
-            description="Application version",
-            default="1.0.0"
+            display_name="Version", description="Application version", default="1.0.0"
         )
     )
 
@@ -96,13 +95,9 @@ class Settings(BaseModel):
         default=SettingInfo(
             display_name="First Run Complete",
             description="Whether the initial setup has been completed",
-            default="false"
+            default="false",
         )
     )
-
-    class Config:
-        """Pydantic config."""
-        extra = "allow"  # Allow additional fields
 
 
 # Create a global instance
@@ -118,7 +113,7 @@ def get_api_keys() -> list[str]:
         "TICKETMASTER_API_KEY",
         "GOOGLE_API_KEY",
         "GOOGLE_CSE_ID",
-        "TICKETFAIRY_API_KEY"
+        "TICKETFAIRY_API_KEY",
     ]
 
 

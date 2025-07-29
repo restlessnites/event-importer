@@ -10,9 +10,7 @@ from app.core.router import Router
 from app.shared.http import close_http_service
 
 
-def run_import(
-    url: str, method: str, timeout: int, ignore_cache: bool, verbose: bool
-):
+def run_import(url: str, method: str, timeout: int, ignore_cache: bool, verbose: bool):
     """Import an event from a URL."""
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)

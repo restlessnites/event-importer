@@ -20,59 +20,55 @@ if TYPE_CHECKING:
     pass
 
 import pytest
-from app.interfaces.cli.runner import get_cli
+import clicycle
 
 
 def test_dateutil_directly() -> None:
     """Test dateutil behavior to understand the root cause."""
-    cli = get_cli()
-
-    cli.section("Testing dateutil directly")
+    clicycle.configure(app_name="event-importer-test")
+    clicycle.header("Testing dateutil directly")
 
     current_date = datetime.now()
     current_year = current_date.year
 
-    cli.info(f"Current date: {current_date.strftime('%Y-%m-%d')}")
-    cli.info(f"Current year: {current_year}")
-    cli.console.print()
+    clicycle.info(f"Current date: {current_date.strftime('%Y-%m-%d')}")
+    clicycle.info(f"Current year: {current_year}")
 
     test_input = "Sat, Jun 21"
 
     # Test 1: Default dateutil behavior
-    cli.info(f"Test 1: dateutil.parse('{test_input}') - default behavior")
+    clicycle.section("Test 1: Default dateutil behavior")
+    clicycle.info(f"dateutil.parse('{test_input}') - default behavior")
     try:
         result1 = date_parser.parse(test_input)
-        cli.info(f"Result: {result1.strftime('%Y-%m-%d')} (year: {result1.year})")
+        clicycle.info(f"Result: {result1.strftime('%Y-%m-%d')} (year: {result1.year})")
     except Exception as e:
-        cli.error(f"Failed: {e}")
+        clicycle.error(f"Failed: {e}")
 
-    # Test 2: With current year as default
-    cli.info(
-        f"Test 2: dateutil.parse('{test_input}', default=datetime({current_year}, 1, 1))"
+    clicycle.section("Test 2: With current year as default")
+    clicycle.info(
+        f"dateutil.parse('{test_input}', default=datetime({current_year}, 1, 1))"
     )
     try:
         default_date = datetime(current_year, 1, 1)
         result2 = date_parser.parse(test_input, default=default_date)
-        cli.info(f"Result: {result2.strftime('%Y-%m-%d')} (year: {result2.year})")
+        clicycle.info(f"Result: {result2.strftime('%Y-%m-%d')} (year: {result2.year})")
     except Exception as e:
-        cli.error(f"Failed: {e}")
+        clicycle.error(f"Failed: {e}")
 
-    # Test 3: With current date as default
-    cli.info(f"Test 3: dateutil.parse('{test_input}', default=current_date)")
+    clicycle.section("Test 3: With current date as default")
+    clicycle.info(f"dateutil.parse('{test_input}', default=current_date)")
     try:
         result3 = date_parser.parse(test_input, default=current_date)
-        cli.info(f"Result: {result3.strftime('%Y-%m-%d')} (year: {result3.year})")
+        clicycle.info(f"Result: {result3.strftime('%Y-%m-%d')} (year: {result3.year})")
     except Exception as e:
-        cli.error(f"Failed: {e}")
-
-    cli.console.print()
+        clicycle.error(f"Failed: {e}")
 
 
 def test_fixed_eventdata_parsing() -> None:
     """Test the fixed EventData date parsing."""
-    cli = get_cli()
-
-    cli.section("Testing Fixed EventData Parsing")
+    clicycle.configure(app_name="event-importer-test")
+    clicycle.header("Testing Fixed EventData Parsing")
 
     # Test various date formats that should all result in 2025-06-21
     test_cases = [
@@ -98,7 +94,7 @@ def test_fixed_eventdata_parsing() -> None:
             event = EventData(title="Test Event", date=input_date)
             actual = event.date
 
-            status = "✅" if actual == expected else "❌"
+            status = "PASS" if actual == expected else "FAIL"
             note = "" if actual == expected else f"Expected {expected}"
 
             results.append(
@@ -118,43 +114,41 @@ def test_fixed_eventdata_parsing() -> None:
                     "Input": input_date,
                     "Expected": expected,
                     "Actual": f"ERROR: {e}",
-                    "Status": "❌",
+                    "Status": "FAIL",
                     "Description": description,
                     "Note": "Parsing failed",
                 }
             )
 
-    cli.table(results, title="EventData Date Parsing Test Results")
+    clicycle.table(results, title="EventData Date Parsing Test Results")
 
     # Summary
     passed = sum(1 for r in results if r["Status"] == "✅")
     total = len(results)
 
-    cli.console.print()
     if passed == total:
-        cli.success(f"All {total} tests passed! 🎉")
+        clicycle.success(f"All {total} tests passed!")
     else:
-        cli.warning(f"{passed}/{total} tests passed")
-        failures = [r for r in results if r["Status"] == "❌"]
+        clicycle.warning(f"{passed}/{total} tests passed")
+        failures = [r for r in results if r["Status"] == "FAIL"]
         for failure in failures:
-            cli.error(f"  • {failure['Input']} → {failure['Note']}")
+            clicycle.list_item(f"{failure['Input']} → {failure['Note']}")
 
 
 @pytest.mark.asyncio
 async def test_la_bamba_import() -> None:
     """Test importing the actual La Bamba event."""
-    cli = get_cli()
-
-    cli.section("Testing La Bamba Event Import")
+    clicycle.configure(app_name="event-importer-test")
+    clicycle.header("Testing La Bamba Event Import")
 
     url = "https://vidiotsfoundation.org/movies/la-bamba"
-    cli.info(f"Importing: {url}")
+    clicycle.info(f"Importing: {url}")
 
     try:
         router = Router()
 
-        with cli.spinner("Importing event"):
-            result = await router.route_request(
+        clicycle.info("Importing event...")
+        result = await router.route_request(
                 {
                     "url": url,
                     "timeout": 60,
@@ -168,7 +162,7 @@ async def test_la_bamba_import() -> None:
             title = event_data.get("title", "Unknown")
             venue = event_data.get("venue", "Unknown")
 
-            cli.success("Import successful!")
+            clicycle.success("Import successful!")
 
             event_summary = {
                 "Title": title,
@@ -178,33 +172,31 @@ async def test_la_bamba_import() -> None:
                 "Import Time": f"{result.get('import_time', 0):.2f}s",
             }
 
-            cli.table([event_summary], title="Event Import Results")
+            clicycle.table([event_summary], title="Event Import Results")
 
             # Check if date is correct
             if date == "2025-06-21":
-                cli.success("✅ Date parsing is now CORRECT: 2025-06-21")
-                cli.info("The fix worked! 🎉")
+                clicycle.success("Date parsing is now CORRECT: 2025-06-21")
+                clicycle.info("The fix worked!")
             elif date == "2024-06-21":
-                cli.error("❌ Date is still wrong: 2024-06-21")
-                cli.warning("The fix didn't work - need further investigation")
+                clicycle.error("Date is still wrong: 2024-06-21")
+                clicycle.warning("The fix didn't work - need further investigation")
             else:
-                cli.warning(f"⚠️ Unexpected date: {date}")
+                clicycle.warning(f"Unexpected date: {date}")
 
         else:
-            cli.error(f"Import failed: {result.get('error', 'Unknown error')}")
+            clicycle.error(f"Import failed: {result.get('error', 'Unknown error')}")
 
     except Exception as e:
-        cli.error(f"Import test failed: {e}")
-        cli.code(traceback.format_exc(), "python", "Error Details")
+        clicycle.error(f"Import test failed: {e}")
+        clicycle.error(f"Error Details: {traceback.format_exc()}")
 
 
 async def main() -> None:
     """Run all tests."""
-    cli = get_cli()
-
-    cli.header(
-        "Date Parsing Fix Verification", "Testing the comprehensive date parsing fix"
-    )
+    clicycle.configure(app_name="event-importer-test")
+    clicycle.header("Date Parsing Fix Verification")
+    clicycle.info("Testing the comprehensive date parsing fix")
 
     # Test 1: Direct dateutil behavior
     test_dateutil_directly()
@@ -215,15 +207,14 @@ async def main() -> None:
     # Test 3: Real event import
     await test_la_bamba_import()
 
-    cli.rule("Test Complete")
-    cli.success("All tests completed! Check the results above.")
+    clicycle.success("All tests completed! Check the results above.")
 
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\nTests interrupted by user")
+        print("Tests interrupted by user")
     except Exception as e:
         print(f"Test suite failed: {e}")
         import traceback

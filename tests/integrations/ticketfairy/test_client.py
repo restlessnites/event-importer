@@ -11,18 +11,18 @@ from app.integrations.ticketfairy.shared.client import TicketFairyClient
 @pytest.fixture
 def tf_client():
     """Create a TicketFairy client."""
-    with patch(
-        "app.integrations.ticketfairy.client.get_ticketfairy_config"
-    ) as mock_config:
-        config = MagicMock()
-        config.api_key = "test-api-key"
-        config.api_base_url = "https://api.ticketfairy.com"
-        config.draft_events_endpoint = "/draft-events"
-        config.origin = "https://example.com"
-        config.timeout = 30
-        mock_config.return_value = config
-
-        return TicketFairyClient()
+    client = TicketFairyClient()
+    
+    # Mock the config directly on the client instance
+    config = MagicMock()
+    config.api_key = "test-api-key"
+    config.api_base_url = "https://www.theticketfairy.com/api"
+    config.draft_events_endpoint = "/draft-events"
+    config.origin = "https://example.com"
+    config.timeout = 30
+    client.config = config
+    
+    return client
 
 
 @pytest.fixture
@@ -65,7 +65,7 @@ async def test_submit_success(tf_client, sample_event_data):
         # Verify the request was made correctly
         mock_post.assert_called_once()
         call_args = mock_post.call_args
-        assert call_args[0][0] == "https://api.ticketfairy.com/draft-events"
+        assert call_args[0][0] == "https://www.theticketfairy.com/api/draft-events"
         assert call_args[1]["headers"]["Authorization"] == "Bearer test-api-key"
         assert call_args[1]["json"] == sample_event_data
 
@@ -91,14 +91,16 @@ async def test_submit_api_error(tf_client, sample_event_data):
 @pytest.mark.asyncio
 async def test_submit_no_api_key(sample_event_data):
     """Test submission without API key."""
-    with patch(
-        "app.integrations.ticketfairy.client.get_ticketfairy_config"
-    ) as mock_config:
-        config = MagicMock()
-        config.api_key = None  # No API key
-        mock_config.return_value = config
+    client = TicketFairyClient()
+    
+    # Mock the config attribute directly
+    config = MagicMock()
+    config.api_key = None  # No API key
+    config.api_base_url = "https://www.theticketfairy.com/api"
+    config.draft_events_endpoint = "/draft-events"
+    config.origin = "https://example.com"
+    config.timeout = 30
+    client.config = config
 
-        client = TicketFairyClient()
-
-        with pytest.raises(ValueError, match="TicketFairy API key not configured"):
-            await client.submit(sample_event_data)
+    with pytest.raises(ValueError, match="TicketFairy API key not configured"):
+        await client.submit(sample_event_data)

@@ -7,8 +7,7 @@ import traceback
 from datetime import datetime
 
 import pytest
-from app.interfaces.cli.core import CLI
-from app.interfaces.cli.runner import get_cli
+import clicycle
 
 from app.config import get_config
 from app.core.importer import EventImporter
@@ -24,14 +23,12 @@ from app.shared.http import close_http_service
     ],
 )
 @pytest.mark.asyncio
-async def test_import(url: str, cli: CLI, show_raw: bool = False) -> None:
+async def test_import(url: str, show_raw: bool = False) -> None:
     """Test importing an event with progress display."""
-    # Start capturing errors during the import
-    cli.error_capture.start()
-
-    cli.section("Import Request")
-    cli.info(f"URL: {url}")
-    cli.info(f"Started: {datetime.now().strftime('%H:%M:%S')}")
+    clicycle.configure(app_name="event-importer-test")
+    clicycle.header("Import Request")
+    clicycle.info(f"URL: {url}")
+    clicycle.info(f"Started: {datetime.now().strftime('%H:%M:%S')}")
 
     # Create importer
     importer = EventImporter()
@@ -43,43 +40,39 @@ async def test_import(url: str, cli: CLI, show_raw: bool = False) -> None:
 
     try:
         # Run import with progress context
-        with cli.progress("Importing event"):
-            # Start the import
-            result = await importer.import_event(request)
+        clicycle.info("Importing event...")
+        # Start the import
+        result = await importer.import_event(request)
 
-        # Display results using CLI helper
-        cli.import_result(result, show_raw)
+        # Display results
+        if result.success:
+            clicycle.success(f"Import successful: {result.data.title}")
+            if show_raw:
+                clicycle.info(f"Raw data: {result.raw_data}")
+        else:
+            clicycle.error(f"Import failed: {result.error}")
 
     except TimeoutError:
-        cli.error("Import timed out")
+        clicycle.error("Import timed out")
     except Exception as e:
-        cli.error(f"Unexpected error: {e}")
-        cli.code(traceback.format_exc(), "python", "Exception Traceback")
-    finally:
-        # Stop capturing errors
-        cli.error_capture.stop()
-
-        # Show any captured errors at the end
-        if cli.error_capture.has_errors() or cli.error_capture.has_warnings():
-            cli.show_captured_errors("Issues During Import")
+        clicycle.error(f"Unexpected error: {e}")
+        clicycle.error(f"Exception Traceback: {traceback.format_exc()}")
 
 
 async def main() -> None:
     """Run tests with CLI."""
     # This is the critical fix: Initialize the configuration from .env
     get_config()
-
-    cli = get_cli()
+    
+    clicycle.configure(app_name="event-importer-test")
 
     # Parse command line arguments
     show_raw = "--raw" in sys.argv
     urls_from_args = [arg for arg in sys.argv[1:] if not arg.startswith("--")]
 
     # Show header
-    cli.header(
-        "Event Importer Test Suite",
-        f"Testing event import from various sources{' (with raw data)' if show_raw else ''}",
-    )
+    clicycle.header("Event Importer Test Suite")
+    clicycle.info(f"Testing event import from various sources{' (with raw data)' if show_raw else ''}")
 
     # Default test URLs
     test_urls = [
@@ -94,12 +87,12 @@ async def main() -> None:
     # Use command line URLs if provided
     if urls_from_args:
         test_urls = urls_from_args
-        cli.info(f"Testing {len(test_urls)} URL(s) from command line")
+        clicycle.info(f"Testing {len(test_urls)} URL(s) from command line")
     else:
-        cli.info(f"Testing {len(test_urls)} example URLs")
+        clicycle.info(f"Testing {len(test_urls)} example URLs")
 
     if show_raw:
-        cli.info("Raw data output enabled")
+        clicycle.info("Raw data output enabled")
 
     try:
         # Track overall stats
@@ -107,10 +100,10 @@ async def main() -> None:
 
         for i, url in enumerate(test_urls, 1):
             if len(test_urls) > 1:
-                cli.rule(f"Test {i} of {len(test_urls)}")
+                clicycle.section(f"Test {i} of {len(test_urls)}")
 
             start = datetime.now()
-            await test_import(url, cli, show_raw)
+            await test_import(url, show_raw)
             duration = (datetime.now() - start).total_seconds()
 
             # Track time
@@ -121,21 +114,21 @@ async def main() -> None:
                 await asyncio.sleep(1)
 
         # Summary
-        cli.rule("Test Summary")
-        cli.info(f"Total tests: {len(test_urls)}")
-        cli.info(f"Total time: {total_time:.1f}s")
-        cli.info(f"Average time: {total_time / len(test_urls):.1f}s per import")
-        cli.success("All tests completed")
+        clicycle.section("Test Summary")
+        clicycle.info(f"Total tests: {len(test_urls)}")
+        clicycle.info(f"Total time: {total_time:.1f}s")
+        clicycle.info(f"Average time: {total_time / len(test_urls):.1f}s per import")
+        clicycle.success("All tests completed")
 
     except KeyboardInterrupt:
-        cli.warning("\nTests interrupted by user")
+        clicycle.warning("Tests interrupted by user")
     except Exception as e:
-        cli.error(f"Test suite failed: {e}")
+        clicycle.error(f"Test suite failed: {e}")
         raise
     finally:
         # Clean up HTTP sessions
-        with cli.spinner("Cleaning up connections"):
-            await close_http_service()
+        clicycle.info("Cleaning up connections...")
+        await close_http_service()
 
 
 if __name__ == "__main__":

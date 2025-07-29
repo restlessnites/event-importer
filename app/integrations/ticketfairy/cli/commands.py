@@ -44,9 +44,7 @@ def show_stats() -> None:
     stats = stats_service.get_submission_status()
 
     display_submission_status(
-        stats["total_events"],
-        stats["unsubmitted_count"],
-        stats["status_counts"]
+        stats["total_events"], stats["unsubmitted_count"], stats["status_counts"]
     )
 
 

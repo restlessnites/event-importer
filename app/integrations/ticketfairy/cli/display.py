@@ -91,9 +91,7 @@ def display_submission_results(
 
 
 def display_submission_status(
-    total_events: int,
-    unsubmitted_count: int,
-    status_counts: list[tuple[str, int]]
+    total_events: int, unsubmitted_count: int, status_counts: list[tuple[str, int]]
 ) -> None:
     """Display submission status information."""
     clicycle.header("TicketFairy Submission Status")

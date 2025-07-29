@@ -65,9 +65,6 @@ package-installer: clean ## Build standalone installer executable
 
 package: package-app package-installer ## Build both app and installer executables
 
-##@ Validation
-validate: ## Validate the installation
-	@uv run --active event-importer validate || true
 
 
 ##@ Help

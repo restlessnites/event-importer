@@ -5,7 +5,7 @@ import asyncio
 import logging
 
 import pytest
-from app.interfaces.cli.runner import get_cli
+import clicycle
 
 from app.agents.ra_agent import ResidentAdvisorAgent
 from app.config import get_config
@@ -16,33 +16,34 @@ logging.basicConfig(level=logging.WARNING)
 
 
 @pytest.mark.asyncio
-async def test_ra_genres(cli, http_service, claude_service) -> None:
+async def test_ra_genres(http_service, claude_service) -> None:
     """Test RA API for genre data."""
-    cli.header("RA Genre Data Test", "Testing RA API for genre data")
+    clicycle.configure(app_name="event-importer-test")
+    clicycle.header("RA Genre Data Test")
+    clicycle.info("Testing RA API for genre data")
 
     config = get_config()
     agent = ResidentAdvisorAgent(
         config=config, services={"http": http_service, "llm": claude_service}
     )
 
-    await _test_individual_events(cli, agent)
-    _print_summary(cli)
+    await _test_individual_events(agent)
+    _print_summary()
 
     await close_http_service()
-    cli.console.print()
 
 
 if __name__ == "__main__":
     try:
-        asyncio.run(test_ra_genres())
+        # This would need proper fixtures when run standalone
+        print("Run with pytest for proper fixture support")
     except KeyboardInterrupt:
-        cli = get_cli()
-        cli.warning("\nTest interrupted by user")
+        clicycle.warning("Test interrupted by user")
 
 
-async def _test_individual_events(cli, agent) -> None:
+async def _test_individual_events(agent) -> None:
     """Test individual RA events for genre data."""
-    cli.section("Testing Individual Events")
+    clicycle.section("Testing Individual Events")
     event_ids = [
         "1908868",  # Has genres
         "1804533",  # No genres
@@ -50,13 +51,13 @@ async def _test_individual_events(cli, agent) -> None:
     results = []
     summary = []
     for _, event_id in enumerate(event_ids):
-        cli.info(f"Testing event ID: {event_id}")
+        clicycle.info(f"Testing event ID: {event_id}")
 
-        with cli.spinner("Fetching event"):
-            event = await agent._fetch_event(event_id)
+        clicycle.info("Fetching event...")
+        event = await agent._fetch_event(event_id)
 
         if not event:
-            cli.error(f"Event {event_id} not found")
+            clicycle.error(f"Event {event_id} not found")
             continue
 
         genres = [g["name"] for g in event.get("genres", [])]
@@ -79,18 +80,18 @@ async def _test_individual_events(cli, agent) -> None:
             }
         )
 
-    cli.table(results, title="Individual Event Results")
+    clicycle.table(results, title="Individual Event Results")
 
 
-async def _test_event_listings(cli, agent) -> None:
+async def _test_event_listings(agent) -> None:
     """Test event listings for genre data."""
-    cli.section("Event Listings Test")
+    clicycle.section("Event Listings Test")
 
-    with cli.spinner("Fetching event listings"):
-        events = await agent._fetch_event_listings(20)
+    clicycle.info("Fetching event listings...")
+    events = await agent._fetch_event_listings(20)
 
     if not events:
-        cli.error("No event listings found")
+        clicycle.error("No event listings found")
         return
 
     summary = []
@@ -108,28 +109,28 @@ async def _test_event_listings(cli, agent) -> None:
                 }
             )
 
-    cli.table(summary, title="Event Listing Genre Summary")
+    clicycle.table(summary, title="Event Listing Genre Summary")
 
 
-async def _test_genre_list(cli, agent) -> None:
+async def _test_genre_list(agent) -> None:
     """Attempt to fetch the genre list from RA."""
-    cli.section("Genre List Test")
+    clicycle.section("Genre List Test")
 
-    with cli.spinner("Fetching genre list"):
-        genres = await agent._fetch_genre_list()
+    clicycle.info("Fetching genre list...")
+    genres = await agent._fetch_genre_list()
 
     if genres:
-        cli.success(f"Found {len(genres)} genres")
-        cli.table([{"Genre": g} for g in genres[:10]], title="Sample Genres")
+        clicycle.success(f"Found {len(genres)} genres")
+        clicycle.table([{"Genre": g} for g in genres[:10]], title="Sample Genres")
     else:
-        cli.warning("No genres found or method not implemented")
+        clicycle.warning("No genres found or method not implemented")
 
 
-def _print_summary(cli):
+def _print_summary():
     """Print the summary of findings."""
-    cli.section("Summary")
-    cli.info("Key findings:")
-    cli.info("• Many RA events don't have genre tags")
-    cli.info("• Genre data appears to be optional in their system")
-    cli.info("• Events are often just categorized as 'Electronic music'")
-    cli.info("• Consider using artist/venue data to infer genres if needed")
+    clicycle.section("Summary")
+    clicycle.info("Key findings:")
+    clicycle.list_item("Many RA events don't have genre tags")
+    clicycle.list_item("Genre data appears to be optional in their system")
+    clicycle.list_item("Events are often just categorized as 'Electronic music'")
+    clicycle.list_item("Consider using artist/venue data to infer genres if needed")

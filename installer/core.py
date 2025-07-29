@@ -8,13 +8,12 @@ from pathlib import Path
 
 import app
 from app.shared.project import get_project
-from app.validators import InstallationValidator
-from installer.components.api_keys import APIKeyManager
 from installer.components.claude_desktop import ClaudeDesktopConfig
 from installer.components.migration import MigrationManager
 from installer.components.updater import UpdateManager
 from installer.paths import get_user_data_dir
 from installer.utils import SystemCheck
+from installer.validation import InstallationValidator
 
 
 @dataclass
@@ -48,7 +47,6 @@ class EventImporterInstaller:
         self.new_version = project.version
         self.system_check = SystemCheck()
         self.claude_config = ClaudeDesktopConfig(self.is_packaged)
-        self.api_key_manager = APIKeyManager()
         self.validator = InstallationValidator()
         self.migration_manager = MigrationManager()
         self.update_manager = UpdateManager(self.project_root)

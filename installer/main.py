@@ -205,7 +205,9 @@ def configure_shell_path(app_path: Path):
     """Configure shell PATH to make event-importer globally accessible."""
     clicycle.section("Shell Configuration")
 
-    if clicycle.confirm("Would you like to make 'event-importer' accessible from anywhere in your terminal?"):
+    if clicycle.confirm(
+        "Would you like to make 'event-importer' accessible from anywhere in your terminal?"
+    ):
         # Detect shell
         shell = os.environ.get("SHELL", "/bin/bash")
         if "zsh" in shell:
@@ -232,13 +234,13 @@ def configure_shell_path(app_path: Path):
 
             clicycle.success(f"Added Event Importer to your PATH in {profile_file}")
             clicycle.info("Restart your terminal or run:")
-            clicycle.info(f"  source {profile_file}")
+            clicycle.code(f"source {profile_file}", language="bash", line_numbers=False)
             clicycle.info("Then you can use 'event-importer' from anywhere!")
 
         except Exception as e:
             clicycle.warning(f"Could not automatically configure PATH: {e}")
             clicycle.info("You can manually add this to your shell profile:")
-            clicycle.info(f"  {path_line}")
+            clicycle.code(f"{path_line}", language="bash", line_numbers=False)
     else:
         clicycle.info(f"You can run Event Importer from: {app_path}")
 
@@ -266,7 +268,7 @@ async def run_installer():
     configure_claude_desktop()
 
     # Save final config
-    settings_manager.set("version", "1.0.0")
+    settings_manager.set("version", "3RR0R")
     settings_manager.set("first_run_complete", "true")
 
     # Download and launch

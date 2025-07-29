@@ -8,7 +8,7 @@ import logging
 import sys
 
 import pytest
-from app.interfaces.cli.runner import get_cli
+import clicycle
 from dotenv import load_dotenv
 
 from app.config import get_config
@@ -22,9 +22,11 @@ logging.basicConfig(level=logging.WARNING)
 
 
 @pytest.mark.asyncio
-async def test_specific_url(capsys, cli, http_service):
+async def test_specific_url(capsys, http_service):
     """Test rating a specific image URL."""
-    cli.header("Image Rating Test", "Testing rating a specific image URL")
+    clicycle.configure(app_name="event-importer-test")
+    clicycle.header("Image Rating Test")
+    clicycle.info("Testing rating a specific image URL")
 
     config = get_config()
     image_service = ImageService(config, http_service)
@@ -50,18 +52,18 @@ async def test_specific_url(capsys, cli, http_service):
     ]
 
     for case in test_cases:
-        cli.section(f"Testing URL: {case['description']}")
+        clicycle.section(f"Testing URL: {case['description']}")
         url = case["url"]
-        cli.info(f"URL: {url}")
+        clicycle.info(f"URL: {url}")
         score = await image_service.rate_image(url)
-        cli.info(f"Score: {score:.2f}")
+        clicycle.info(f"Score: {score:.2f}")
 
         if "min_score" in case:
             assert score >= case["min_score"]
-            cli.success("Passed: Score is above minimum threshold")
+            clicycle.success("Passed: Score is above minimum threshold")
         if "max_score" in case:
             assert score <= case["max_score"]
-            cli.success("Passed: Score is below maximum threshold")
+            clicycle.success("Passed: Score is below maximum threshold")
 
     captured = capsys.readouterr()
     assert "IMAGE RATING TEST" in captured.out
@@ -69,22 +71,14 @@ async def test_specific_url(capsys, cli, http_service):
 
 async def main() -> None:
     """Run tests based on command line arguments."""
-    cli = get_cli()
-
+    clicycle.configure(app_name="event-importer-test")
+    
     try:
-        # Start capturing errors
-        with cli.error_capture.capture():
-            if len(sys.argv) > 1 and sys.argv[1] == "url":
-                await test_specific_url()
-
-        # Show any captured errors
-        if cli.error_capture.has_errors() or cli.error_capture.has_warnings():
-            cli.show_captured_errors("Issues During Test")
-
+        clicycle.info("Run with pytest for proper fixture support")
     except KeyboardInterrupt:
-        cli.warning("\nTest interrupted by user")
+        clicycle.warning("Test interrupted by user")
     except Exception as e:
-        cli.error(f"Test failed: {e}")
+        clicycle.error(f"Test failed: {e}")
         raise
 
 

@@ -12,7 +12,6 @@ from app.interfaces.cli.events import event_details
 from app.interfaces.cli.events import list_events as list_events_cmd
 from app.interfaces.cli.import_event import run_import
 from app.interfaces.cli.stats import show_stats
-from app.interfaces.cli.validate import run_validation
 from app.interfaces.mcp.server import run as mcp_run
 
 # Configure clicycle
@@ -35,9 +34,7 @@ def cli():
     help="Force import method",
 )
 @click.option("--timeout", "-t", type=int, default=60, help="Timeout in seconds")
-@click.option(
-    "--ignore-cache", is_flag=True, help="Skip cache and force fresh import"
-)
+@click.option("--ignore-cache", is_flag=True, help="Skip cache and force fresh import")
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
 def import_event(
     url: str, method: str, timeout: int, ignore_cache: bool, verbose: bool
@@ -70,12 +67,6 @@ def list_events(limit: int, source: str):
 
 
 @cli.command()
-def validate():
-    """Validate the installation."""
-    run_validation()
-
-
-@cli.command()
 def api():
     """Start the HTTP API server."""
     clicycle.info("Starting API server...")
@@ -104,13 +95,13 @@ def mcp():
 def _add_integration_commands():
     """Dynamically add integration CLI commands to the main CLI."""
     integrations = get_available_integrations()
-    
+
     for name, integration_class in integrations.items():
         try:
             integration = integration_class()
             cli_module = integration.get_cli_commands()
-            
-            if cli_module and hasattr(cli_module, 'cli'):
+
+            if cli_module and hasattr(cli_module, "cli"):
                 # Add the integration's CLI commands as a subgroup
                 cli.add_command(cli_module.cli, name=name)
         except Exception as e:
