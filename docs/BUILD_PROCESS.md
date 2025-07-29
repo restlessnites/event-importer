@@ -21,9 +21,9 @@ make package
 
 This command performs the following steps:
 
-1.  **`clean`**: Removes any old build artifacts from previous runs to ensure a clean build.
-2.  **`scripts/sync_version.py`**: Synchronizes the version number from `pyproject.toml` into a `.version` file in the project root. This allows the packaged application to know its own version for update checks.
-3.  **`pyinstaller`**: Runs PyInstaller using the `event-importer.spec` file as its configuration. This file contains all the specific instructions for PyInstaller, including:
+1. **`clean`**: Removes any old build artifacts from previous runs to ensure a clean build.
+2. **`scripts/sync_version.py`**: Synchronizes the version number from `pyproject.toml` into a `.version` file in the project root. This allows the packaged application to know its own version for update checks.
+3. **`pyinstaller`**: Runs PyInstaller using the `event-importer.spec` file as its configuration. This file contains all the specific instructions for PyInstaller, including:
     - The main entry point (`app/main.py`).
     - The application name.
     - Data files to be included (like `.env.example`).
@@ -37,7 +37,7 @@ The application is designed to be extensible, allowing new integrations (like Ti
 
 ### How It Works
 
-1.  **Definition**: In `pyproject.toml`, under the `[project.entry-points."event_importer.integrations"]` section, each integration is defined with a unique name and a path to its module.
+1. **Definition**: In `pyproject.toml`, under the `[project.entry-points."event_importer.integrations"]` section, each integration is defined with a unique name and a path to its module.
 
     ```toml
     [project.entry-points."event_importer.integrations"]
@@ -49,13 +49,13 @@ The application is designed to be extensible, allowing new integrations (like Ti
     ticketfairy = "app.integrations.ticketfairy.submitter:TicketFairySubmitter"
     ```
 
-2.  **Discovery**: At startup, the application uses the `importlib.metadata` module to find all packages installed in the environment that have registered an entry point under the `event_importer.integrations` group.
+2. **Discovery**: At startup, the application uses the `importlib.metadata` module to find all packages installed in the environment that have registered an entry point under the `event_importer.integrations` group.
 
-3.  **Loading**: The application then iterates through these entry points and loads the specified modules (e.g., `app.agents.dice_agent:DiceAgent`). This allows the core application to be aware of all available integrations without having to import them directly.
+3. **Loading**: The application then iterates through these entry points and loads the specified modules (e.g., `app.agents.dice_agent:DiceAgent`). This allows the core application to be aware of all available integrations without having to import them directly.
 
 ### Tool Discovery (MCP and CLI)
 
 A similar mechanism is used to discover tools for the MCP (Claude) and CLI interfaces.
 
--   **MCP Tools**: For an integration to expose a tool to Claude, it must contain an `mcp_tools.py` file that defines a `TOOLS` list. The MCP server discovers and loads these `TOOLS` lists from all available integrations at startup.
--   **CLI Commands**: For an integration to expose a command to the main CLI, it must contain a `cli.py` file with a `main` function. The main CLI router discovers and loads these `main` functions as sub-commands at startup.
+- **MCP Tools**: For an integration to expose a tool to Claude, it must contain an `mcp_tools.py` file that defines a `TOOLS` list. The MCP server discovers and loads these `TOOLS` lists from all available integrations at startup.
+- **CLI Commands**: For an integration to expose a command to the main CLI, it must contain a `cli.py` file with a `main` function. The main CLI router discovers and loads these `main` functions as sub-commands at startup.
