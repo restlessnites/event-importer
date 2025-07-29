@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 import clicycle
+from clicycle import Theme, Typography
 
 from config.settings import get_api_keys, get_setting_info
 from installer.components.claude_desktop import ClaudeDesktopConfig
@@ -88,7 +89,8 @@ def setup_directories():
     if not apps_dir.exists():
         try:
             apps_dir.mkdir(parents=True, exist_ok=True)
-            clicycle.info(f"Created Applications directory: {apps_dir}")
+            clicycle.info("Created Applications directory:")
+            clicycle.code(str(apps_dir), language="text", line_numbers=False)
         except Exception as e:
             clicycle.error(f"Failed to create Applications directory: {e}")
             sys.exit(1)
@@ -97,17 +99,20 @@ def setup_directories():
     if not install_dir.exists():
         try:
             install_dir.mkdir(parents=True, exist_ok=True)
-            clicycle.success(f"Created installation directory: {install_dir}")
+            clicycle.success("Created installation directory:")
+            clicycle.code(str(install_dir), language="text", line_numbers=False)
         except Exception as e:
             clicycle.error(f"Failed to create installation directory: {e}")
             clicycle.info("Please check your permissions and try again")
             sys.exit(1)
     else:
-        clicycle.info(f"Using installation directory: {install_dir}")
+        clicycle.info("Using installation directory:")
+        clicycle.code(str(install_dir), language="text", line_numbers=False)
 
     # Check if we have write permissions
     if not os.access(install_dir, os.W_OK):
-        clicycle.error(f"No write permission to: {install_dir}")
+        clicycle.error("No write permission to:")
+        clicycle.code(str(install_dir), language="text", line_numbers=False)
         clicycle.info("Please check directory permissions and try again")
         sys.exit(1)
 
@@ -121,7 +126,8 @@ def setup_installer_location(install_dir: Path):
         new_installer_path = install_dir / current_path.name
         try:
             shutil.copy2(current_path, new_installer_path)
-            clicycle.info(f"Copied installer to: {new_installer_path}")
+            clicycle.info("Copied installer to:")
+            clicycle.code(str(new_installer_path), language="text", line_numbers=False)
             cleanup_original_location(current_path)
         except Exception as e:
             clicycle.warning(f"Could not move installer: {e}")
@@ -132,9 +138,11 @@ def setup_data_directory():
     data_dir = get_user_data_dir()
     if not data_dir.exists():
         data_dir.mkdir(parents=True, exist_ok=True)
-        clicycle.success(f"Created data directory: {data_dir}")
+        clicycle.success("Created data directory:")
+        clicycle.code(str(data_dir), language="text", line_numbers=False)
     else:
-        clicycle.info(f"Using data directory: {data_dir}")
+        clicycle.info("Using data directory:")
+        clicycle.code(str(data_dir), language="text", line_numbers=False)
 
 
 def handle_migration():
@@ -247,11 +255,29 @@ def configure_shell_path(app_path: Path):
 
 async def run_installer():
     """Run the installation process."""
-    clicycle.configure(app_name="event-importer-installer")
+    # Clear the terminal to remove the login/command info
+    os.system("clear" if os.name != "nt" else "cls")  # noqa: S605
+
+    # Create a theme that works on both light and dark backgrounds
+    universal_theme = Theme(
+        typography=Typography(
+            header_style="bold",
+            section_style="bold",
+            info_style="default",
+            success_style="bold",
+            error_style="bold",
+            warning_style="bold",
+            muted_style="dim",
+            value_style="default",
+        ),
+        width=80,
+    )
+    clicycle.configure(
+        app_name="event-importer-installer", width=80, theme=universal_theme
+    )
 
     # Welcome
-    clicycle.header("Event Importer Installer")
-    clicycle.info("This will set up Event Importer on your system.")
+    clicycle.header("SETUP", "Set up Restless Event Importer on your system.")
 
     # Setup directories and locations
     install_dir = setup_directories()
