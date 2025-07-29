@@ -1,11 +1,10 @@
 #!/usr/bin/env -S uv run python
 """Simple test to verify Google Custom Search API is working with CLI."""
 
-import asyncio
 import traceback
 
-import pytest
 import clicycle
+import pytest
 from dotenv import load_dotenv
 
 from app.config import get_config

@@ -12,7 +12,7 @@ from app.integrations.ticketfairy.shared.client import TicketFairyClient
 def tf_client():
     """Create a TicketFairy client."""
     client = TicketFairyClient()
-    
+
     # Mock the config directly on the client instance
     config = MagicMock()
     config.api_key = "test-api-key"
@@ -21,7 +21,7 @@ def tf_client():
     config.origin = "https://example.com"
     config.timeout = 30
     client.config = config
-    
+
     return client
 
 
@@ -92,7 +92,7 @@ async def test_submit_api_error(tf_client, sample_event_data):
 async def test_submit_no_api_key(sample_event_data):
     """Test submission without API key."""
     client = TicketFairyClient()
-    
+
     # Mock the config attribute directly
     config = MagicMock()
     config.api_key = None  # No API key

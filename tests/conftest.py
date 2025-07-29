@@ -76,5 +76,3 @@ def run_startup_checks() -> None:
 def mock_db_session(monkeypatch) -> None:
     """Mock the database session for tests."""
     monkeypatch.setattr("app.shared.database.connection.SessionLocal", get_db_session)
-
-

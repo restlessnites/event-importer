@@ -19,8 +19,8 @@ from app.schemas import EventData
 if TYPE_CHECKING:
     pass
 
-import pytest
 import clicycle
+import pytest
 
 
 def test_dateutil_directly() -> None:

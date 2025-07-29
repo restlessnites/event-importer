@@ -6,8 +6,8 @@ import sys
 import traceback
 from datetime import datetime
 
-import pytest
 import clicycle
+import pytest
 
 from app.config import get_config
 from app.core.importer import EventImporter
@@ -63,7 +63,7 @@ async def main() -> None:
     """Run tests with CLI."""
     # This is the critical fix: Initialize the configuration from .env
     get_config()
-    
+
     clicycle.configure(app_name="event-importer-test")
 
     # Parse command line arguments

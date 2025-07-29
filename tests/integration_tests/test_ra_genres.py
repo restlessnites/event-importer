@@ -1,11 +1,10 @@
 #!/usr/bin/env -S uv run python
 """Test script to check genre data in RA GraphQL API."""
 
-import asyncio
 import logging
 
-import pytest
 import clicycle
+import pytest
 
 from app.agents.ra_agent import ResidentAdvisorAgent
 from app.config import get_config

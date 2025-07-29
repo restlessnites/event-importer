@@ -5,10 +5,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import sys
 
-import pytest
 import clicycle
+import pytest
 from dotenv import load_dotenv
 
 from app.config import get_config
@@ -72,7 +71,7 @@ async def test_specific_url(capsys, http_service):
 async def main() -> None:
     """Run tests based on command line arguments."""
     clicycle.configure(app_name="event-importer-test")
-    
+
     try:
         clicycle.info("Run with pytest for proper fixture support")
     except KeyboardInterrupt:

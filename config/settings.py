@@ -2,7 +2,7 @@
 Shared settings configuration using Pydantic.
 """
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SettingInfo(BaseModel):
@@ -16,7 +16,7 @@ class SettingInfo(BaseModel):
 
 class Settings(BaseModel):
     """All available settings for the application."""
-    
+
     model_config = ConfigDict(extra="allow")
 
     # API Keys

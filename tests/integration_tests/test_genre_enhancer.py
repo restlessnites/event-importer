@@ -4,8 +4,8 @@
 import asyncio
 import logging
 
-import pytest
 import clicycle
+import pytest
 from dotenv import load_dotenv
 
 from app.config import get_config
@@ -157,7 +157,7 @@ async def main() -> None:
     try:
         clicycle.info("Run individual tests with pytest:")
         clicycle.info("pytest tests/integration_tests/test_genre_enhancer.py -v")
-        
+
         clicycle.success("All genre enhancement tests completed")
 
     except KeyboardInterrupt:
