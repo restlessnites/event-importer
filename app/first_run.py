@@ -2,8 +2,8 @@
 
 import sys
 
+from config.paths import get_user_data_dir
 from config.storage import SettingsStorage
-from installer.paths import get_user_data_dir
 
 
 def is_first_run() -> bool:

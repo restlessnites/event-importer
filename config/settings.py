@@ -120,7 +120,7 @@ def get_api_keys() -> list[str]:
 def get_all_settings() -> dict[str, SettingInfo]:
     """Get all settings with their info."""
     result = {}
-    for field_name, _field in SETTINGS.__fields__.items():
+    for field_name, _field in Settings.model_fields.items():
         if hasattr(SETTINGS, field_name):
             result[field_name] = getattr(SETTINGS, field_name)
     return result

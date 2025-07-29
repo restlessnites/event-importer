@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from config.paths import get_user_data_dir
 from config.storage import SettingsStorage
-from installer.paths import get_user_data_dir
 
 
-class SettingsManager:
+class SettingsService:
     """Simple wrapper around settings storage."""
 
     def __init__(self) -> None:

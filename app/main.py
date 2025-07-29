@@ -5,11 +5,11 @@ import logging
 import sys
 from multiprocessing import freeze_support
 
-from app.interfaces.cli.commands import cli
-from app.startup import startup_checks
-from installer.first_run import (
+from app.first_run import (
     should_run_installer,  # noqa: PLC0415 # First run detection for packaged app
 )
+from app.interfaces.cli.commands import cli
+from app.startup import startup_checks
 
 # Configure logging
 logging.basicConfig(
@@ -26,7 +26,7 @@ def main():
     # Check if this is first run
     # Installer needs to run in packaged app context
     if should_run_installer():
-        from installer.main import run_installer  # noqa: PLC0415
+        from installer.cli.app import run_installer  # noqa: PLC0415
 
         asyncio.run(run_installer())
 

@@ -1,12 +1,10 @@
-"""Installation validation for the installer."""
-
-from __future__ import annotations
+"""Installation validation service."""
 
 import logging
 
+from config.paths import get_user_data_dir
 from config.settings import get_api_keys
 from config.storage import SettingsStorage
-from installer.paths import get_user_data_dir
 
 logger = logging.getLogger(__name__)
 

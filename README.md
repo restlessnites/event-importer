@@ -11,71 +11,187 @@ A tool that extracts structured event data from websites, images, and APIs. Use 
 
 ### For Most Users (Recommended)
 
-This method is for non-technical users who want to use the application without setting up a development environment.
+Download and run the installer for a guided setup experience.
 
-1. **Download**: Get the latest `restless-event-importer-installer.zip` file from the releases page or the link provided in Slack.
+1. **Download**: Get the latest `event-importer-installer.zip` from the [releases page](https://github.com/restlessnites/event-importer/releases)
 
-2. **Extract and Run**: Double-click the downloaded zip file to extract it, then double-click the `event-importer-installer` file to run it.
+2. **Extract and Run**:
+   - Double-click the downloaded zip file to extract it
+   - Double-click the `event-importer-installer` file to run it
 
 The installer will automatically:
 
-- Create the `~/Applications/restless-event-importer` directory
+- Create the `~/Applications/event-importer` directory
 - Move itself to the proper location
-- Clean up the downloaded files
+- Clean up downloaded files
 - Download the latest Event Importer application
-- Guide you through configuring API keys
+- Guide you through API key configuration
 - Set up Claude Desktop integration (if installed)
-- Optionally configure your shell to make `event-importer` globally accessible
-- Launch the Event Importer when complete
+- Configure your shell PATH (optional)
 
-After installation, the Event Importer will be available at:
-
-```bash
-~/Applications/restless-event-importer/event-importer
-```
-
-### Making the Command Globally Accessible
-
-If you chose not to configure PATH during installation, you can still make `event-importer` globally accessible:
+After installation, Event Importer will be available at:
 
 ```bash
-# Add to your shell profile (~/.zshrc, ~/.bash_profile, etc.)
-export PATH="$HOME/Applications/restless-event-importer:$PATH"
-
-# Or create a symlink in a directory already in your PATH
-ln -s ~/Applications/restless-event-importer/event-importer /usr/local/bin/event-importer
+~/Applications/event-importer/event-importer
 ```
-
-After restarting your terminal or running `source ~/.zshrc`, you can use `event-importer` from any directory.
 
 ### For Developers (From Source)
 
-This method is for developers who want to run the application from source or contribute to its development.
+Clone and run from source for development:
 
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/restlessnites/event-importer.git
-   cd event-importer
-   ```
+```bash
+# Clone the repository
+git clone https://github.com/restlessnites/event-importer.git
+cd event-importer
 
-2. **Set Up the Environment**:
-   ```bash
-   make dev-setup
-   ```
+# Set up the development environment
+make dev-setup
 
-3. **Configure API Keys**:
-   ```bash
-   cp env.example .env
-   # Edit .env with your API keys
-   ```
+# Configure API keys
+cp env.example .env
+# Edit .env with your API keys
+```
+
+---
+
+## Updating
+
+### Automatic Updates (Coming Soon)
+
+The installer includes an update service that can check for and install updates. This feature will be available in a future release.
+
+### Manual Updates
+
+1. **Download** the latest installer from the [releases page](https://github.com/restlessnites/event-importer/releases)
+2. **Run** the installer - it will detect your existing installation and update it
+3. Your settings and data will be preserved
+
+---
+
+## Migration
+
+### From Previous Installations
+
+If you have a previous installation of Event Importer, the installer can migrate your data:
+
+1. **Run the new installer**
+2. When prompted, choose "Yes" to migrate from a previous installation
+3. **Enter the path** to your previous installation (e.g., `/path/to/old/event-importer`)
+4. The installer will migrate:
+   - API keys from `.env` file
+   - Event database from `data/events.db`
+
+### Manual Migration
+
+If automatic migration fails, you can manually migrate:
+
+```bash
+# Copy your API keys
+cp /old/installation/.env ~/Library/Application\ Support/event-importer/
+
+# Copy your event database
+cp /old/installation/data/events.db ~/Library/Application\ Support/event-importer/
+```
+
+---
+
+## Making the Command Globally Accessible
+
+If you didn't configure PATH during installation, you can still make `event-importer` globally accessible:
+
+### Option 1: Add to PATH
+
+```bash
+# Add to your shell profile (~/.zshrc, ~/.bash_profile, etc.)
+export PATH="$HOME/Applications/event-importer:$PATH"
+
+# Reload your shell
+source ~/.zshrc
+```
+
+### Option 2: Create a Symlink
+
+```bash
+# Create a symlink in a directory already in your PATH
+ln -s ~/Applications/event-importer/event-importer /usr/local/bin/event-importer
+```
+
+After either option, you can use `event-importer` from any directory.
 
 ---
 
 ## Documentation
 
-- **[Usage Guide](docs/USAGE.md)**: Detailed instructions for the CLI, API, and MCP interfaces.
-- **[Development Guide](docs/DEVELOPMENT.md)**: A technical overview for developers, including testing and configuration.
-- **[Build and Distribution](docs/BUILD_PROCESS.md)**: How to package the application with PyInstaller.
-- **[Architecture](docs/ARCHITECTURE.md)**: A technical overview of the project's architecture.
-- **[Integrations](docs/INTEGRATIONS.md)**: How to build and use integrations.
-- **[AI Enhancement](docs/AI_ENHANCEMENT.md)**: How the AI-powered features like genre and image enhancement work.
+- **[Usage Guide](docs/USAGE.md)**: Detailed instructions for the CLI, API, and MCP interfaces
+- **[Development Guide](docs/DEVELOPMENT.md)**: Technical overview for developers
+- **[Build and Distribution](docs/BUILD_PROCESS.md)**: How to package the application
+- **[Architecture](docs/ARCHITECTURE.md)**: Technical overview of the project architecture
+- **[Integrations](docs/INTEGRATIONS.md)**: How to build and use integrations
+- **[AI Enhancement](docs/AI_ENHANCEMENT.md)**: How AI-powered features work
+
+---
+
+## Troubleshooting
+
+### Installation Issues
+
+#### Permission Denied
+
+- The installer needs write access to `~/Applications` and `~/Library/Application Support`
+- Try running from your home directory
+- Check directory permissions
+
+#### Download Failed
+
+- Check your internet connection
+- The installer will prompt for an alternative download URL if needed
+- You can manually download from the releases page
+
+#### API Keys Not Working
+
+- Verify keys are correctly entered (no extra spaces)
+- Check the [API key documentation](docs/USAGE.md#api-keys) for required format
+- Some keys are optional - you only need keys for the sources you plan to use
+
+### Migration Issues
+
+#### Can't Find Previous Installation
+
+- Ensure you provide the full path to the root directory
+- Look for the directory containing `.env` and `data/` folder
+- The installer looks for `.env` and `data/events.db`
+
+#### Database Migration Failed
+
+- Ensure the old database isn't corrupted
+- Check that you have enough disk space
+- Manual migration is always an option (see above)
+
+### Runtime Issues
+
+See the [Usage Guide](docs/USAGE.md) for common runtime issues and solutions.
+
+---
+
+## Quick Start
+
+After installation:
+
+```bash
+# Import an event from a URL
+event-importer import-event https://ra.co/events/1234567
+
+# View imported events
+event-importer list-events
+
+# Get statistics
+event-importer stats
+
+# Start the API server
+event-importer api
+
+# Use with Claude Desktop (MCP)
+event-importer mcp
+```
+
+For detailed usage instructions, see the [Usage Guide](docs/USAGE.md).

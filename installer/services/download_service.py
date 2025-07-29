@@ -2,10 +2,10 @@
 
 import hashlib
 import stat
+from collections.abc import Callable
 from pathlib import Path
 
 import aiohttp
-import clicycle
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 
@@ -19,31 +19,36 @@ class AppDownloader:
     @retry(
         stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10)
     )
-    async def download(self, destination: Path) -> bool:
-        """Download the app with retry logic."""
+    async def download(
+        self,
+        destination: Path,
+        progress_callback: Callable[[int, int], None] | None = None
+    ) -> bool:
+        """Download the app with retry logic.
+
+        Args:
+            destination: Path to download to
+            progress_callback: Optional callback(downloaded, total) for progress updates
+        """
         async with (
             aiohttp.ClientSession() as session,
             session.get(self.download_url) as response,
         ):
             response.raise_for_status()
 
-            # Get total size for progress bar
+            # Get total size
             total_size = int(response.headers.get("Content-Length", 0))
 
-            # Download with progress
+            # Download to temp file
             temp_path = destination.with_suffix(".tmp")
             downloaded = 0
 
-            with (
-                clicycle.progress(
-                    total=total_size, description="Downloading Event Importer"
-                ) as progress,
-                temp_path.open("wb") as file,
-            ):
+            with temp_path.open("wb") as file:
                 async for chunk in response.content.iter_chunked(self.chunk_size):
                     file.write(chunk)
                     downloaded += len(chunk)
-                    progress.update(len(chunk))
+                    if progress_callback:
+                        progress_callback(downloaded, total_size)
 
             # Move to final location
             temp_path.rename(destination)

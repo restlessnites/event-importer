@@ -4,107 +4,138 @@ This installer provides an automated setup process for the Event Importer on mac
 
 ## Architecture
 
-The installer is built with modularity and maintainability in mind:
+The installer follows a clean architecture with clear separation of concerns:
 
 ```plaintext
 installer/
-├── core.py                 # Main orchestrator
-├── utils.py               # Shared utilities
-├── validators.py          # Installation validation
-└── components/            # Modular components
-    ├── environment.py     # Python environment setup
-    ├── api_keys.py       # API key configuration
-    ├── claude_desktop.py  # Claude Desktop integration
-    └── updater.py         # Application update logic
+├── __main__.py              # Entry point for python -m installer
+├── constants.py             # Configuration constants (Pydantic models)
+├── cli/                     # All UI/display logic
+│   ├── app.py              # Main CLI orchestration
+│   ├── themes.py           # Terminal themes
+│   └── display/            # Display modules
+│       ├── directories.py  # Directory setup display
+│       ├── download.py     # Download progress display
+│       ├── launch.py       # App launching display
+│       ├── shell.py        # Shell configuration display
+│       └── utils.py        # General utilities
+├── components/             # Required installer components
+│   └── claude_desktop.py   # Claude Desktop configuration
+├── operations/             # High-level orchestration
+│   ├── configure.py        # Configuration operations
+│   ├── download.py         # Download orchestration
+│   └── migrate.py          # Migration orchestration
+├── services/               # Business logic (NO UI)
+│   ├── directory_service.py    # Directory management
+│   ├── download_service.py     # Download functionality
+│   ├── migration_service.py    # Migration logic
+│   ├── settings_service.py     # Settings management
+│   ├── shell_service.py        # PATH configuration
+│   ├── update_service.py       # Update functionality
+│   └── validation_service.py   # Installation validation
+└── utils/                  # Shared utilities
+    ├── paths.py           # Path utilities
+    └── system.py          # System checks
 ```
 
 ## Design Principles
 
-1.  **Modular Components**: Each major functionality is isolated in its own module
-2.  **Consistent Error Handling**: All components use the same error handling patterns
-3.  **User-Friendly Output**: Color-coded console output with clear progress indicators
-4.  **Validation**: Comprehensive post-installation validation
-5.  **Rollback Support**: Configuration backups before modifications
+1. **Separation of Concerns**: Business logic is completely separated from UI
+2. **No Mixed Responsibilities**: Services contain NO display logic
+3. **Callback-Based Progress**: Services use callbacks for progress reporting
+4. **Pydantic Configuration**: Type-safe configuration with validation
+5. **Modular Display**: Each display concern has its own module
 
-## Components
+## Key Components
 
-### Core (core.py)
+### CLI Layer (`cli/`)
+- Handles all user interaction
+- Uses `clicycle` for consistent terminal UI
+- Organized into focused display modules
+- Main orchestration in `app.py`
 
-- Orchestrates the entire installation flow
-- Manages component lifecycle
-- Provides top-level error handling
+### Services Layer (`services/`)
+- Pure business logic - no UI imports
+- Returns data/status, not formatted strings
+- Uses callbacks for progress updates
+- Each service has a single responsibility
 
-### Utils (utils.py)
+### Operations Layer (`operations/`)
+- Thin orchestration layer
+- Bridges services and CLI
+- Handles service composition
 
-- `Console`: Consistent colored output and user interaction
-- `SystemCheck`: Platform and command detection
-- `ProcessRunner`: Safe subprocess execution
-- `FileUtils`: File operations with backup support
-- `Downloader`: Handles file downloads with Google Drive support
+### Components (`components/`)
+- Required installer components (e.g., Claude Desktop)
+- Self-contained functionality
 
-### Component Details
+## Installation Flow
 
-#### EnvironmentSetup
-
-- Creates .env from template
-- Manages Python dependencies via uv (for development)
-
-#### APIKeyManager
-
-- Interactive API key configuration
-- Distinguishes required vs optional keys
-- Secure input handling
-
-#### ClaudeDesktopConfig
-
-- Auto-detects Claude Desktop installation
-- Configures MCP server integration
-- Backs up existing configurations
-
-#### UpdateManager
-
-- Downloads and verifies the update package
-- Manages the backup and file replacement process
-- Provides clear, user-friendly status updates
-
-### Validators
-
-- Comprehensive post-installation checks
-- Detailed error reporting
-- Distinguishes errors from warnings
+1. **Initialize**: Clear terminal, configure theme
+2. **Setup Directories**: Create installation and data directories
+3. **Migration**: Check for and migrate from previous installations
+4. **Configure API Keys**: Set up required API keys
+5. **Download App**: Download with progress reporting
+6. **Claude Desktop**: Configure integration if available
+7. **Shell PATH**: Configure terminal access
+8. **Validation**: Verify installation integrity
+9. **Launch**: Optionally launch the app
 
 ## Usage
 
-The installer is run from the project root via the Makefile for development, or by running the packaged application for end-users.
-
 ```bash
-# Development
-make install
+# Run the installer
+python -m installer
 
-# Packaged App
-./EventImporter setup
+# Or directly
+python installer/__main__.py
 ```
 
-The installer will:
+## Key Patterns
 
-1. Check system requirements (for development)
-2. Configure the environment
-3. Set up API keys interactively
-4. Configure Claude Desktop automatically
-5. Validate the installation
+### Progress Callbacks
+Services use callbacks instead of direct UI:
+
+```python
+# Service
+async def download(self, destination, progress_callback=None):
+    if progress_callback:
+        progress_callback(downloaded, total)
+
+# CLI
+def create_progress_callback():
+    # Returns a callback that updates clicycle progress
+```
+
+### Status Returns
+Services return tuples for status:
+
+```python
+def migrate_from_path(self, path) -> tuple[bool, str]:
+    return success, message
+```
+
+### No UI in Services
+Services NEVER import or use clicycle/display functions.
 
 ## Extension Points
 
 To add new functionality:
 
-1. Create a new component in `components/`
-2. Follow the existing component patterns
-3. Add to the main flow in `core.py`
-4. Update validation in `validators.py`
+1. **New Service**: Add to `services/` with pure business logic
+2. **New Display**: Add to `cli/display/` for UI concerns
+3. **New Operation**: Add to `operations/` if orchestration needed
+4. **Update Flow**: Modify `cli/app.py` to include in flow
+
+## Testing
+
+The clean separation makes testing straightforward:
+- Services can be tested without UI
+- Display modules can be tested with mock data
+- Operations can be tested with mock services
 
 ## Error Handling
 
-- All components return boolean success indicators
-- Errors are logged with context
-- User-friendly error messages
-- Option to continue on non-critical failures
+- Services raise exceptions or return error tuples
+- CLI layer handles display of errors
+- Consistent error reporting through clicycle

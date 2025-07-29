@@ -5,7 +5,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from installer.utils import SystemCheck
+from installer.utils.system import SystemCheck
 
 
 class ClaudeDesktopConfig:

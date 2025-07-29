@@ -8,8 +8,8 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
+from config.paths import get_user_data_dir
 from config.settings import get_all_settings
-from installer.paths import get_user_data_dir
 
 
 class SettingsStorage:
