@@ -34,7 +34,6 @@ dependencies = [
 
 [project.scripts]
 event-importer = "app.main:main"
-ticketfairy-submit = "app.integrations.ticketfairy.cli.main:main"
 
 [project.urls]
 Homepage = "https://www.restlessnites.com"

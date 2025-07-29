@@ -6,6 +6,7 @@ import click
 import clicycle
 
 from app import __version__
+from app.integrations import get_available_integrations
 from app.interfaces.api.server import run as api_run
 from app.interfaces.cli.events import event_details
 from app.interfaces.cli.events import list_events as list_events_cmd
@@ -98,3 +99,23 @@ def mcp():
         raise click.Abort() from None
     except Exception as e:
         raise click.ClickException(f"MCP server error: {e}") from e
+
+
+def _add_integration_commands():
+    """Dynamically add integration CLI commands to the main CLI."""
+    integrations = get_available_integrations()
+    
+    for name, integration_class in integrations.items():
+        try:
+            integration = integration_class()
+            cli_module = integration.get_cli_commands()
+            
+            if cli_module and hasattr(cli_module, 'cli'):
+                # Add the integration's CLI commands as a subgroup
+                cli.add_command(cli_module.cli, name=name)
+        except Exception as e:
+            clicycle.warning(f"Failed to load CLI commands for {name}: {e}")
+
+
+# Add integration commands after CLI is defined
+_add_integration_commands()

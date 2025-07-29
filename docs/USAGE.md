@@ -55,20 +55,20 @@ The integration framework allows interactions with external services.
 
 #### TicketFairy
 
-The `ticketfairy-submit` command provides a separate CLI for TicketFairy operations.
+The TicketFairy integration provides commands under the main CLI.
 
 ```bash
 # Check the status of the ticketfairy integration
-ticketfairy-submit status
+event-importer ticketfairy stats
 
 # Submit unsubmitted events to TicketFairy (dry run)
-ticketfairy-submit submit --dry-run
+event-importer ticketfairy submit --dry-run
 
 # Submit a specific URL to TicketFairy
-ticketfairy-submit submit --url "https://ra.co/events/1234567"
+event-importer ticketfairy submit --url "https://ra.co/events/1234567"
 
 # Retry failed submissions for TicketFairy
-ticketfairy-submit retry-failed
+event-importer ticketfairy retry-failed
 ```
 
 ---
