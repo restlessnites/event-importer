@@ -1,7 +1,8 @@
 """Tests for the TicketFairy submitter."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from app.integrations.ticketfairy.submitter import TicketFairySubmitter
 

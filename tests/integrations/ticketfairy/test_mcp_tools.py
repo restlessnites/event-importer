@@ -1,7 +1,8 @@
 """Tests for the TicketFairy MCP tools."""
 
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from app.integrations.ticketfairy.mcp_tools import handle_submit_ticketfairy
 
@@ -9,10 +10,8 @@ from app.integrations.ticketfairy.mcp_tools import handle_submit_ticketfairy
 @pytest.mark.asyncio
 async def test_handle_submit_ticketfairy_success():
     """Test successful submission."""
-    with patch(
-        "app.integrations.ticketfairy.mcp_tools.TicketFairySubmitter"
-    ) as MockSubmitter:
-        mock_submitter = MockSubmitter.return_value
+    with patch("app.integrations.ticketfairy.mcp_tools.TicketFairySubmitter") as mock:
+        mock_submitter = mock.return_value
         mock_submitter.submit_by_url = AsyncMock(return_value={"success": True})
 
         arguments = {"url": "http://example.com", "dry_run": False}
@@ -35,11 +34,11 @@ async def test_handle_submit_ticketfairy_no_url():
 @pytest.mark.asyncio
 async def test_handle_submit_ticketfairy_dry_run():
     """Test dry run submission."""
-    with patch(
-        "app.integrations.ticketfairy.mcp_tools.TicketFairySubmitter"
-    ) as MockSubmitter:
-        mock_submitter = MockSubmitter.return_value
-        mock_submitter.submit_by_url = AsyncMock(return_value={"success": True, "dry_run": True})
+    with patch("app.integrations.ticketfairy.mcp_tools.TicketFairySubmitter") as mock:
+        mock_submitter = mock.return_value
+        mock_submitter.submit_by_url = AsyncMock(
+            return_value={"success": True, "dry_run": True}
+        )
 
         arguments = {"url": "http://example.com", "dry_run": True}
         result = await handle_submit_ticketfairy(arguments)
