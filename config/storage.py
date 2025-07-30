@@ -131,6 +131,6 @@ class SettingsStorage:
             for key in all_settings:
                 conn.execute(
                     "UPDATE app_settings SET value = '', updated_at = ? WHERE key = ?",
-                    (datetime.now(), key)
+                    (datetime.now(), key),
                 )
             conn.commit()

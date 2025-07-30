@@ -45,6 +45,6 @@ class InstallationValidator:
 
             # Try to access the settings storage
             storage = SettingsStorage(db_path)
-            storage.get("first_run_complete")  # Simple test query
+            storage.get("update_url")  # Simple test query
         except Exception as e:
             self.messages.append(f"Database connection failed: {e}")

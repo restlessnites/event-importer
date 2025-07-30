@@ -60,10 +60,10 @@ async def test_google_api(http_service) -> None:
     try:
         clicycle.info(f"Searching for '{query}'...")
         response = await http_service.get_json(
-                    "https://www.googleapis.com/customsearch/v1",
-                    params=params,
-                    service="GoogleSearch",
-                )
+            "https://www.googleapis.com/customsearch/v1",
+            params=params,
+            service="GoogleSearch",
+        )
 
         if "error" in response:
             clicycle.error(

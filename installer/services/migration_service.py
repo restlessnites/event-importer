@@ -19,7 +19,8 @@ class MigrationManager:
 
     def is_migration_needed(self) -> bool:
         """Check if migration is needed."""
-        return not self.settings_manager.get("first_run_complete")
+        # Migration is needed if the user data directory doesn't exist yet
+        return not self.user_data_dir.exists()
 
     def migrate_from_path(self, source_path: Path) -> tuple[bool, str]:
         """Migrate data from the specified path.

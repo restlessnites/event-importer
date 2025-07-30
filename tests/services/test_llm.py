@@ -93,28 +93,26 @@ async def test_generate_descriptions_success(mock_config):
         mock_claude = AsyncMock()
         mock_claude_class.return_value = mock_claude
         # generate_descriptions returns the modified EventData object
-        modified_event = EventData(
-            title="Test Event",
-            venue="Test Venue",
-            date="2025-01-01",
-            long_description="Long description",
-            short_description="Short desc",
+        event_data = EventData(
+            title="Test Event", venue="Test Venue", date="2025-01-01"
+        )
+        modified_event = event_data.model_copy(
+            update={
+                "long_description": "Long description",
+                "short_description": "Short desc",
+            }
         )
         mock_claude.generate_descriptions.return_value = modified_event
 
         service = LLMService(mock_config)
-        event_data = EventData(
-            title="Test Event", venue="Test Venue", date="2025-01-01"
-        )
 
         result = await service.generate_descriptions(event_data)
 
-        assert result == modified_event
+        assert result.title == "Test Event"
         assert result.long_description == "Long description"
         assert result.short_description == "Short desc"
-        mock_claude.generate_descriptions.assert_called_once_with(
-            event_data, force_rebuild=False, supplementary_context=None
-        )
+        # The LLM service calls generate_descriptions twice (once for short, once for long)
+        assert mock_claude.generate_descriptions.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -132,29 +130,28 @@ async def test_generate_descriptions_with_fallback(mock_config):
 
         # Claude fails, OpenAI succeeds
         mock_claude.generate_descriptions.side_effect = Exception("Claude error")
-        modified_event = EventData(
-            title="Test Event",
-            venue="Test Venue",
-            date="2025-01-01",
-            long_description="Fallback description",
-            short_description="Fallback",
+        event_data = EventData(
+            title="Test Event", venue="Test Venue", date="2025-01-01"
+        )
+        modified_event = event_data.model_copy(
+            update={
+                "long_description": "Fallback description",
+                "short_description": "Fallback",
+            }
         )
         mock_openai.generate_descriptions.return_value = modified_event
 
         service = LLMService(mock_config)
-        event_data = EventData(
-            title="Test Event", venue="Test Venue", date="2025-01-01"
-        )
 
         result = await service.generate_descriptions(event_data)
 
-        assert result == modified_event
+        assert result.title == "Test Event"
         assert result.long_description == "Fallback description"
         assert result.short_description == "Fallback"
-        mock_claude.generate_descriptions.assert_called_once()
-        mock_openai.generate_descriptions.assert_called_once_with(
-            event_data, force_rebuild=False, supplementary_context=None
-        )
+        # Claude is called twice (short and long), then fails
+        assert mock_claude.generate_descriptions.call_count == 2
+        # OpenAI is also called twice as fallback
+        assert mock_openai.generate_descriptions.call_count == 2
 
 
 @pytest.mark.asyncio

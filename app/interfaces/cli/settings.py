@@ -51,10 +51,7 @@ def set_value(key: str, value: str):
         clicycle.info("Use 'event-importer settings' to see available settings")
         return
 
-    # Validate boolean settings
-    if key in ["first_run_complete"] and value.lower() not in ["true", "false"]:
-        clicycle.error(f"Setting '{key}' must be 'true' or 'false'")
-        return
+    # No boolean settings to validate currently
 
     storage.set(key, value)
 

@@ -44,7 +44,6 @@ def test_url_analyzer() -> None:
 
         clicycle.info("Analyzing URLs...")
         for _i, url in enumerate(test_urls):
-
             analysis = analyzer.analyze(url)
 
             result = {

@@ -101,39 +101,38 @@ async def test_handle_import_event():
 
 
 @pytest.mark.asyncio
-async def test_handle_rebuild_event_descriptions_success():
-    """Test handle_rebuild_event_descriptions on success."""
+async def test_handle_rebuild_event_description_success():
+    """Test handle_rebuild_event_description on success."""
     mock_router = AsyncMock()
     mock_event = MagicMock()
-    mock_event.model_dump.return_value = {"id": 1, "description": "New description"}
-    mock_router.importer.rebuild_descriptions.return_value = mock_event
-    arguments = {"event_id": 1}
+    mock_event.model_dump.return_value = {
+        "id": 1,
+        "short_description": "New short description",
+    }
+    mock_router.importer.rebuild_description.return_value = mock_event
+    arguments = {"event_id": 1, "description_type": "short"}
 
-    result = await CoreMCPTools.handle_rebuild_event_descriptions(
-        arguments, mock_router
-    )
+    result = await CoreMCPTools.handle_rebuild_event_description(arguments, mock_router)
 
-    mock_router.importer.rebuild_descriptions.assert_awaited_once_with(
-        1, supplementary_context=None
+    mock_router.importer.rebuild_description.assert_awaited_once_with(
+        1, description_type="short", supplementary_context=None
     )
     assert result == {
         "success": True,
         "event_id": 1,
-        "message": "Descriptions rebuilt successfully",
-        "updated_data": {"id": 1, "description": "New description"},
+        "message": "Short description regenerated (preview only)",
+        "updated_data": {"id": 1, "short_description": "New short description"},
     }
 
 
 @pytest.mark.asyncio
-async def test_handle_rebuild_event_descriptions_failure():
-    """Test handle_rebuild_event_descriptions on failure."""
+async def test_handle_rebuild_event_description_failure():
+    """Test handle_rebuild_event_description on failure."""
     mock_router = AsyncMock()
-    mock_router.importer.rebuild_descriptions.return_value = None
-    arguments = {"event_id": 1}
+    mock_router.importer.rebuild_description.return_value = None
+    arguments = {"event_id": 1, "description_type": "long"}
 
-    result = await CoreMCPTools.handle_rebuild_event_descriptions(
-        arguments, mock_router
-    )
+    result = await CoreMCPTools.handle_rebuild_event_description(arguments, mock_router)
 
     assert result == {
         "success": False,
@@ -143,10 +142,10 @@ async def test_handle_rebuild_event_descriptions_failure():
 
 
 @pytest.mark.asyncio
-async def test_handle_rebuild_event_descriptions_no_id():
-    """Test handle_rebuild_event_descriptions with no event_id."""
+async def test_handle_rebuild_event_description_no_id():
+    """Test handle_rebuild_event_description with no event_id."""
     mock_router = AsyncMock()
-    result = await CoreMCPTools.handle_rebuild_event_descriptions({}, mock_router)
+    result = await CoreMCPTools.handle_rebuild_event_description({}, mock_router)
     assert result == {"success": False, "error": "Event ID is required"}
 
 

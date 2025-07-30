@@ -17,8 +17,8 @@ async def test_import_event():
             f"{BASE_URL}/events/import",
             json={
                 "url": "https://www.residentadvisor.net/events/2024/1234567",
-                "timeout": 30
-            }
+                "timeout": 30,
+            },
         )
 
         if response.status_code == 200:
@@ -27,8 +27,10 @@ async def test_import_event():
             print(f"  Event ID: {data.get('event_id', 'N/A')}")
             print(f"  Title: {data['data']['title']}")
             print(f"  Short desc: {data['data'].get('short_description', 'None')}")
-            print(f"  Long desc: {data['data'].get('long_description', 'None')[:100]}...")
-            return data.get('event_id')
+            print(
+                f"  Long desc: {data['data'].get('long_description', 'None')[:100]}..."
+            )
+            return data.get("event_id")
         print(f"✗ Import failed: {response.status_code}")
         print(f"  {response.text}")
         return None
@@ -47,7 +49,9 @@ async def test_rebuild_without_context(event_id: int):
             data = response.json()
             print("✓ Rebuild successful")
             print(f"  Short desc: {data['data'].get('short_description', 'None')}")
-            print(f"  Long desc: {data['data'].get('long_description', 'None')[:100]}...")
+            print(
+                f"  Long desc: {data['data'].get('long_description', 'None')[:100]}..."
+            )
         else:
             print(f"✗ Rebuild failed: {response.status_code}")
             print(f"  {response.text}")
@@ -62,7 +66,7 @@ async def test_rebuild_with_context(event_id: int):
 
         response = await client.post(
             f"{BASE_URL}/events/{event_id}/rebuild-descriptions",
-            json={"supplementary_context": context}
+            json={"supplementary_context": context},
         )
 
         if response.status_code == 200:
@@ -70,7 +74,9 @@ async def test_rebuild_with_context(event_id: int):
             print("✓ Rebuild with context successful")
             print(f"  Context: {context}")
             print(f"  Short desc: {data['data'].get('short_description', 'None')}")
-            print(f"  Long desc: {data['data'].get('long_description', 'None')[:200]}...")
+            print(
+                f"  Long desc: {data['data'].get('long_description', 'None')[:200]}..."
+            )
         else:
             print(f"✗ Rebuild failed: {response.status_code}")
             print(f"  {response.text}")
@@ -81,9 +87,7 @@ async def test_rebuild_not_found():
     async with httpx.AsyncClient() as client:
         print("\nTesting rebuild for non-existent event...")
 
-        response = await client.post(
-            f"{BASE_URL}/events/999999/rebuild-descriptions"
-        )
+        response = await client.post(f"{BASE_URL}/events/999999/rebuild-descriptions")
 
         if response.status_code == 404:
             print("✓ Correctly returned 404 for non-existent event")

@@ -84,14 +84,6 @@ class Settings(BaseModel):
         )
     )
 
-    first_run_complete: SettingInfo = Field(
-        default=SettingInfo(
-            display_name="First Run Complete",
-            description="Whether the initial setup has been completed",
-            default="false",
-        )
-    )
-
 
 # Create a global instance
 SETTINGS = Settings()

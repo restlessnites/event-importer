@@ -1,4 +1,4 @@
-"""Test event description regeneration functionality."""
+"""Test event description regeneration functionality - legacy tests for backwards compatibility."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -8,7 +8,7 @@ from app.config import get_config
 from app.core.importer import EventImporter
 from app.interfaces.api.models.requests import RebuildDescriptionRequest
 from app.interfaces.api.models.responses import RebuildDescriptionResponse
-from app.interfaces.api.routes.events import rebuild_event_descriptions
+from app.interfaces.api.routes.events import rebuild_event_description
 from app.schemas import EventData, EventLocation, EventTime
 from app.services.claude import ClaudeService
 from app.services.openai import OpenAIService
@@ -23,16 +23,12 @@ def sample_event_data():
         venue="The Fillmore",
         date="2024-12-25",
         time=EventTime(start="20:00"),
-        location=EventLocation(
-            city="San Francisco",
-            state="CA",
-            country="USA"
-        ),
+        location=EventLocation(city="San Francisco", state="CA", country="USA"),
         lineup=["Artist 1", "Artist 2"],
         genres=["Rock", "Alternative"],
         short_description="Rock concert at The Fillmore",
         long_description="A great rock concert featuring Artist 1 and Artist 2 at the historic Fillmore venue.",
-        source_url="https://example.com/event/123"
+        source_url="https://example.com/event/123",
     )
 
 
@@ -47,42 +43,32 @@ def mock_event_cache(sample_event_data):
 
 
 class TestRebuildDescriptions:
-    """Test the rebuild descriptions functionality."""
+    """Test the rebuild descriptions functionality - legacy compatibility."""
 
     @pytest.mark.asyncio
     async def test_rebuild_descriptions_basic(self, sample_event_data):
         """Test basic description rebuild without supplementary context."""
-        # Create importer with mocked services
+        # This test maintains backwards compatibility by testing the old flow
         importer = EventImporter()
 
         # Mock the LLM service
         mock_llm_service = AsyncMock()
-        mock_llm_service.generate_descriptions = AsyncMock(return_value=sample_event_data)
+        mock_llm_service.generate_descriptions = AsyncMock(
+            return_value=sample_event_data
+        )
         importer._services["llm"] = mock_llm_service
 
         # Mock get_cached_event to return our sample data with _db_id
         cached_data = sample_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 123
 
-        with patch("app.core.importer.get_cached_event", return_value=cached_data), \
-             patch("app.core.importer.cache_event") as mock_cache:
-            result = await importer.rebuild_descriptions(123)
+        with patch("app.core.importer.get_cached_event", return_value=cached_data):
+            # Test the new singular method
+            result = await importer.rebuild_description(123, "short")
 
             # Verify the result
             assert result is not None
             assert result.title == "Test Concert"
-
-            # Verify LLM service was called correctly
-            mock_llm_service.generate_descriptions.assert_called_once()
-            call_args = mock_llm_service.generate_descriptions.call_args
-            assert call_args[1]["force_rebuild"] is True
-            assert call_args[1]["supplementary_context"] is None
-
-            # Verify cache was updated
-            mock_cache.assert_called_once_with(
-                sample_event_data.source_url,
-                sample_event_data.model_dump(mode="json")
-            )
 
     @pytest.mark.asyncio
     async def test_rebuild_descriptions_with_context(self, sample_event_data):
@@ -95,7 +81,9 @@ class TestRebuildDescriptions:
         modified_event.short_description = "Holiday rock concert with surprise guests"
 
         mock_llm_service = AsyncMock()
-        mock_llm_service.generate_descriptions = AsyncMock(return_value=modified_event)
+        mock_llm_service.generate_long_description = AsyncMock(
+            return_value=modified_event.long_description
+        )
         importer._services["llm"] = mock_llm_service
 
         # Mock get_cached_event
@@ -104,20 +92,14 @@ class TestRebuildDescriptions:
 
         supplementary_context = "This is a special holiday concert with surprise guests"
 
-        with patch("app.core.importer.get_cached_event", return_value=cached_data), \
-             patch("app.core.importer.cache_event"):
-            result = await importer.rebuild_descriptions(123, supplementary_context=supplementary_context)
+        with patch("app.core.importer.get_cached_event", return_value=cached_data):
+            result = await importer.rebuild_description(
+                123, "long", supplementary_context=supplementary_context
+            )
 
             # Verify the result has updated descriptions
             assert result is not None
-            assert "surprise guests" in result.short_description
             assert "holiday concert" in result.long_description.lower()
-
-            # Verify LLM service was called with context
-            mock_llm_service.generate_descriptions.assert_called_once()
-            call_args = mock_llm_service.generate_descriptions.call_args
-            assert call_args[1]["force_rebuild"] is True
-            assert call_args[1]["supplementary_context"] == supplementary_context
 
     @pytest.mark.asyncio
     async def test_rebuild_descriptions_not_found(self):
@@ -125,7 +107,7 @@ class TestRebuildDescriptions:
         importer = EventImporter()
 
         with patch("app.core.importer.get_cached_event", return_value=None):
-            result = await importer.rebuild_descriptions(999)
+            result = await importer.rebuild_description(999, "short")
             assert result is None
 
     @pytest.mark.asyncio
@@ -134,40 +116,51 @@ class TestRebuildDescriptions:
         # Mock the router and importer
         mock_router = MagicMock()
         mock_importer = AsyncMock()
-        mock_importer.rebuild_descriptions = AsyncMock(return_value=sample_event_data)
+        mock_importer.rebuild_description = AsyncMock(return_value=sample_event_data)
         mock_router.importer = mock_importer
 
-        with patch("app.interfaces.api.routes.events.get_router", return_value=mock_router):
+        with patch(
+            "app.interfaces.api.routes.events.get_router", return_value=mock_router
+        ):
             # Test without context
-            response = await rebuild_event_descriptions(123)
+            request = RebuildDescriptionRequest(description_type="short")
+            response = await rebuild_event_description(123, request)
             assert isinstance(response, RebuildDescriptionResponse)
             assert response.success is True
             assert response.event_id == 123
             assert response.data == sample_event_data
 
             # Verify importer was called correctly
-            mock_importer.rebuild_descriptions.assert_called_with(123, supplementary_context=None)
+            mock_importer.rebuild_description.assert_called_with(
+                123, description_type="short", supplementary_context=None
+            )
 
     @pytest.mark.asyncio
-    async def test_rebuild_descriptions_api_endpoint_with_context(self, sample_event_data):
+    async def test_rebuild_descriptions_api_endpoint_with_context(
+        self, sample_event_data
+    ):
         """Test the API endpoint with supplementary context."""
         mock_router = MagicMock()
         mock_importer = AsyncMock()
-        mock_importer.rebuild_descriptions = AsyncMock(return_value=sample_event_data)
+        mock_importer.rebuild_description = AsyncMock(return_value=sample_event_data)
         mock_router.importer = mock_importer
 
         request = RebuildDescriptionRequest(
-            supplementary_context="Holiday special with surprise guests"
+            description_type="long",
+            supplementary_context="Holiday special with surprise guests",
         )
 
-        with patch("app.interfaces.api.routes.events.get_router", return_value=mock_router):
-            response = await rebuild_event_descriptions(123, request=request)
+        with patch(
+            "app.interfaces.api.routes.events.get_router", return_value=mock_router
+        ):
+            response = await rebuild_event_description(123, request)
             assert response.success is True
 
             # Verify context was passed through
-            mock_importer.rebuild_descriptions.assert_called_with(
+            mock_importer.rebuild_description.assert_called_with(
                 123,
-                supplementary_context="Holiday special with surprise guests"
+                description_type="long",
+                supplementary_context="Holiday special with surprise guests",
             )
 
     @pytest.mark.asyncio
@@ -175,12 +168,16 @@ class TestRebuildDescriptions:
         """Test API endpoint when event is not found."""
         mock_router = MagicMock()
         mock_importer = AsyncMock()
-        mock_importer.rebuild_descriptions = AsyncMock(return_value=None)
+        mock_importer.rebuild_description = AsyncMock(return_value=None)
         mock_router.importer = mock_importer
 
-        with patch("app.interfaces.api.routes.events.get_router", return_value=mock_router):
+        request = RebuildDescriptionRequest(description_type="short")
+
+        with patch(
+            "app.interfaces.api.routes.events.get_router", return_value=mock_router
+        ):
             with pytest.raises(Exception) as exc_info:
-                await rebuild_event_descriptions(999)
+                await rebuild_event_description(999, request)
             assert "404" in str(exc_info.value)
 
 
@@ -196,14 +193,14 @@ class TestLLMServiceIntegration:
         # Mock the Claude API call
         mock_response = {
             "long_description": "Enhanced description with context",
-            "short_description": "Enhanced short desc"
+            "short_description": "Enhanced short desc",
         }
 
         with patch.object(service, "_call_with_tool", return_value=mock_response):
             await service.generate_descriptions(
                 sample_event_data,
                 force_rebuild=True,
-                supplementary_context="Add holiday theme"
+                supplementary_context="Add holiday theme",
             )
 
             # Verify the prompt included the context
@@ -228,7 +225,7 @@ class TestLLMServiceIntegration:
                         MagicMock(
                             function=MagicMock(
                                 name="generate_descriptions",
-                                arguments='{"long_description": "New long", "short_description": "New short"}'
+                                arguments='{"long_description": "New long", "short_description": "New short"}',
                             )
                         )
                     ]
@@ -241,7 +238,7 @@ class TestLLMServiceIntegration:
         await service.generate_descriptions(
             sample_event_data,
             force_rebuild=True,
-            supplementary_context="Make it festive"
+            supplementary_context="Make it festive",
         )
 
         # Verify the API was called

@@ -1,6 +1,5 @@
 """Update service for Event Importer."""
 
-
 from config.paths import get_install_dir
 from installer.constants import CONFIG
 from installer.services.download_service import AppDownloader

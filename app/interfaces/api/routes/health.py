@@ -25,7 +25,7 @@ async def health_check() -> HealthResponse:
             status="healthy",
             version=__version__,
             features=features,
-            integrations=integrations
+            integrations=integrations,
         )
     except (ValueError, TypeError, KeyError):
         logger.exception("Health check error")

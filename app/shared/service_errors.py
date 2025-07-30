@@ -41,8 +41,7 @@ class ServiceErrorFormatter:
         """Format a single service failure into a user-friendly message."""
         # Get user-friendly service name
         service_name = cls.SERVICE_DESCRIPTIONS.get(
-            service,
-            service.replace("Service", "").replace("Agent", "").lower()
+            service, service.replace("Service", "").replace("Agent", "").lower()
         )
 
         # Try to match error patterns for better messages
@@ -83,8 +82,8 @@ class ServiceErrorFormatter:
                 summary = f"Note: {failure_msgs[0]}"
             else:
                 summary = (
-                    "The event was imported successfully, but some optional enhancements were not available:\n• " +
-                    "\n• ".join(failure_msgs)
+                    "The event was imported successfully, but some optional enhancements were not available:\n• "
+                    + "\n• ".join(failure_msgs)
                 )
 
         return failure_msgs, summary
@@ -99,11 +98,15 @@ class ServiceErrorFormatter:
     def format_for_api(cls, failures: list[dict[str, Any]]) -> dict[str, Any]:
         """Format failures for API response."""
         failure_msgs, summary = cls.format_failures(failures)
-        return {
-            "service_failures": failures,
-            "service_failure_messages": failure_msgs,
-            "service_failure_summary": summary,
-        } if failures else {}
+        return (
+            {
+                "service_failures": failures,
+                "service_failure_messages": failure_msgs,
+                "service_failure_summary": summary,
+            }
+            if failures
+            else {}
+        )
 
     @classmethod
     def format_for_mcp(cls, result: dict[str, Any]) -> dict[str, Any]:

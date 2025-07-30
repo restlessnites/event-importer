@@ -193,7 +193,7 @@ class CoreMCPTools:
                                 "pattern": "^\\d{2}:\\d{2}$",
                             },
                             "end": {
-                                "type": "string", 
+                                "type": "string",
                                 "description": "End time in HH:MM format (e.g., '23:00')",
                                 "pattern": "^\\d{2}:\\d{2}$",
                             },
@@ -282,25 +282,26 @@ class CoreMCPTools:
             }
 
     @staticmethod
-    async def handle_rebuild_event_description(
-        arguments: dict, router: Router
-    ) -> dict:
+    async def handle_rebuild_event_description(arguments: dict, router: Router) -> dict:
         """Handle rebuild_event_description tool call"""
         event_id = arguments.get("event_id")
         if not event_id:
             return {"success": False, "error": "Event ID is required"}
-        
+
         description_type = arguments.get("description_type")
         if not description_type or description_type not in ["short", "long"]:
-            return {"success": False, "error": "description_type must be 'short' or 'long'"}
+            return {
+                "success": False,
+                "error": "description_type must be 'short' or 'long'",
+            }
 
         try:
             # Get supplementary context if provided
             supplementary_context = arguments.get("supplementary_context")
             updated_event = await router.importer.rebuild_description(
-                event_id, 
+                event_id,
                 description_type=description_type,
-                supplementary_context=supplementary_context
+                supplementary_context=supplementary_context,
             )
 
             if updated_event:
@@ -324,28 +325,37 @@ class CoreMCPTools:
             }
 
     @staticmethod
-    async def handle_update_event(
-        arguments: dict, router: Router
-    ) -> dict:
+    async def handle_update_event(arguments: dict, router: Router) -> dict:
         """Handle update_event tool call"""
         event_id = arguments.get("event_id")
         if not event_id:
             return {"success": False, "error": "Event ID is required"}
-        
+
         # Extract updateable fields
         allowed_fields = {
-            "title", "venue", "date", "end_date", "time", "short_description", 
-            "long_description", "genres", "lineup", "minimum_age", "cost"
+            "title",
+            "venue",
+            "date",
+            "end_date",
+            "time",
+            "short_description",
+            "long_description",
+            "genres",
+            "lineup",
+            "minimum_age",
+            "cost",
         }
-        
-        updates = {k: v for k, v in arguments.items() if k in allowed_fields and v is not None}
-        
+
+        updates = {
+            k: v for k, v in arguments.items() if k in allowed_fields and v is not None
+        }
+
         if not updates:
             return {"success": False, "error": "No valid fields provided to update"}
-        
+
         try:
             updated_event = await router.importer.update_event(event_id, updates)
-            
+
             if updated_event:
                 return {
                     "success": True,

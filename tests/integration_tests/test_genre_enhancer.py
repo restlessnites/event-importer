@@ -100,7 +100,9 @@ async def test_individual_artist(capsys, http_service, claude_service):
         artist_name, event_context={"title": artist_name}
     )
 
-    clicycle.table([{"Genre": g} for g in genres], title=f"Found Genres for {artist_name}")
+    clicycle.table(
+        [{"Genre": g} for g in genres], title=f"Found Genres for {artist_name}"
+    )
 
     assert "Electronic" in genres
     assert "Ambient" in genres
@@ -139,7 +141,9 @@ async def test_claude_analysis(capsys, claude_service):
 
     enhanced_event = await claude_service.enhance_genres(event_data)
 
-    clicycle.table([{"Genre": g} for g in enhanced_event.genres], title="Claude's Analysis")
+    clicycle.table(
+        [{"Genre": g} for g in enhanced_event.genres], title="Claude's Analysis"
+    )
 
     assert "Electronic" in enhanced_event.genres
     assert "House" in enhanced_event.genres

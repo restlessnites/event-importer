@@ -73,7 +73,7 @@ class Router:
             logger.exception("Unexpected error in route_request")
             error_msg = str(e)
             # Extract more specific error information if available
-            if hasattr(e, '__class__'):
+            if hasattr(e, "__class__"):
                 error_msg = f"{e.__class__.__name__}: {error_msg}"
             return {
                 "success": False,

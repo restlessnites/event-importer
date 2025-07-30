@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 
 class ImportEventRequest(BaseModel):
@@ -25,8 +25,7 @@ class RebuildDescriptionRequest(BaseModel):
     """Request model for rebuilding event description."""
 
     description_type: Literal["short", "long"] = Field(
-        ...,
-        description="Which description to regenerate: 'short' or 'long'"
+        ..., description="Which description to regenerate: 'short' or 'long'"
     )
     supplementary_context: str | None = Field(
         None,
@@ -37,18 +36,23 @@ class RebuildDescriptionRequest(BaseModel):
 
 class UpdateEventRequest(BaseModel):
     """Request model for updating event fields."""
-    
+
+    model_config = ConfigDict(extra="forbid")  # Don't allow extra fields
+
     title: str | None = Field(None, description="Event title")
     venue: str | None = Field(None, description="Venue name")
     date: str | None = Field(None, description="Event start date (YYYY-MM-DD)")
-    end_date: str | None = Field(None, description="Event end date for multi-day events (YYYY-MM-DD)")
-    time: dict | None = Field(None, description="Event time with start, end, and timezone")
+    end_date: str | None = Field(
+        None, description="Event end date for multi-day events (YYYY-MM-DD)"
+    )
+    time: dict | None = Field(
+        None, description="Event time with start, end, and timezone"
+    )
     short_description: str | None = Field(None, description="Short event description")
     long_description: str | None = Field(None, description="Detailed event description")
     genres: list[str] | None = Field(None, description="List of genres")
     lineup: list[str] | None = Field(None, description="List of artists/performers")
-    minimum_age: str | None = Field(None, description="Minimum age requirement (e.g., '18+', '21+', 'All Ages')")
+    minimum_age: str | None = Field(
+        None, description="Minimum age requirement (e.g., '18+', '21+', 'All Ages')"
+    )
     cost: str | None = Field(None, description="Ticket cost information")
-    
-    class Config:
-        extra = "forbid"  # Don't allow extra fields

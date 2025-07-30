@@ -30,8 +30,12 @@ class ClaudeDesktopConfig:
             ]
         elif system == "Windows":
             program_files = os.environ.get("PROGRAMFILES", "C:\\Program Files")
-            program_files_x86 = os.environ.get("PROGRAMFILES(X86)", "C:\\Program Files (x86)")
-            localappdata = os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")
+            program_files_x86 = os.environ.get(
+                "PROGRAMFILES(X86)", "C:\\Program Files (x86)"
+            )
+            localappdata = os.environ.get(
+                "LOCALAPPDATA", Path.home() / "AppData" / "Local"
+            )
 
             app_paths = [
                 Path(program_files) / "Claude Desktop" / "Claude Desktop.exe",
@@ -112,10 +116,20 @@ class ClaudeDesktopConfig:
 
         if system == "Darwin":  # macOS
             config_paths = [
-                Path.home() / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json",
+                Path.home()
+                / "Library"
+                / "Application Support"
+                / "Claude"
+                / "claude_desktop_config.json",
                 Path.home() / ".claude" / "claude_desktop_config.json",
             ]
-            default = Path.home() / "Library" / "Application Support" / "Claude" / "claude_desktop_config.json"
+            default = (
+                Path.home()
+                / "Library"
+                / "Application Support"
+                / "Claude"
+                / "claude_desktop_config.json"
+            )
         elif system == "Windows":
             appdata = os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming")
             config_paths = [

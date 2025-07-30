@@ -1,6 +1,5 @@
 """API response models."""
 
-
 from pydantic import BaseModel, Field
 
 from app.schemas import EventData, ImportProgress, ServiceFailure
@@ -18,16 +17,13 @@ class ImportEventResponse(BaseModel):
     )
     error: str | None = Field(None, description="Error message if import failed")
     service_failures: list[ServiceFailure] | None = Field(
-        None,
-        description="List of services that failed during import"
+        None, description="List of services that failed during import"
     )
     service_failure_messages: list[str] | None = Field(
-        None,
-        description="User-friendly messages for service failures"
+        None, description="User-friendly messages for service failures"
     )
     service_failure_summary: str | None = Field(
-        None,
-        description="Summary of service failures for display"
+        None, description="Summary of service failures for display"
     )
 
 
@@ -44,7 +40,9 @@ class HealthResponse(BaseModel):
     status: str = Field(..., description="Service status")
     version: str = Field(..., description="Application version")
     features: list[str] = Field(..., description="Enabled features")
-    integrations: list[str] = Field(default_factory=list, description="Enabled integrations")
+    integrations: list[str] = Field(
+        default_factory=list, description="Enabled integrations"
+    )
 
 
 class RebuildDescriptionResponse(BaseModel):
@@ -63,4 +61,6 @@ class UpdateEventResponse(BaseModel):
     event_id: int = Field(..., description="Event ID")
     message: str = Field(..., description="Status message")
     data: EventData | None = Field(None, description="Updated event data")
-    updated_fields: list[str] = Field(..., description="List of fields that were updated")
+    updated_fields: list[str] = Field(
+        ..., description="List of fields that were updated"
+    )

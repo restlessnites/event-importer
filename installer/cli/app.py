@@ -91,7 +91,7 @@ def _check_existing_installation():
                 "Reinstall (replace current installation)": "reinstall",
                 "Update (preserve settings and data)": "update",
                 "Migrate (from another local installation)": "migrate",
-                "Quit": "quit"
+                "Quit": "quit",
             }
             choice = action_map[selected_choice]
 
@@ -109,9 +109,13 @@ def _check_existing_installation():
                         "Do you want to keep your existing settings and API keys?"
                     )
                     if keep_settings:
-                        clicycle.info("Proceeding with reinstallation (keeping settings)")
+                        clicycle.info(
+                            "Proceeding with reinstallation (keeping settings)"
+                        )
                     else:
-                        clicycle.info("Proceeding with reinstallation (replacing settings)")
+                        clicycle.info(
+                            "Proceeding with reinstallation (replacing settings)"
+                        )
                     return keep_settings
                 clicycle.info("Installation cancelled")
                 sys.exit(0)

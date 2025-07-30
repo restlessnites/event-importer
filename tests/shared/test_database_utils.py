@@ -43,7 +43,7 @@ def test_cache_event_empty(db_session: Session):
     cached_data = get_cached_event(url, db=db_session)
     assert cached_data is not None
     # Remove _db_id for comparison
-    cached_data.pop('_db_id', None)
+    cached_data.pop("_db_id", None)
     assert cached_data == {}
 
 

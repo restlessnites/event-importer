@@ -95,7 +95,7 @@ class AppDownloader:
             result = subprocess.run(
                 ["unzip", "-o", str(temp_path), "-d", str(temp_extract)],
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             if result.returncode != 0:

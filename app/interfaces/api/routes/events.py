@@ -56,7 +56,9 @@ async def import_event(request: ImportEventRequest) -> ImportEventResponse:
 
         # Add formatted service failure info if present
         if result.get("service_failures"):
-            failure_info = ServiceErrorFormatter.format_for_api(result["service_failures"])
+            failure_info = ServiceErrorFormatter.format_for_api(
+                result["service_failures"]
+            )
             result.update(failure_info)
 
         # Check if import failed
@@ -64,10 +66,7 @@ async def import_event(request: ImportEventRequest) -> ImportEventResponse:
             error_msg = result.get("error", "Import failed")
             # Determine appropriate status code based on error
             status_code = 400 if "invalid" in error_msg.lower() else 500
-            raise HTTPException(
-                status_code=status_code,
-                detail=error_msg
-            )
+            raise HTTPException(status_code=status_code, detail=error_msg)
 
         # Convert to response model
         return ImportEventResponse(**result)
@@ -102,9 +101,9 @@ async def rebuild_event_description(
     try:
         router_instance = get_router()
         updated_event = await router_instance.importer.rebuild_description(
-            event_id, 
+            event_id,
             description_type=request.description_type,
-            supplementary_context=request.supplementary_context
+            supplementary_context=request.supplementary_context,
         )
 
         if updated_event:
@@ -136,33 +135,29 @@ async def update_event(
     try:
         # Get the router instance
         router_instance = get_router()
-        
+
         # Get non-None fields from the request
         updates = request.model_dump(exclude_unset=True)
-        
+
         if not updates:
-            raise HTTPException(
-                status_code=400,
-                detail="No fields provided to update"
-            )
-        
+            raise HTTPException(status_code=400, detail="No fields provided to update")
+
         # Update the event
         updated_event = await router_instance.importer.update_event(event_id, updates)
-        
+
         if updated_event:
             return UpdateEventResponse(
                 success=True,
                 event_id=event_id,
                 message=f"Successfully updated {len(updates)} field(s)",
                 data=updated_event,
-                updated_fields=list(updates.keys())
+                updated_fields=list(updates.keys()),
             )
-        
+
         raise HTTPException(
-            status_code=404,
-            detail=f"Event not found with ID: {event_id}"
+            status_code=404, detail=f"Event not found with ID: {event_id}"
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:

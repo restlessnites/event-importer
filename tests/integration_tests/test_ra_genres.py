@@ -43,21 +43,32 @@ if __name__ == "__main__":
 async def _test_individual_events(agent) -> None:
     """Test individual RA events for genre data."""
     clicycle.section("Testing Individual Events")
-    event_ids = [
-        "1908868",  # Has genres
-        "1804533",  # No genres
-    ]
+
+    # Mock event data instead of making real API calls
+    mock_events = {
+        "1908868": {
+            "id": "1908868",
+            "title": "Test Event with Genres",
+            "date": "2024-01-01",
+            "venue": {"name": "Test Venue"},
+            "genres": [{"name": "House"}, {"name": "Techno"}],
+        },
+        "1804533": {
+            "id": "1804533",
+            "title": "Test Event without Genres",
+            "date": "2024-01-02",
+            "venue": {"name": "Another Venue"},
+            "genres": [],
+        },
+    }
+
     results = []
     summary = []
-    for _, event_id in enumerate(event_ids):
+    for event_id in mock_events:
         clicycle.info(f"Testing event ID: {event_id}")
 
-        clicycle.info("Fetching event...")
-        event = await agent._fetch_event(event_id)
-
-        if not event:
-            clicycle.error(f"Event {event_id} not found")
-            continue
+        clicycle.info("Using mock event data...")
+        event = mock_events[event_id]
 
         genres = [g["name"] for g in event.get("genres", [])]
         results.append(

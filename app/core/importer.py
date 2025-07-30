@@ -20,6 +20,7 @@ from app.error_messages import AgentMessages, CommonMessages, ServiceMessages
 from app.errors import APIError, UnsupportedURLError, handle_errors_async
 from app.schemas import (
     EventData,
+    EventTime,
     ImportMethod,
     ImportProgress,
     ImportRequest,
@@ -51,14 +52,16 @@ class ServiceFailureCollector:
         detail = None
 
         # Extract more detail for specific error types
-        if hasattr(error, '__class__'):
+        if hasattr(error, "__class__"):
             detail = f"{error.__class__.__name__}: {error_msg}"
 
-        self.failures.append(ServiceFailure(
-            service=service,
-            error=error_msg[:200],  # Truncate long errors
-            detail=detail
-        ))
+        self.failures.append(
+            ServiceFailure(
+                service=service,
+                error=error_msg[:200],  # Truncate long errors
+                detail=detail,
+            )
+        )
 
 
 class EventImporter:
@@ -503,19 +506,21 @@ class EventImporter:
             return event_data
 
     async def rebuild_description(
-        self: EventImporter, 
-        event_id: int, 
+        self: EventImporter,
+        event_id: int,
         description_type: str,
-        supplementary_context: str | None = None
+        supplementary_context: str | None = None,
     ) -> EventData | None:
         """Rebuild description for a cached event (preview only - does not save).
-        
+
         Args:
             event_id: The ID of the event to rebuild description for
             description_type: Which description to rebuild: 'short' or 'long'
             supplementary_context: Optional context to help generate better descriptions
         """
-        logger.info(f"Rebuilding {description_type} description for event ID: {event_id} (preview only)")
+        logger.info(
+            f"Rebuilding {description_type} description for event ID: {event_id} (preview only)"
+        )
         cached_data = get_cached_event(event_id=event_id)
         if not cached_data:
             logger.error(f"No cached event found for ID: {event_id}")
@@ -523,15 +528,15 @@ class EventImporter:
 
         try:
             # Remove the _db_id before creating EventData
-            cached_data.pop('_db_id', None)
+            cached_data.pop("_db_id", None)
             event_data = EventData(**cached_data)
 
             # Copy the event data so we don't modify the original
             updated_event_data = event_data.model_copy(deep=True)
-            
+
             # Use the LLM service to generate only the requested description
             llm_service = self._services["llm"]
-            
+
             if description_type == "short":
                 # Generate only short description
                 new_description = await llm_service.generate_short_description(
@@ -544,8 +549,10 @@ class EventImporter:
                     event_data, supplementary_context
                 )
                 updated_event_data.long_description = new_description
-            
-            logger.info(f"Successfully rebuilt {description_type} description for event ID: {event_id} (preview only)")
+
+            logger.info(
+                f"Successfully rebuilt {description_type} description for event ID: {event_id} (preview only)"
+            )
             return updated_event_data
 
         except (ValidationError, Exception) as e:
@@ -556,43 +563,44 @@ class EventImporter:
 
     async def update_event(self, event_id: int, updates: dict) -> EventData | None:
         """Update specific fields of a cached event.
-        
+
         Args:
             event_id: The ID of the event to update
             updates: Dictionary of fields to update
-            
+
         Returns:
             Updated EventData if successful, None otherwise
         """
         try:
-            logger.info(f"Updating event ID: {event_id} with fields: {list(updates.keys())}")
-            
+            logger.info(
+                f"Updating event ID: {event_id} with fields: {list(updates.keys())}"
+            )
+
             # Get the cached event
             event_data_dict = get_cached_event(event_id=event_id)
             if not event_data_dict:
                 logger.warning(f"Event not found for ID: {event_id}")
                 return None
-            
+
             # Remove the _db_id before creating EventData
-            event_data_dict.pop('_db_id', None)
-            
+            event_data_dict.pop("_db_id", None)
+
             # Parse the event data
             event_data = EventData(**event_data_dict)
-            
+
             # Apply updates
             for field, value in updates.items():
                 if hasattr(event_data, field):
                     # Special handling for time field - convert dict to EventTime
                     if field == "time" and isinstance(value, dict):
-                        from app.schemas import EventTime
                         value = EventTime(**value)
                     setattr(event_data, field, value)
                 else:
                     logger.warning(f"Field '{field}' does not exist on EventData")
-            
+
             # Re-validate the updated data
             updated_event_data = EventData(**event_data.model_dump())
-            
+
             # Cache the updated event data
             cache_event(
                 str(updated_event_data.source_url),
@@ -600,7 +608,7 @@ class EventImporter:
             )
             logger.info(f"Successfully updated event ID: {event_id}")
             return updated_event_data
-            
+
         except (ValidationError, Exception) as e:
             logger.exception(f"Failed to update event {event_id}: {e}")
             return None

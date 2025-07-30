@@ -11,7 +11,7 @@ from installer.services.settings_service import SettingsService
 
 async def download_app(
     settings_manager: SettingsService,
-    progress_callback: Callable[[int, int], None] | None = None
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> Path | None:
     """Download the Event Importer app."""
     # Get download URL from config
