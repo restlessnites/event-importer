@@ -592,10 +592,13 @@ async def handle_call_tool(
         if name == "import_event":
             result = await CoreMCPTools.handle_import_event(arguments, router)
         # Handle rebuild separately as it needs the router instance
-        elif name == "rebuild_event_descriptions":
-            result = await CoreMCPTools.handle_rebuild_event_descriptions(
+        elif name == "rebuild_event_description":
+            result = await CoreMCPTools.handle_rebuild_event_description(
                 arguments, router
             )
+        # Handle update_event which also needs router
+        elif name == "update_event":
+            result = await CoreMCPTools.handle_update_event(arguments, router)
         # Check if it's in our handlers (core + integration)
         elif name in all_handlers:
             result = await all_handlers[name](arguments)
