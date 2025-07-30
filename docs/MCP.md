@@ -1,98 +1,53 @@
 # Event Importer MCP Guide
 
-This guide explains how to use the Event Importer as a tool within an MCP (Morpheus Connected Peripheral) compatible AI assistant, such as Claude Desktop. It is designed for users who may not be developers.
+This guide explains how to use the Event Importer as a tool within Claude Desktop using MCP (Model Context Protocol). It is designed for users who may not be developers.
 
 ## What is MCP?
 
-MCP allows AI assistants like Claude to connect to and use external tools on your local machine. By setting up the Event Importer with MCP, you can ask Claude to import, list, and manage event data using simple conversational commands.
+MCP allows AI assistants like Claude Desktop to connect to and use external tools on your local machine. By setting up the Event Importer with MCP, you can ask Claude to import, list, and manage event data using simple conversational commands.
 
 ## Setup
 
-### Step 1: Start the MCP Server
+**⚠️ Important**: You must install Event Importer first using the installer before setting up MCP integration.
 
-First, you need to run the Event Importer's MCP server. Open your terminal, navigate to the `event-importer` directory, and run this command:
+### Step 1: Install Event Importer
 
-```bash
-uv run event-importer-mcp
-```
+Follow the installation instructions in the main [README.md](../README.md) to install Event Importer using the installer. The installer will automatically set up Claude Desktop integration if Claude Desktop is detected on your system.
 
-This command starts a server that listens for requests from your AI assistant. You must keep this terminal window open while you want to use the tools.
+### Step 2: Manual Claude Desktop Configuration (if needed)
 
-## Step 2: Configure Your AI Assistant (Claude Desktop)
+If the installer didn't automatically configure Claude Desktop, or if you need to reconfigure it, follow these steps:
 
-Next, you need to tell your AI assistant how to connect to the Event Importer. In Claude Desktop, you can do this by editing its configuration file.
-
-1. Open your Claude Desktop configuration.
-2. Find the `Edit Config` button in Claude > Settings > Developer.
-3. Edit the file it points you to to include the following:
+1. Open Claude Desktop
+2. Go to Claude > Settings > Developer
+3. Click "Edit Config" to open the configuration file
+4. Add the following configuration:
 
 ```json
 {
   "mcpServers": {
     "event-importer": {
-      "command": "/full/path/to/uv",
-      "args": [
-        "--directory",
-        "/full/path/to/event-importer",
-        "run",
-        "event-importer-mcp"
-      ],
-      "cwd": "/full/path/to/event-importer"
+      "command": "/Users/your-username/Applications/event-importer/event-importer",
+      "args": ["mcp"]
     }
   }
 }
 ```
 
-**Replace `/full/path/to/uv` with your actual path:**
+**Replace `/Users/your-username` with your actual username.**
 
-### Path to `uv` on Mac/Linux
+### Finding Your Username
 
-1. Press `Cmd+Space`, type "terminal", and press Enter.
-2. A black window will open. This is the Terminal.
-3. In the Terminal, type `which uv` and press Enter.
-4. The terminal will print a path, for example `/opt/homebrew/bin/uv`.
-5. Select and copy this path.
-6. Replace `/full/path/to/uv` in your configuration file with the path you copied.
+If you're not sure what your username is:
 
-### Path to `uv` on Windows
+1. Press `Cmd+Space`, type "terminal", and press Enter
+2. In the terminal, type `whoami` and press Enter
+3. Your username will be displayed
+4. Replace `your-username` in the path above with this value
 
-1. Press the Windows key, type `cmd`, and press Enter.
-2. A black window will open. This is the Command Prompt.
-3. In the Command Prompt, type `where uv` and press Enter.
-4. The command prompt will print a path, for example `C:\Users\YourUser\.cargo\bin\uv.exe`.
-5. Select and copy this path.
-6. Replace `/full/path/to/uv` in your configuration file with the path you copied.
-7. **Important**: You must replace the backslashes (`\`) with forward slashes (`/`). For example, if you copied `C:\Users\YourUser\.cargo\bin\uv.exe`, you should paste `C:/Users/YourUser/.cargo/bin/uv.exe` into the configuration file.
+### Step 3: Restart Claude Desktop
 
-**Replace `/full/path/to/event-importer` with your actual path:**
-
-### Path to `event-importer` on Mac/Linux
-
-1. Press Cmd+Space, type "terminal", press Enter
-2. A black window opens - this is Terminal
-3. Type `cd` (with a space after cd), and DO NOT PRESS ENTER YET
-4. **Find the event-importer folder:**
-   - Click the magnifying glass (🔍) in top-right corner of your screen to open Spotlight Search
-   - Type "event-importer" and press Enter
-   - If nothing shows up, you need to download it first
-5. Drag the event-importer folder from your search results into the Terminal window
-6. Press Enter
-7. Type `pwd` and press Enter
-8. Copy the text that appears
-9. Replace `/full/path/to/event-importer` with what you copied
-10. Save the file and restart your AI assistant.
-
-### Path to `event-importer` on Windows
-
-1. Press Windows key, type "cmd", press Enter
-2. A black window opens
-3. **Find the event-importer folder:**
-   - Press Windows key, type "event-importer", press Enter
-   - If nothing shows up, you need to download it first
-4. Right-click the event-importer folder from your search results
-5. Select "Copy as path"
-6. Replace `/full/path/to/event-importer` with what you copied
-7. Save the file and restart your AI assistant.
+After updating the configuration, restart Claude Desktop for the changes to take effect.
 
 ## Available Tools
 
@@ -197,58 +152,53 @@ Here are the tools you can now use in your conversations with the AI.
 
 These tools are for submitting imported events to the TicketFairy service. This is a more advanced use case.
 
-#### `submit_to_ticketfairy`
+#### `submit_ticketfairy`
 
-**What it does**: Submits events from your database to TicketFairy. You can filter which events to send.
+**What it does**: Submits an event to TicketFairy from a URL. This imports the event and submits it to TicketFairy in one step.
 
-**Parameters**:
-
-- `selector` (optional): Which events to submit. Can be `unsubmitted`, `failed`, `pending`, or `all`. Defaults to `unsubmitted`.
-- `dry_run` (optional): If `true`, shows which events *would* be submitted without actually sending them. This is great for testing.
-
-**Example Conversation**:
-> **You**: Do a dry run of submitting unsubmitted events to TicketFairy.
->
-> **Claude**: *(uses `submit_to_ticketfairy` with `selector: "unsubmitted", dry_run: true`)*
-
-#### `submit_url_to_ticketfairy`
-
-**What it does**: Submits a single event to TicketFairy by providing its source URL.
-
-**When to use it**: When you want to immediately submit a specific event you just imported.
+**When to use it**: When you want to import an event and immediately submit it to TicketFairy.
 
 **Parameters**:
 
-- `url` (required): The source URL of the event to submit.
-- `dry_run` (optional): If `true`, shows the transformed data without actually submitting.
+- `url` (required): The source URL of the event page to submit.
+- `dry_run` (optional): If `true`, shows the transformed data without actually submitting. This is great for testing.
 
 **Example Conversation**:
-> **You**: Submit `https://ra.co/events/1234567` to TicketFairy.
+> **You**: Submit this event to TicketFairy: <https://ra.co/events/1234567>
 >
-> **Claude**: *(uses `submit_url_to_ticketfairy` with `url: "https://ra.co/events/1234567"`)*
-
-#### `ticketfairy_status`
-
-**What it does**: Shows the submission status for the TicketFairy integration, including total events, unsubmitted events, and a breakdown of successes and failures.
-
-**When to use it**: To check on the health and progress of your TicketFairy submissions.
-
-**Example Conversation**:
-> **You**: What's the status of my TicketFairy submissions?
+> **Claude**: *(uses `submit_ticketfairy` with `url: "https://ra.co/events/1234567"`)*
 >
-> **Claude**: *(uses the `ticketfairy_status` tool)*
-
-#### `retry_failed_ticketfairy`
-
-**What it does**: Retries all submissions that previously failed for the TicketFairy integration.
-
-**When to use it**: After fixing an issue (e.g., an incorrect API key), you can use this tool to re-process the failed items.
-
-**Parameters**:
-
-- `dry_run` (optional): If `true`, shows which events would be retried without actually retrying them.
-
-**Example Conversation**:
-> **You**: Please retry the failed submissions for TicketFairy.
+> **You**: Do a dry run first to see what would be submitted
 >
-> **Claude**: *(uses the `retry_failed_ticketfairy` tool)*
+> **Claude**: *(uses `submit_ticketfairy` with `url: "https://ra.co/events/1234567", dry_run: true`)*
+
+---
+
+## Common Issues and Solutions
+
+### "event-importer tools not found"
+
+- Make sure you've installed Event Importer using the installer first
+- Check that the path in your Claude Desktop config is correct
+- Restart Claude Desktop after making configuration changes
+
+### "Permission denied" errors
+
+- Make sure the event-importer binary has execute permissions
+- If needed, run `chmod +x ~/Applications/event-importer/event-importer` in terminal
+
+### Tools appear but don't work
+
+- Check that your API keys are configured properly
+- The installer should have guided you through API key setup
+- You can reconfigure by running the installer again
+
+---
+
+## Getting Help
+
+If you encounter issues:
+
+1. Check the main [README.md](../README.md) for installation troubleshooting
+2. Look at the [USAGE.md](USAGE.md) guide for detailed command examples
+3. Review the installer logs if MCP integration setup failed

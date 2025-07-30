@@ -2,7 +2,6 @@
 
 import logging
 import sqlite3
-from pathlib import Path
 
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
@@ -43,11 +42,5 @@ def startup_checks() -> None:
 
     # Ensure database is ready
     ensure_database_ready()
-
-    # Check data directory exists
-    data_dir = Path("data")
-    if not data_dir.exists():
-        logger.debug("Creating data directory...")
-        data_dir.mkdir(parents=True, exist_ok=True)
 
     logger.debug("Startup checks completed")

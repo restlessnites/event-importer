@@ -1,16 +1,13 @@
 """Main CLI application for installer."""
 
 import sys
+from pathlib import Path
 
 import clicycle
 
 from config.settings import get_setting_info
 from installer.cli.display.directories import display_directory_setup
-from installer.cli.display.download import (
-    create_progress_callback,
-    display_download_progress,
-)
-from installer.cli.display.launch import launch_app
+from installer.cli.display.download import display_download_progress
 from installer.cli.display.shell import display_shell_configuration
 from installer.cli.display.utils import clear_terminal
 from installer.cli.themes import get_universal_theme
@@ -61,15 +58,18 @@ def _setup_directories():
 
 def _handle_migration():
     """Handle migration from a previous installation."""
-    if clicycle.confirm("Do you have a previous installation to migrate from?"):
-        migration_path = clicycle.prompt("Enter the path to your previous installation")
-        if migration_path:
-            success, message = migrate_from_path(migration_path)
-            if success:
-                clicycle.success(message)
-            else:
-                clicycle.warning(f"Migration failed: {message}")
-                clicycle.info("Continuing with fresh setup")
+    try:
+        if clicycle.confirm("Do you have a previous installation to migrate from?"):
+            migration_path = clicycle.prompt("Enter the path to your previous installation")
+            if migration_path:
+                success, message = migrate_from_path(migration_path)
+                if success:
+                    clicycle.success(message)
+                else:
+                    clicycle.warning(f"Migration failed: {message}")
+                    clicycle.info("Continuing with fresh setup")
+    except (KeyboardInterrupt, EOFError):
+        clicycle.info("Skipping migration")
 
 
 def _configure_api_keys(settings_manager: SettingsService):
@@ -93,24 +93,81 @@ def _configure_api_keys(settings_manager: SettingsService):
     clicycle.success("API keys configured!")
 
 
-async def _download_application(
-    settings_manager: SettingsService, install_dir
-) -> str | None:
-    """Download the application."""
-    set_download_url_if_missing(settings_manager)
+def _prompt_for_alternate_url() -> str | None:
+    """Prompt user for an alternate download URL."""
+    try:
+        if clicycle.confirm("Would you like to try a different download URL?"):
+            return clicycle.prompt("Enter the download URL")
+    except (KeyboardInterrupt, EOFError):
+        clicycle.info("Installation cancelled by user")
+        sys.exit(0)
+    return None
+
+
+async def _attempt_download(
+    settings_manager: SettingsService, install_dir: Path
+) -> tuple[bool, Path | None]:
+    """Attempt to download the application.
+
+    Returns:
+        (success, app_path)
+    """
     download_url = settings_manager.get("update_url")
     display_download_progress(download_url, install_dir / "event-importer")
+
+    clicycle.info("Starting download...")
+
     try:
-        progress_callback = create_progress_callback()
-        app_path = await download_app(settings_manager, progress_callback)
-        if not app_path:
-            clicycle.error("Download failed")
-            return None
-        clicycle.success("Download complete!")
-        return app_path
+        # Use progress bar properly
+        with clicycle.progress("Downloading") as p:
+            # Create a callback that updates progress
+            def progress_callback(downloaded: int, total: int):
+                if total > 0:
+                    percent = min(int((downloaded / total) * 100), 100)
+                    p.update_progress(percent, f"{downloaded:,} / {total:,} bytes")
+
+            app_path = await download_app(settings_manager, progress_callback)
+
+        if app_path:
+            clicycle.success("Download complete!")
+            return True, app_path
+        clicycle.error("Download failed")
+        return False, None
     except Exception as e:
-        clicycle.error(f"Download failed: {e}")
-        return None
+        # Show clean error message without traceback
+        error_msg = str(e)
+        if "RetryError" in error_msg:
+            clicycle.error("Download failed after multiple attempts")
+        else:
+            clicycle.error(f"Download failed: {error_msg}")
+        return False, None
+
+
+async def _download_application(
+    settings_manager: SettingsService, install_dir: Path
+) -> str | None:
+    """Download the application with retry support."""
+    set_download_url_if_missing(settings_manager)
+
+    # First attempt
+    success, app_path = await _attempt_download(settings_manager, install_dir)
+    if success:
+        return app_path
+
+    # Offer alternate URL
+    new_url = _prompt_for_alternate_url()
+    if new_url:
+        settings_manager.set("update_url", new_url)
+        success, app_path = await _attempt_download(settings_manager, install_dir)
+        if success:
+            # Ask if they want to keep this URL
+            if not clicycle.confirm("Save this URL for future updates?"):
+                # Restore original URL
+                set_download_url_if_missing(settings_manager)
+            return app_path
+
+    clicycle.info("Please check your internet connection and try again.")
+    return None
 
 
 def _configure_claude_desktop():
@@ -119,11 +176,14 @@ def _configure_claude_desktop():
     claude_config = ClaudeDesktopConfig(is_packaged=True)
     if claude_config.is_claude_desktop_installed():
         clicycle.info("Claude Desktop detected!")
-        if clicycle.confirm("Would you like to configure Claude Desktop integration?"):
-            if claude_config.configure_for_packaged():
-                clicycle.success("Claude Desktop configured successfully!")
-            else:
-                clicycle.warning("Failed to configure Claude Desktop")
+        try:
+            if clicycle.confirm("Would you like to configure Claude Desktop integration?"):
+                if claude_config.configure_for_packaged():
+                    clicycle.success("Claude Desktop configured successfully!")
+                else:
+                    clicycle.warning("Failed to configure Claude Desktop")
+        except (KeyboardInterrupt, EOFError):
+            clicycle.info("Skipping Claude Desktop configuration")
     else:
         clicycle.info("Claude Desktop not found. You can configure it later if needed.")
 
@@ -139,16 +199,6 @@ def _validate_installation():
         clicycle.warning("Installation completed with warnings:")
         for msg in messages:
             clicycle.warning(f"  - {msg}")
-
-
-def _launch_application(app_path):
-    """Launch the application if confirmed by the user."""
-    clicycle.section("Ready to Launch")
-    if clicycle.confirm("Would you like to launch Event Importer now?"):
-        launch_app(app_path)
-        clicycle.success("Event Importer is launching!")
-    else:
-        clicycle.info(f"You can launch Event Importer anytime from: {app_path}")
 
 
 async def run_installer():
@@ -171,6 +221,6 @@ async def run_installer():
     _configure_claude_desktop()
     display_shell_configuration(app_path)
     _validate_installation()
-    _launch_application(app_path)
 
-    clicycle.info("Setup complete! You can now close this window.")
+    clicycle.success("Setup complete!")
+    clicycle.info(f"Event Importer installed at: {app_path}")

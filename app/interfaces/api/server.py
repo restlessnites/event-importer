@@ -11,9 +11,9 @@ from fastapi import FastAPI
 from app import __version__
 from app.config import get_config
 from app.error_messages import CommonMessages
-from app.integrations import get_available_integrations
 from app.interfaces.api.middleware.cors import add_cors_middleware
 from app.interfaces.api.routes import events, health, statistics
+from app.services.integration_discovery import get_available_integrations
 from app.shared.http import close_http_service
 from app.startup import startup_checks
 

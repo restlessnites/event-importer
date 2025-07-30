@@ -158,14 +158,16 @@ After either option, you can use `event-importer` from any directory.
 #### Can't Find Previous Installation
 
 - Ensure you provide the full path to the root directory
-- Look for the directory containing `.env` and `data/` folder
-- The installer looks for `.env` and `data/events.db`
+- Look for the directory containing `.env` file at the root
+- The installer migrates:
+  - `.env` file (API keys and settings)
+  - `data/events.db` (your event database)
 
 #### Database Migration Failed
 
 - Ensure the old database isn't corrupted
 - Check that you have enough disk space
-- Manual migration is always an option (see above)
+- Manual migration is an option (see above)
 
 ### Runtime Issues
 

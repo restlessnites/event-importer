@@ -6,13 +6,13 @@ import click
 import clicycle
 
 from app import __version__
-from app.integrations import get_available_integrations
 from app.interfaces.api.server import run as api_run
 from app.interfaces.cli.events import event_details
 from app.interfaces.cli.events import list_events as list_events_cmd
 from app.interfaces.cli.import_event import run_import
 from app.interfaces.cli.stats import show_stats
 from app.interfaces.mcp.server import run as mcp_run
+from app.services.integration_discovery import get_available_integrations
 
 # Configure clicycle
 clicycle.configure(app_name="event-importer")
@@ -82,7 +82,7 @@ def api():
 @cli.command()
 def mcp():
     """Start the MCP server."""
-    clicycle.info("Starting MCP server...")
+    # Don't output anything to stdout for MCP - it expects only JSON
     try:
         asyncio.run(mcp_run())
     except KeyboardInterrupt:

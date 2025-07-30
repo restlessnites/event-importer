@@ -9,44 +9,13 @@ from sqlalchemy.exc import OperationalError
 from app.startup import ensure_database_ready, startup_checks
 
 
-def test_startup_checks_creates_directories(tmp_path, monkeypatch):
-    """Test that startup_checks creates necessary directories."""
-    # Mock Path to use our temp directory
-    tmp_path / "data"
-
-    with (
-        patch("app.startup.Path") as mock_path_class,
-        patch("app.startup.ensure_database_ready"),
-    ):
-        # Setup mock
-        mock_path = MagicMock()
-        mock_path.exists.return_value = False
-        mock_path.mkdir = MagicMock()
-        mock_path_class.return_value = mock_path
-
+def test_startup_checks_calls_ensure_database_ready():
+    """Test that startup_checks calls ensure_database_ready."""
+    with patch("app.startup.ensure_database_ready") as mock_ensure_db:
         startup_checks()
-
-        # Check Path was called with "data"
-        mock_path_class.assert_called_with("data")
-        # Check mkdir was called
-        mock_path.mkdir.assert_called_once_with(parents=True, exist_ok=True)
-
-
-def test_startup_checks_skips_existing_directory():
-    """Test that startup_checks doesn't create directory if it exists."""
-    with (
-        patch("app.startup.Path") as mock_path_class,
-        patch("app.startup.ensure_database_ready"),
-    ):
-        # Setup mock - directory already exists
-        mock_path = MagicMock()
-        mock_path.exists.return_value = True
-        mock_path_class.return_value = mock_path
-
-        startup_checks()
-
-        # Check mkdir was NOT called
-        mock_path.mkdir.assert_not_called()
+        
+        # Check that ensure_database_ready was called
+        mock_ensure_db.assert_called_once()
 
 
 def test_ensure_database_ready_initializes_missing_tables():
