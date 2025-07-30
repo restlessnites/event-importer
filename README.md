@@ -56,15 +56,11 @@ cp env.example .env
 
 ## Updating
 
-### Automatic Updates (Coming Soon)
-
-The installer includes an update service that can check for and install updates. This feature will be available in a future release.
-
 ### Manual Updates
 
-1. **Download** the latest installer from the [releases page](https://github.com/restlessnites/event-importer/releases)
-2. **Run** the installer - it will detect your existing installation and update it
-3. Your settings and data will be preserved
+1. **Download** the latest installer from [Dropbox](https://www.dropbox.com/scl/fi/aqldz7tbym0tla2js7bdp/event-importer-installer.zip?rlkey=ocmjxmtiauk8enswm6j1vz2u2&st=pftsjs2h&dl=1)
+2. **Run** the installer - Select the "Update" option
+3. **Wait** for the update to complete
 
 ---
 
