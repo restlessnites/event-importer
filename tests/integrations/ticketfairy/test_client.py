@@ -15,12 +15,14 @@ def tf_client():
 
     # Mock the config directly on the client instance
     config = MagicMock()
-    config.api_key = "test-api-key"
-    config.api_base_url = "https://www.theticketfairy.com/api"
-    config.draft_events_endpoint = "/draft-events"
-    config.origin = "https://example.com"
-    config.timeout = 30
+    config.api = MagicMock()
+    config.api.ticketfairy_api_key = "test-api-key"
     client.config = config
+    # Set TicketFairy specific attributes
+    client.api_base_url = "https://www.theticketfairy.com/api"
+    client.draft_events_endpoint = "/draft-events"
+    client.origin = "https://example.com"
+    client.timeout = 30
 
     return client
 
@@ -95,12 +97,14 @@ async def test_submit_no_api_key(sample_event_data):
 
     # Mock the config attribute directly
     config = MagicMock()
-    config.api_key = None  # No API key
-    config.api_base_url = "https://www.theticketfairy.com/api"
-    config.draft_events_endpoint = "/draft-events"
-    config.origin = "https://example.com"
-    config.timeout = 30
+    config.api = MagicMock()
+    config.api.ticketfairy_api_key = None  # No API key
     client.config = config
+    # Set TicketFairy specific attributes
+    client.api_base_url = "https://www.theticketfairy.com/api"
+    client.draft_events_endpoint = "/draft-events"
+    client.origin = "https://example.com"
+    client.timeout = 30
 
     with pytest.raises(ValueError, match="TicketFairy API key not configured"):
         await client.submit(sample_event_data)

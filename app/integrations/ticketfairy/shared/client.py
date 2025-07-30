@@ -6,12 +6,11 @@ import json
 import logging
 from typing import Any
 
+from app.config import get_config
 from app.error_messages import CommonMessages
 from app.errors import APIError, handle_errors_async
 from app.integrations.base import BaseClient
 from app.shared.http import get_http_service
-
-from .config import get_ticketfairy_config
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +20,12 @@ class TicketFairyClient(BaseClient):
 
     def __init__(self: TicketFairyClient) -> None:
         self.http = get_http_service()
-        self.config = get_ticketfairy_config()
+        self.config = get_config()
+        # TicketFairy specific settings
+        self.api_base_url = "https://www.theticketfairy.com/api"
+        self.draft_events_endpoint = "/draft-events"
+        self.origin = "https://restlessnites.com"
+        self.timeout = 30
 
     @handle_errors_async(reraise=True)
     async def submit(self: TicketFairyClient, data: dict[str, Any]) -> dict[str, Any]:
@@ -38,25 +42,25 @@ class TicketFairyClient(BaseClient):
             ValueError: If API key not configured
 
         """
-        if not self.config.api_key:
+        if not self.config.api.ticketfairy_api_key:
             error_msg = "TicketFairy API key not configured"
             raise ValueError(error_msg)
 
         # Prepare headers
         headers = {
-            "Authorization": f"Bearer {self.config.api_key}",
+            "Authorization": f"Bearer {self.config.api.ticketfairy_api_key}",
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Origin": self.config.origin,
+            "Origin": self.origin,
         }
 
         # Make request using the lower-level post method to handle custom response parsing
         response = await self.http.post(
-            f"{self.config.api_base_url}{self.config.draft_events_endpoint}",
+            f"{self.api_base_url}{self.draft_events_endpoint}",
             service="TicketFairy",
             headers=headers,
             json=data,
-            timeout=self.config.timeout,
+            timeout=self.timeout,
             raise_for_status=False,
         )
 
