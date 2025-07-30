@@ -90,8 +90,17 @@ class AppDownloader:
             shutil.rmtree(temp_extract)
 
         try:
-            with zipfile.ZipFile(temp_path, "r") as zip_ref:
-                zip_ref.extractall(temp_extract)
+            # Use system unzip to preserve symlinks
+            import subprocess
+            temp_extract.mkdir(parents=True)
+            result = subprocess.run(
+                ["unzip", "-o", str(temp_path), "-d", str(temp_extract)],
+                capture_output=True,
+                text=True
+            )
+            
+            if result.returncode != 0:
+                raise Exception(f"Failed to extract zip: {result.stderr}")
 
             # Determine the source directory of the app bundle
             extracted_items = list(temp_extract.iterdir())

@@ -42,10 +42,8 @@ class ClaudeDesktopConfig:
         if not config_path:
             return False
 
-        # Get the installer path, the main app should be in the same directory
-        installer_path = Path(sys.argv[0]).resolve()
-        installer_dir = installer_path.parent
-        app_path = installer_dir / "event-importer"
+        # The installed app location is always ~/Applications/event-importer/event-importer
+        app_path = Path.home() / "Applications" / "event-importer" / "event-importer"
 
         mcp_config = {
             "command": str(app_path),
