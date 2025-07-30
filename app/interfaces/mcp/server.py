@@ -234,6 +234,44 @@ class CoreMCPTools:
                 "required": ["event_id"],
             },
         ),
+        types.Tool(
+            name="rebuild_event_genres",
+            description="Rebuild genres for an event (preview only - does not save). The regenerated genres will be returned for review. Use the update_event tool to save changes.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "event_id": {
+                        "type": "integer",
+                        "description": "Event ID to rebuild genres for",
+                    },
+                    "supplementary_context": {
+                        "type": "string",
+                        "description": "Additional context to help identify genres (e.g., 'electronic dance music', 'similar to Radiohead')",
+                        "maxLength": 1000,
+                    },
+                },
+                "required": ["event_id"],
+            },
+        ),
+        types.Tool(
+            name="rebuild_event_image",
+            description="Rebuild image for an event (preview only - does not save). Searches for better images and returns the best candidate. Use the update_event tool to save changes.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "event_id": {
+                        "type": "integer",
+                        "description": "Event ID to rebuild image for",
+                    },
+                    "supplementary_context": {
+                        "type": "string",
+                        "description": "Additional context to help find better images (e.g., 'festival poster 2024', 'artist photo')",
+                        "maxLength": 1000,
+                    },
+                },
+                "required": ["event_id"],
+            },
+        ),
     ]
 
     @staticmethod
@@ -371,6 +409,151 @@ class CoreMCPTools:
             }
         except Exception as e:
             logger.exception(f"Error updating event {event_id}")
+            return {
+                "success": False,
+                "event_id": event_id,
+                "error": f"{e.__class__.__name__}: {str(e)}",
+            }
+
+    @staticmethod
+    async def handle_rebuild_event_genres(arguments: dict, router: Router) -> dict:
+        """Handle rebuild_event_genres tool call"""
+        event_id = arguments.get("event_id")
+        if not event_id:
+            return {"success": False, "error": "Event ID is required"}
+
+        try:
+            # Get supplementary context if provided
+            supplementary_context = arguments.get("supplementary_context")
+            updated_event, service_failures = await router.importer.rebuild_genres(
+                event_id,
+                supplementary_context=supplementary_context,
+            )
+
+            # Format service failures for display
+            result = {}
+            if service_failures:
+                # Convert ServiceFailure objects to dicts
+                failure_dicts = [f.model_dump() for f in service_failures]
+                ServiceErrorFormatter.format_for_mcp({"service_failures": failure_dicts})
+                result["service_failures"] = failure_dicts
+                result["service_failure_summary"] = ServiceErrorFormatter.format_for_api(failure_dicts).get("service_failure_summary")
+
+            if updated_event:
+                return {
+                    "success": True,
+                    "event_id": event_id,
+                    "message": "Genres regenerated (preview only)",
+                    "genres_found": updated_event.genres,
+                    "updated_data": updated_event.model_dump(mode="json"),
+                    **result,
+                }
+
+            error_msg = f"Event with ID {event_id} not found in cache"
+            if service_failures:
+                error_msg += f". {result.get('service_failure_summary', '')}"
+
+            return {
+                "success": False,
+                "event_id": event_id,
+                "error": error_msg,
+                **result,
+            }
+
+        except Exception as e:
+            logger.exception(f"Error rebuilding genres for event {event_id}")
+            return {
+                "success": False,
+                "event_id": event_id,
+                "error": f"{e.__class__.__name__}: {str(e)}",
+            }
+
+    @staticmethod
+    async def handle_rebuild_event_image(arguments: dict, router: Router) -> dict:
+        """Handle rebuild_event_image tool call"""
+        event_id = arguments.get("event_id")
+        if not event_id:
+            return {"success": False, "error": "Event ID is required"}
+
+        try:
+            # Get supplementary context if provided
+            supplementary_context = arguments.get("supplementary_context")
+            updated_event, service_failures = await router.importer.rebuild_image(
+                event_id,
+                supplementary_context=supplementary_context,
+            )
+
+            # Format service failures for display
+            result = {}
+            if service_failures:
+                # Convert ServiceFailure objects to dicts
+                failure_dicts = [f.model_dump() for f in service_failures]
+                ServiceErrorFormatter.format_for_mcp({"service_failures": failure_dicts})
+                result["service_failures"] = failure_dicts
+                result["service_failure_summary"] = ServiceErrorFormatter.format_for_api(failure_dicts).get("service_failure_summary")
+
+            if updated_event:
+                # Extract all candidates for display
+                candidates = []
+                best_image = None
+
+                if updated_event.image_search:
+                    # Get all candidates
+                    for candidate in updated_event.image_search.candidates:
+                        candidates.append({
+                            "url": candidate.url,
+                            "score": candidate.score,
+                            "source": candidate.source,
+                            "dimensions": candidate.dimensions,
+                            "reason": candidate.reason,
+                        })
+
+                    # Get the best image
+                    if updated_event.image_search.selected:
+                        best_image = {
+                            "url": updated_event.image_search.selected.url,
+                            "score": updated_event.image_search.selected.score,
+                            "source": updated_event.image_search.selected.source,
+                            "dimensions": updated_event.image_search.selected.dimensions,
+                            "reason": updated_event.image_search.selected.reason,
+                        }
+
+                    # Include original if it was rated
+                    if updated_event.image_search.original:
+                        original = {
+                            "url": updated_event.image_search.original.url,
+                            "score": updated_event.image_search.original.score,
+                            "source": "original",
+                            "dimensions": updated_event.image_search.original.dimensions,
+                            "reason": updated_event.image_search.original.reason,
+                        }
+                        # Add to candidates if not already there
+                        if not any(c["url"] == original["url"] for c in candidates):
+                            candidates.append(original)
+
+                return {
+                    "success": True,
+                    "event_id": event_id,
+                    "message": "Image search completed (preview only)",
+                    "image_candidates": candidates,
+                    "best_image": best_image,
+                    "updated_data": updated_event.model_dump(mode="json"),
+                    **result,
+                }
+
+            error_msg = f"Event with ID {event_id} not found in cache"
+            if service_failures:
+                error_msg += f". {result.get('service_failure_summary', '')}"
+
+            return {
+                "success": False,
+                "event_id": event_id,
+                "error": error_msg,
+                **result,
+            }
+
+        except Exception as e:
+            logger.exception(f"Error rebuilding image for event {event_id}")
             return {
                 "success": False,
                 "event_id": event_id,
@@ -536,6 +719,8 @@ class CoreMCPTools:
         "show_event": handle_show_event.__func__,
         "get_statistics": handle_get_statistics.__func__,
         "rebuild_event_description": handle_rebuild_event_description.__func__,
+        "rebuild_event_genres": handle_rebuild_event_genres.__func__,
+        "rebuild_event_image": handle_rebuild_event_image.__func__,
         "update_event": handle_update_event.__func__,
     }
 
@@ -591,9 +776,17 @@ async def handle_call_tool(
         # Special case for import_event (needs router)
         if name == "import_event":
             result = await CoreMCPTools.handle_import_event(arguments, router)
-        # Handle rebuild separately as it needs the router instance
+        # Handle rebuild separately as they need the router instance
         elif name == "rebuild_event_description":
             result = await CoreMCPTools.handle_rebuild_event_description(
+                arguments, router
+            )
+        elif name == "rebuild_event_genres":
+            result = await CoreMCPTools.handle_rebuild_event_genres(
+                arguments, router
+            )
+        elif name == "rebuild_event_image":
+            result = await CoreMCPTools.handle_rebuild_event_image(
                 arguments, router
             )
         # Handle update_event which also needs router

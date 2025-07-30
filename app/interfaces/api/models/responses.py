@@ -64,3 +64,48 @@ class UpdateEventResponse(BaseModel):
     updated_fields: list[str] = Field(
         ..., description="List of fields that were updated"
     )
+
+
+class RebuildGenresResponse(BaseModel):
+    """Response model for rebuilding genres."""
+
+    success: bool = Field(..., description="Whether the rebuild was successful")
+    event_id: int = Field(..., description="Event ID")
+    message: str = Field(..., description="Status message")
+    data: EventData | None = Field(None, description="Updated event data")
+    genres_found: list[str] | None = Field(
+        None, description="List of genres found (preview)"
+    )
+    service_failures: list[ServiceFailure] | None = Field(
+        None, description="List of services that failed during rebuild"
+    )
+    service_failure_messages: list[str] | None = Field(
+        None, description="User-friendly messages for service failures"
+    )
+    service_failure_summary: str | None = Field(
+        None, description="Summary of service failures for display"
+    )
+
+
+class RebuildImageResponse(BaseModel):
+    """Response model for rebuilding image."""
+
+    success: bool = Field(..., description="Whether the rebuild was successful")
+    event_id: int = Field(..., description="Event ID")
+    message: str = Field(..., description="Status message")
+    data: EventData | None = Field(None, description="Updated event data")
+    image_candidates: list[dict] | None = Field(
+        None, description="All image candidates found with scores, sources, dimensions and reasons"
+    )
+    best_image: dict | None = Field(
+        None, description="The best image candidate selected with score, source, dimensions and reason"
+    )
+    service_failures: list[ServiceFailure] | None = Field(
+        None, description="List of services that failed during rebuild"
+    )
+    service_failure_messages: list[str] | None = Field(
+        None, description="User-friendly messages for service failures"
+    )
+    service_failure_summary: str | None = Field(
+        None, description="Summary of service failures for display"
+    )

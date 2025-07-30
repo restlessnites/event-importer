@@ -56,3 +56,23 @@ class UpdateEventRequest(BaseModel):
         None, description="Minimum age requirement (e.g., '18+', '21+', 'All Ages')"
     )
     cost: str | None = Field(None, description="Ticket cost information")
+
+
+class RebuildGenresRequest(BaseModel):
+    """Request model for rebuilding event genres."""
+
+    supplementary_context: str | None = Field(
+        None,
+        description="Additional context to help identify genres (e.g., style, similar artists)",
+        max_length=1000,
+    )
+
+
+class RebuildImageRequest(BaseModel):
+    """Request model for rebuilding event image."""
+
+    supplementary_context: str | None = Field(
+        None,
+        description="Additional context to help find better images (e.g., specific lineup, festival year)",
+        max_length=1000,
+    )

@@ -254,3 +254,25 @@ GENRE GUIDELINES:
 - Prefer broader categories over micro-genres
 - Examples: "Rock" not "Post-Hardcore Math Rock"
 - Maximum 4 genres to avoid clutter"""
+
+    @classmethod
+    def build_genre_extraction_prompt(
+        cls: type[GenrePrompts],
+        search_query: str,
+        search_results: str,
+        event_context: dict,
+    ) -> str:
+        """Build prompt to extract genres from search results when query is genre-related."""
+        return f"""Based on the search results below, identify the most relevant music genres.
+
+SEARCH QUERY: "{search_query}"
+EVENT: {event_context.get('title', 'Unknown')}
+VENUE: {event_context.get('venue', 'Unknown')}
+
+SEARCH RESULTS:
+{search_results}
+
+Extract 1-4 relevant music genres from the search results. Return ONLY a JSON array of genre names.
+Examples: ["Indie Rock"], ["Electronic", "House"], ["Jazz", "Fusion"]
+
+If the search results don't contain clear genre information, return an empty array: []"""

@@ -561,6 +561,131 @@ class EventImporter:
             )
             return None
 
+    async def rebuild_genres(
+        self: EventImporter,
+        event_id: int,
+        supplementary_context: str | None = None,
+    ) -> tuple[EventData | None, list[dict]]:
+        """Rebuild genres for a cached event (preview only - does not save).
+
+        Args:
+            event_id: The ID of the event to rebuild genres for
+            supplementary_context: Optional context to help identify genres
+
+        Returns:
+            Tuple of (EventData, service_failures)
+        """
+        logger.info(f"Rebuilding genres for event ID: {event_id} (preview only)")
+        cached_data = get_cached_event(event_id=event_id)
+        if not cached_data:
+            logger.error(f"No cached event found for ID: {event_id}")
+            return None, []
+
+        # Create failure collector
+        failure_collector = ServiceFailureCollector()
+
+        try:
+            # Remove the _db_id before creating EventData
+            cached_data.pop("_db_id", None)
+            event_data = EventData(**cached_data)
+
+            # Copy the event data so we don't modify the original
+            updated_event_data = event_data.model_copy(deep=True)
+
+            # Use the genre service to enhance genres
+            genre_service = self._services["genre"]
+            # Force re-search by clearing existing genres
+            updated_event_data.genres = []
+
+            try:
+                updated_event_data = await genre_service.enhance_genres(
+                    updated_event_data, supplementary_context
+                )
+            except ValueError as e:
+                # Specific error for missing lineup
+                logger.warning(f"Genre enhancement failed: {e}")
+                failure_collector.add_failure("GenreService", e)
+            except APIError as e:
+                logger.warning(f"Genre enhancement API error: {e}")
+                failure_collector.add_failure(e.service, e)
+            except Exception as e:
+                logger.warning(f"Genre enhancement failed: {e}")
+                failure_collector.add_failure("GenreService", e)
+
+            logger.info(
+                f"Successfully rebuilt genres for event ID: {event_id} (preview only)"
+            )
+            return updated_event_data, failure_collector.failures
+
+        except (ValidationError, Exception) as e:
+            logger.exception(f"Failed to rebuild genres for event {event_id}: {e}")
+            failure_collector.add_failure("GenreRebuild", e)
+            return None, failure_collector.failures
+
+    async def rebuild_image(
+        self: EventImporter,
+        event_id: int,
+        supplementary_context: str | None = None,
+    ) -> tuple[EventData | None, list[dict]]:
+        """Rebuild image for a cached event (preview only - does not save).
+
+        Args:
+            event_id: The ID of the event to rebuild image for
+            supplementary_context: Optional context to help find better images
+
+        Returns:
+            Tuple of (EventData, service_failures)
+        """
+        logger.info(f"Rebuilding image for event ID: {event_id} (preview only)")
+        cached_data = get_cached_event(event_id=event_id)
+        if not cached_data:
+            logger.error(f"No cached event found for ID: {event_id}")
+            return None, []
+
+        # Create failure collector
+        failure_collector = ServiceFailureCollector()
+
+        try:
+            # Remove the _db_id before creating EventData
+            cached_data.pop("_db_id", None)
+            event_data = EventData(**cached_data)
+
+            # Copy the event data so we don't modify the original
+            updated_event_data = event_data.model_copy(deep=True)
+
+            # Use the image service to enhance image
+            image_service = self._services["image"]
+
+            # Create a simple progress callback
+
+            async def progress_callback(message: str, progress: float) -> None:
+                logger.info(f"Image search progress: {message} ({progress:.0%})")
+
+            try:
+                updated_event_data = await image_service.enhance_event_image(
+                    updated_event_data,
+                    progress_callback,
+                    failure_collector,
+                    force_search=True,
+                    supplementary_context=supplementary_context,
+                )
+            except Exception as e:
+                logger.warning(f"Image enhancement failed: {e}")
+                if isinstance(e, APIError):
+                    failure_collector.add_failure(e.service, e)
+                else:
+                    failure_collector.add_failure("ImageService", e)
+
+            logger.info(
+                f"Successfully rebuilt image for event ID: {event_id} (preview only)"
+            )
+            return updated_event_data, failure_collector.failures
+
+        except (ValidationError, Exception) as e:
+            logger.exception(f"Failed to rebuild image for event {event_id}: {e}")
+            failure_collector.add_failure("ImageRebuild", e)
+            return None, failure_collector.failures
+
     async def update_event(self, event_id: int, updates: dict) -> EventData | None:
         """Update specific fields of a cached event.
 

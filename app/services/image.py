@@ -176,6 +176,8 @@ class ImageService:
         event_data: EventData,
         progress_callback: ProgressCallback | None = None,
         failure_collector: Any | None = None,
+        force_search: bool = False,
+        supplementary_context: str | None = None,
     ) -> EventData:
         """Enhance the image for an event by searching for better alternatives."""
         if not self.google_enabled:
@@ -194,14 +196,14 @@ class ImageService:
             event_data, search_result, send_progress, failure_collector
         )
         new_candidates = await self._search_for_new_candidates(
-            event_data, send_progress, failure_collector
+            event_data, send_progress, failure_collector, supplementary_context
         )
         search_result.candidates = await self._rate_found_candidates(
             new_candidates, send_progress, failure_collector
         )
 
         await send_progress("Selecting best image", 0.95)
-        self._select_and_update_best_image(event_data, search_result, original_url)
+        self._select_and_update_best_image(event_data, search_result, original_url, force_search)
 
         event_data.image_search = search_result
         return event_data
@@ -242,9 +244,24 @@ class ImageService:
         event_data: EventData,
         send_progress: ProgressCallback,
         failure_collector: Any | None = None,
+        supplementary_context: str | None = None,
     ) -> list[ImageCandidate]:
         """Search for new image candidates using generated queries."""
         queries = self._build_search_queries(event_data)
+
+        # If supplementary context provided, add an additional targeted query
+        if supplementary_context:
+            # Add a more focused query using the context (no quotes for flexibility)
+            queries.insert(0, supplementary_context)
+            logger.info(f"Added supplementary context query: '{supplementary_context}'")
+
+        if not queries:
+            error_msg = "No search queries generated for image search"
+            if failure_collector:
+                failure_collector.add_failure("ImageService", ValueError(error_msg))
+            logger.warning(error_msg)
+            return []
+
         await send_progress(f"Searching with {len(queries)} queries", 0.15)
         search_candidates: list[ImageCandidate] = []
         for i, query in enumerate(queries):
@@ -254,12 +271,28 @@ class ImageService:
             )
             try:
                 results = await self._search_google_images(query, 5)
+
+                # Log what we got back
+                logger.info(f"Google Image Search returned {len(results)} results for query: '{query}'")
+
+                # If no results, this is worth reporting
+                if not results:
+                    error_msg = f"Google Image Search returned no results for query: '{query}'"
+                    if failure_collector:
+                        failure_collector.add_failure("GoogleImageSearch", ValueError(error_msg))
+                    continue
+
+                found_count = 0
                 for result in results:
                     url = result.get("link")
                     if url and not any(c.url == url for c in search_candidates):
                         search_candidates.append(
                             ImageCandidate(url=url, source=f"query_{i}")
                         )
+                        found_count += 1
+
+                logger.info(f"Added {found_count} new candidates from query: '{query}'")
+
             except Exception as e:
                 logger.warning(f"Search query '{query}' failed: {e}")
                 if failure_collector and hasattr(failure_collector, "add_failure"):
@@ -267,7 +300,7 @@ class ImageService:
                     if isinstance(e, APIError):
                         failure_collector.add_failure(e.service, e)
                     else:
-                        failure_collector.add_failure("ImageService", e)
+                        failure_collector.add_failure("GoogleImageSearch", e)
         return search_candidates
 
     async def _rate_found_candidates(
@@ -304,9 +337,29 @@ class ImageService:
         event_data: EventData,
         search_result: ImageSearchResult,
         original_url: str | None,
+        force_search: bool = False,
     ) -> None:
         """Select the best image from candidates and update event_data."""
         best_candidate = search_result.get_best_candidate()
+
+        # If force_search is True, prefer search results over original
+        # Only use original if no search candidates found
+        if force_search and search_result.candidates:
+            # Find best among search candidates only (exclude original)
+            search_only_candidates = [c for c in search_result.candidates if c.url != original_url]
+            if search_only_candidates:
+                best_search_candidate = max(search_only_candidates, key=lambda c: c.score)
+                logger.info(
+                    f"Force search: Selected new image (score: {best_search_candidate.score}): {best_search_candidate.url}"
+                )
+                event_data.images = {
+                    "full": best_search_candidate.url,
+                    "thumbnail": best_search_candidate.url,
+                }
+                search_result.selected = best_search_candidate
+                return
+
+        # Normal flow: select best overall candidate
         if best_candidate and best_candidate.url != original_url:
             logger.info(
                 f"Selected new image (score: {best_candidate.score}): {best_candidate.url}"
@@ -347,17 +400,31 @@ class ImageService:
 
     def _build_search_queries(self: "ImageService", event_data: EventData) -> list[str]:
         """Build a list of search queries for Google Image Search."""
-        artist_name = self._get_primary_artist_for_search(event_data)
-        if not artist_name:
-            # Fallback to just the title if no artist can be determined
-            return [f'"{event_data.title}" event flyer']
+        # Check if we have actual artists in the lineup
+        if event_data.lineup and len(event_data.lineup) > 0:
+            # Use the first artist for focused searches
+            artist = event_data.lineup[0]
+            queries = [
+                f'"{artist}" press photo',
+                f'"{artist}" musician official photo',
+                f'"{artist}" band photo',
+            ]
+            logger.info(f"Building artist queries for '{artist}': {queries}")
+            return queries
 
-        # Use focused queries for high-quality press and official photos
-        return [
-            f'"{artist_name}" press photo',
-            f'"{artist_name}" musician official photo',
-            f'"{artist_name}" band photo',
+        # No lineup - use event-focused queries
+        # Extract just the event name without venue
+        event_name = self._get_primary_artist_for_search(event_data)
+        logger.info(f"No lineup found. Event name extracted: '{event_name}'")
+
+        # For events without lineup, search for event materials
+        queries = [
+            f'{event_name} event poster',
+            f'{event_name} flyer',
+            f'{event_data.venue} event {event_name}' if event_data.venue else f'{event_name} event',
         ]
+        logger.info(f"Building event queries: {queries}")
+        return queries
 
     @handle_errors_async(reraise=True)
     async def _search_google_images(
@@ -382,11 +449,44 @@ class ImageService:
             "rights": "cc_publicdomain,cc_attribute,cc_sharealike,cc_noncommercial,cc_nonderived",
         }
 
-        response = await self.http.get_json(
-            "https://www.googleapis.com/customsearch/v1",
-            service="GoogleImageSearch",
-            params=params,
-        )
+        try:
+            response = await self.http.get_json(
+                "https://www.googleapis.com/customsearch/v1",
+                service="GoogleImageSearch",
+                params=params,
+            )
 
-        results = response.get("items", [])
-        return results if results else []
+            # Log the full response structure to understand what's happening
+            if "error" in response:
+                error_info = response["error"]
+                logger.error(f"Google API error: {error_info}")
+                raise APIError(
+                    service="GoogleImageSearch",
+                    message=error_info.get("message", "Unknown Google API error"),
+                    status_code=error_info.get("code", 0)
+                )
+
+            # Check if we have search information
+            search_info = response.get("searchInformation", {})
+            total_results = search_info.get("totalResults", "0")
+            logger.info(f"Google search info - Total results: {total_results}, Query: '{query}'")
+
+            # Get the actual results
+            results = response.get("items", [])
+
+            # If no items but no error, log why
+            if not results and int(total_results) > 0:
+                logger.warning(f"Google returned totalResults={total_results} but no items for query: '{query}'")
+
+            return results if results else []
+
+        except APIError:
+            # Re-raise API errors
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error in Google search: {e}")
+            raise APIError(
+                service="GoogleImageSearch",
+                message=f"Search failed: {str(e)}",
+                status_code=0
+            ) from e

@@ -8,12 +8,16 @@ from app.core.router import Router
 from app.interfaces.api.models.requests import (
     ImportEventRequest,
     RebuildDescriptionRequest,
+    RebuildGenresRequest,
+    RebuildImageRequest,
     UpdateEventRequest,
 )
 from app.interfaces.api.models.responses import (
     ImportEventResponse,
     ProgressResponse,
     RebuildDescriptionResponse,
+    RebuildGenresResponse,
+    RebuildImageResponse,
     UpdateEventResponse,
 )
 from app.shared.service_errors import ServiceErrorFormatter
@@ -162,4 +166,147 @@ async def update_event(
         raise
     except Exception as e:
         logger.exception(f"Failed to update event {event_id}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/{event_id}/rebuild-genres", response_model=RebuildGenresResponse)
+async def rebuild_event_genres(
+    event_id: int,
+    request: RebuildGenresRequest,
+) -> RebuildGenresResponse:
+    """Rebuild genres for an event (preview only)."""
+    try:
+        router_instance = get_router()
+        updated_event, service_failures = await router_instance.importer.rebuild_genres(
+            event_id,
+            supplementary_context=request.supplementary_context,
+        )
+
+        # Format service failures if any
+        result = {}
+        if service_failures:
+            # Convert ServiceFailure objects to dicts for the formatter
+            failure_dicts = [f.model_dump() for f in service_failures]
+            result["service_failures"] = failure_dicts
+            failure_info = ServiceErrorFormatter.format_for_api(failure_dicts)
+            result.update(failure_info)
+        else:
+            result["service_failures"] = []
+
+        if updated_event:
+            return RebuildGenresResponse(
+                success=True,
+                event_id=event_id,
+                message="Genres regenerated (preview only)",
+                data=updated_event,
+                genres_found=updated_event.genres,
+                **result,  # Include service failure info
+            )
+
+        # If no event data returned, include error info
+        error_msg = f"Event not found or failed to rebuild genres for ID: {event_id}"
+        if service_failures:
+            error_msg += f". {result.get('service_failure_summary', '')}"
+
+        raise HTTPException(
+            status_code=404,
+            detail=error_msg,
+        )
+
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        logger.exception(f"Failed to rebuild genres for event {event_id}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/{event_id}/rebuild-image", response_model=RebuildImageResponse)
+async def rebuild_event_image(
+    event_id: int,
+    request: RebuildImageRequest,
+) -> RebuildImageResponse:
+    """Rebuild image for an event (preview only)."""
+    try:
+        router_instance = get_router()
+        updated_event, service_failures = await router_instance.importer.rebuild_image(
+            event_id,
+            supplementary_context=request.supplementary_context,
+        )
+
+        # Format service failures if any
+        result = {}
+        if service_failures:
+            # Convert ServiceFailure objects to dicts for the formatter
+            failure_dicts = [f.model_dump() for f in service_failures]
+            result["service_failures"] = failure_dicts
+            failure_info = ServiceErrorFormatter.format_for_api(failure_dicts)
+            result.update(failure_info)
+        else:
+            result["service_failures"] = []
+
+        if updated_event:
+            # Extract image info from the response
+            candidates = []
+            best_image = None
+
+            if updated_event.image_search:
+                # Get all candidates with their scores
+                for candidate in updated_event.image_search.candidates:
+                    candidates.append({
+                        "url": candidate.url,
+                        "score": candidate.score,
+                        "source": candidate.source,
+                        "dimensions": candidate.dimensions,
+                        "reason": candidate.reason,
+                    })
+
+                # Get the best image
+                if updated_event.image_search.selected:
+                    best_image = {
+                        "url": updated_event.image_search.selected.url,
+                        "score": updated_event.image_search.selected.score,
+                        "source": updated_event.image_search.selected.source,
+                        "dimensions": updated_event.image_search.selected.dimensions,
+                        "reason": updated_event.image_search.selected.reason,
+                    }
+
+                # Include original if it was rated
+                if updated_event.image_search.original:
+                    original = {
+                        "url": updated_event.image_search.original.url,
+                        "score": updated_event.image_search.original.score,
+                        "source": "original",
+                        "dimensions": updated_event.image_search.original.dimensions,
+                        "reason": updated_event.image_search.original.reason,
+                    }
+                    # Add to candidates if not already there
+                    if not any(c["url"] == original["url"] for c in candidates):
+                        candidates.append(original)
+
+            return RebuildImageResponse(
+                success=True,
+                event_id=event_id,
+                message="Image search completed (preview only)",
+                data=updated_event,
+                image_candidates=candidates,
+                best_image=best_image,
+                **result,  # Include service failure info
+            )
+
+        # If no event data returned, include error info
+        error_msg = f"Event not found or failed to rebuild image for ID: {event_id}"
+        if service_failures:
+            error_msg += f". {result.get('service_failure_summary', '')}"
+
+        raise HTTPException(
+            status_code=404,
+            detail=error_msg,
+        )
+
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        logger.exception(f"Failed to rebuild image for event {event_id}")
         raise HTTPException(status_code=500, detail=str(e)) from e
