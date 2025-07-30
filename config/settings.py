@@ -81,7 +81,6 @@ class Settings(BaseModel):
         default=SettingInfo(
             display_name="Update URL",
             description="URL to download Event Importer updates",
-            default="https://github.com/restlessnites/event-importer/releases/latest/download/event-importer-macos",
         )
     )
 
