@@ -10,10 +10,10 @@ To use the API, you first need to run the server. Make sure you have completed t
 
 ```bash
 # Start the server on localhost, port 8000
-uv run event-importer api --port 8000
+event-importer api
 
-# For development, run with auto-reload
-uv run event-importer api --port 8000 --reload
+# Note: The current CLI doesn't support custom port/host options.
+# The server will run on 127.0.0.1:8000 by default.
 ```
 
 The API will be available at `http://localhost:8000`. All endpoints are prefixed with `/api/v1`.
@@ -53,6 +53,7 @@ This is the primary endpoint for importing an event. The server processes the re
     - `image`: Treat the URL as a direct link to an image.
   - `include_raw_data` (optional): If `true`, the response will include the raw, unprocessed data from the source. Defaults to `false`.
   - `timeout` (optional): Maximum time in seconds to wait for the import to complete. Defaults to 60.
+  - `ignore_cache` (optional): If `true`, bypasses the cache and forces a fresh import. Defaults to `false`.
 
 - **Success Response (200 OK)**:
 
@@ -61,9 +62,18 @@ This is the primary endpoint for importing an event. The server processes the re
     "success": true,
     "data": { /* EventData object, see below */ },
     "method_used": "web",
-    "import_time": 5.43
+    "import_time": 5.43,
+    "service_failures": [
+      {
+        "service": "GoogleImageSearch",
+        "error": "Invalid CSE ID",
+        "detail": "Check GOOGLE_CSE_ID configuration"
+      }
+    ]
   }
   ```
+
+  **Note**: The `service_failures` array lists any non-fatal errors from optional services. The import is still considered successful if the core event data was extracted.
 
 - **Error Response (200 OK with `success: false`)**:
 
@@ -149,6 +159,118 @@ These endpoints provide analytics about the events stored in the local database.
   curl http://localhost:8000/api/v1/health
   ```
 
+### Event Updates and Description Rebuilding
+
+#### Rebuild Event Description
+
+- **Endpoint**: `POST /api/v1/events/{event_id}/rebuild-description`
+- **Description**: Regenerate the event description using AI. Does not save automatically - returns preview only.
+- **Request Body**:
+
+  ```json
+  {
+    "description_type": "string (required: 'short' or 'long')",
+    "supplementary_context": "string (optional)"
+  }
+  ```
+
+  **Parameters**:
+  - `description_type`: Which description to regenerate - either "short" (100 chars) or "long" (detailed).
+  - `supplementary_context`: Additional context to help the AI generate a better description.
+
+- **Success Response (200 OK)**:
+
+  ```json
+  {
+    "success": true,
+    "event": { /* EventData object with regenerated description */ }
+  }
+  ```
+
+- **Example**:
+
+  ```bash
+  curl -X POST http://localhost:8000/api/v1/events/123/rebuild-description \
+    -H "Content-Type: application/json" \
+    -d '{
+      "description_type": "short",
+      "supplementary_context": "Underground techno event"
+    }'
+  ```
+
+#### Update Event Fields
+
+- **Endpoint**: `PATCH /api/v1/events/{event_id}`
+- **Description**: Update specific fields of a cached event.
+- **Request Body**:
+
+  ```json
+  {
+    "title": "string (optional)",
+    "venue": "string (optional)",
+    "date": "string (optional, YYYY-MM-DD)",
+    "end_date": "string (optional, YYYY-MM-DD)",
+    "time": {
+      "start": "string (HH:MM)",
+      "end": "string (HH:MM)",
+      "timezone": "string (IANA timezone)"
+    },
+    "lineup": ["array of strings (optional)"],
+    "genres": ["array of strings (optional)"],
+    "short_description": "string (optional, max 200 chars)",
+    "long_description": "string (optional)",
+    "cost": "string (optional)",
+    "minimum_age": "string (optional)",
+    "ticket_url": "string (optional)",
+    "images": {
+      "full": "string (optional)",
+      "thumbnail": "string (optional)"
+    },
+    "location": {
+      "city": "string (optional)",
+      "state": "string (optional)",
+      "country": "string (optional)",
+      "coordinates": {
+        "lat": "number (optional)",
+        "lng": "number (optional)"
+      }
+    }
+  }
+  ```
+
+  **Important Notes**:
+  - Only include fields you want to update
+  - `date` is the start date, `end_date` is for multi-day events
+  - Timezone must be a valid IANA timezone identifier (e.g., 'America/Los_Angeles', 'Europe/London')
+  - Updates are saved immediately to the database
+
+- **Success Response (200 OK)**:
+
+  ```json
+  {
+    "success": true,
+    "event": { /* Updated EventData object */ }
+  }
+  ```
+
+- **Example**:
+
+  ```bash
+  # Update multiple fields
+  curl -X PATCH http://localhost:8000/api/v1/events/123 \
+    -H "Content-Type: application/json" \
+    -d '{
+      "title": "Updated Event Title",
+      "venue": "New Venue",
+      "time": {
+        "start": "21:00",
+        "end": "03:00",
+        "timezone": "America/New_York"
+      },
+      "genres": ["House", "Techno"]
+    }'
+  ```
+
 ## Integration API Endpoints
 
 Integrations can automatically add their own API endpoints. These are typically prefixed with `/integrations/`. The following endpoints are available for the `ticketfairy` integration.
@@ -224,10 +346,16 @@ This is the core object representing structured event data.
   "title": "Artist Name at Venue",
   "venue": "The Venue Name",
   "date": "2024-12-31",
-  "time": {"start": "22:00", "end": "04:00"},
+  "end_date": "2025-01-01",
+  "time": {
+    "start": "22:00",
+    "end": "04:00",
+    "timezone": "America/Los_Angeles"
+  },
   "lineup": ["Main Artist", "Support Act"],
   "genres": ["Electronic", "House"],
-  "description": "AI-generated event description...",
+  "short_description": "Electronic music night featuring...",
+  "long_description": "Join us for an unforgettable night of electronic music...",
   "images": {
     "full": "https://high-quality-image.jpg",
     "thumbnail": "https://thumbnail.jpg"
@@ -235,6 +363,7 @@ This is the core object representing structured event data.
   "location": {
     "city": "Los Angeles",
     "state": "CA",
+    "country": "USA",
     "coordinates": {"lat": 34.0522, "lng": -118.2437}
   },
   "cost": "$20",

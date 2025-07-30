@@ -47,6 +47,30 @@ event-importer events list --source "ra.co"
 event-importer events details 123
 ```
 
+### Settings Management
+
+```bash
+# List all settings and their current values
+event-importer settings list
+
+# Get a specific setting value
+event-importer settings get ANTHROPIC_API_KEY
+
+# Set a setting value
+event-importer settings set ANTHROPIC_API_KEY sk-ant-...
+event-importer settings set update_url https://example.com/update.zip
+
+# Available settings:
+# - ANTHROPIC_API_KEY: Claude API key (primary LLM)
+# - OPENAI_API_KEY: ChatGPT API key (fallback LLM)
+# - ZYTE_API_KEY: Web scraping API key
+# - TICKETMASTER_API_KEY: Ticketmaster API key
+# - GOOGLE_API_KEY: Google API key for image/genre enhancement
+# - GOOGLE_CSE_ID: Google Custom Search Engine ID
+# - TICKETFAIRY_API_KEY: TicketFairy API key
+# - update_url: URL to download updates from
+```
+
 ### Integrations Framework
 
 The integration framework allows interactions with external services.
@@ -86,6 +110,8 @@ event-importer api
 
 - **POST** `/api/v1/events/import` - Import an event
 - **GET** `/api/v1/events/import/{id}/progress` - Check import progress
+- **POST** `/api/v1/events/{event_id}/rebuild-description` - Rebuild event description (long or short)
+- **PATCH** `/api/v1/events/{event_id}` - Update event fields
 
 #### Statistics
 
@@ -113,6 +139,27 @@ event-importer api
 curl -X POST http://localhost:8000/api/v1/events/import \
   -H "Content-Type: application/json" \
   -d '{"url": "https://ra.co/events/1234567"}'
+
+# Rebuild event description
+curl -X POST http://localhost:8000/api/v1/events/123/rebuild-description \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description_type": "short",
+    "supplementary_context": "Electronic music festival"
+  }'
+
+# Update event fields
+curl -X PATCH http://localhost:8000/api/v1/events/123 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Updated Event Title",
+    "venue": "New Venue Name",
+    "time": {
+      "start": "21:00",
+      "end": "03:00",
+      "timezone": "America/New_York"
+    }
+  }'
 
 # Get statistics
 curl http://localhost:8000/api/v1/statistics/combined
@@ -182,3 +229,58 @@ This displays:
 # Get combined statistics
 curl http://localhost:8000/api/v1/statistics/combined
 ```
+
+---
+
+## Error Visibility and Service Failures
+
+The Event Importer now provides better visibility into non-fatal service failures that occur during import. When optional services fail (like image enhancement or genre detection), the import can still succeed with the core event data.
+
+### Service Failure Reporting
+
+When you import an event, the response includes a `service_failures` array that lists any non-fatal errors:
+
+```json
+{
+  "success": true,
+  "data": { /* event data */ },
+  "method_used": "web",
+  "import_time": 11.5,
+  "service_failures": [
+    {
+      "service": "GoogleImageSearch",
+      "error": "Request contains an invalid argument",
+      "detail": "Check GOOGLE_CSE_ID configuration"
+    },
+    {
+      "service": "GenreEnhancement",
+      "error": "OpenAI API key not configured"
+    }
+  ]
+}
+```
+
+### Common Service Failures
+
+- **GoogleImageSearch**: Usually indicates invalid or missing GOOGLE_API_KEY or GOOGLE_CSE_ID
+- **GenreEnhancement**: Typically means OpenAI API key is not configured
+- **ZyteService**: May timeout or fail due to rate limits
+- **ImageEnhancement**: Can fail if image URLs are inaccessible or too large
+
+### Viewing Service Failures
+
+#### CLI
+```bash
+# Service failures are displayed as warnings after import
+event-importer events import https://example.com/event
+# Output includes:
+# ⚠ Some optional services were not available:
+# • GoogleImageSearch: Invalid CSE ID
+# • GenreEnhancement: OpenAI API key not configured
+```
+
+#### API
+The HTTP API includes service failures in the response JSON (see example above).
+
+#### MCP
+When using with Claude Desktop, service failures are included in the tool response for visibility.

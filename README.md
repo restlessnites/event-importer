@@ -1,7 +1,7 @@
 # Event Importer
 
 [![Tests](https://github.com/restlessnites/event-importer/actions/workflows/tests.yml/badge.svg)](https://github.com/restlessnites/event-importer/actions/workflows/tests.yml)
-[![Coverage](https://img.shields.io/badge/coverage-52.6%25-green)](https://github.com/restlessnites/event-importer)
+[![Coverage](https://img.shields.io/badge/coverage-54.7%25-green)](https://github.com/restlessnites/event-importer)
 
 A tool that extracts structured event data from websites, images, and APIs. Use it as a **command-line tool**, **HTTP API server**, or **MCP server** for AI assistants.
 
@@ -177,13 +177,20 @@ After installation:
 
 ```bash
 # Import an event from a URL
-event-importer import-event https://ra.co/events/1234567
+event-importer events import https://ra.co/events/1234567
 
 # View imported events
-event-importer list-events
+event-importer events list
+
+# View event details
+event-importer events details 1
 
 # Get statistics
 event-importer stats
+
+# Configure settings
+event-importer settings list
+event-importer settings set ANTHROPIC_API_KEY your-key-here
 
 # Start the API server
 event-importer api

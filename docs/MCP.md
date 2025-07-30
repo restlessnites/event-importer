@@ -148,6 +148,71 @@ Here are the tools you can now use in your conversations with the AI.
 
 ---
 
+### Event Management Tools
+
+#### `rebuild_event_description`
+
+**What it does**: Regenerates the event description using AI. You can choose to regenerate either the short summary or the long detailed description.
+
+**When to use it**: When an event has a poor description or you want to provide additional context to improve it.
+
+**Parameters**:
+
+- `event_id` (required): The ID of the event to rebuild the description for.
+- `description_type` (required): Either "short" or "long" to specify which description to regenerate.
+- `supplementary_context` (optional): Additional context to help generate a better description.
+
+**Example Conversation**:
+> **You**: The description for event 42 is too generic. Can you regenerate it with more focus on the underground techno aspect?
+>
+> **Claude**: *(uses `rebuild_event_description` with `event_id: 42, description_type: "long", supplementary_context: "underground techno event"`)*
+>
+> **Claude**: I've regenerated the long description for event 42. Here's the new version:
+>
+> "Step into the depths of underground techno culture at this immersive night..."
+>
+> Would you like me to save this new description?
+
+---
+
+#### `update_event`
+
+**What it does**: Updates any field of an event in the database. You can change the title, venue, date, time, lineup, genres, and more.
+
+**When to use it**: When you need to correct or update information for an event that's already been imported.
+
+**Parameters**:
+
+- `event_id` (required): The ID of the event to update.
+- `updates` (required): An object containing the fields to update. Can include:
+  - `title`: Event title
+  - `venue`: Venue name
+  - `date`: Start date (YYYY-MM-DD)
+  - `end_date`: End date for multi-day events (YYYY-MM-DD)
+  - `time`: Time object with `start`, `end`, and `timezone`
+  - `lineup`: Array of artist names
+  - `genres`: Array of genre names
+  - `short_description`: Brief description (max 200 chars)
+  - `long_description`: Detailed description
+  - `cost`: Ticket price
+  - `minimum_age`: Age restriction
+  - `ticket_url`: Link to tickets
+  - `images`: Object with `full` and `thumbnail` URLs
+  - `location`: Object with `city`, `state`, `country`, and `coordinates`
+
+**Example Conversation**:
+> **You**: Update event 23 - the venue changed to "The New Warehouse" and it's now starting at 10pm instead of 9pm
+>
+> **Claude**: *(uses `update_event` with `event_id: 23, updates: {"venue": "The New Warehouse", "time": {"start": "22:00", "end": "04:00", "timezone": "America/Los_Angeles"}}`)*
+>
+> **Claude**: I've updated event 23:
+> - Venue changed to "The New Warehouse"
+> - Start time changed to 10:00 PM
+>
+> The changes have been saved to the database.
+
+---
+
 ### Integration Tools (TicketFairy)
 
 These tools are for submitting imported events to the TicketFairy service. This is a more advanced use case.
