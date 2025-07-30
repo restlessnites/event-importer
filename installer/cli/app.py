@@ -5,6 +5,7 @@ from pathlib import Path
 
 import clicycle
 
+from config.paths import get_install_dir
 from config.settings import get_setting_info
 from installer.cli.display.directories import display_directory_setup
 from installer.cli.display.download import display_download_progress
@@ -56,11 +57,69 @@ def _setup_directories():
         return None
 
 
+def _check_existing_installation():
+    """Check for existing installation and handle accordingly."""
+    install_dir = get_install_dir()
+
+    if not install_dir.exists():
+        # No existing installation, check for migration
+        _handle_migration()
+        return
+
+    # Existing installation detected
+    clicycle.section("Existing Installation Detected")
+    clicycle.info("Event Importer is already installed:")
+    clicycle.code(f"{install_dir}", language="text", line_numbers=False)
+
+    with clicycle.block():
+        try:
+            choices = [
+                "Reinstall (replace current installation)",
+                "Update (preserve settings and data)",
+                "Migrate (from another local installation)",
+                "Quit",
+            ]
+
+            selected_choice = clicycle.select_from_list("option", choices)
+
+            # Map choice text to action
+            action_map = {
+                "Reinstall (replace current installation)": "reinstall",
+                "Update (preserve settings and data)": "update",
+                "Migrate (from another local installation)": "migrate",
+                "Quit": "quit"
+            }
+            choice = action_map[selected_choice]
+
+            if choice == "quit":
+                clicycle.info("Installation cancelled")
+                sys.exit(0)
+            elif choice == "migrate":
+                _handle_migration()
+            elif choice == "reinstall":
+                clicycle.warning("This will replace your current installation")
+                if clicycle.confirm("Are you sure you want to continue?"):
+                    clicycle.info("Proceeding with reinstallation")
+                else:
+                    clicycle.info("Installation cancelled")
+                    sys.exit(0)
+            elif choice == "update":
+                clicycle.info(
+                    "Proceeding with update (settings and data will be preserved)"
+                )
+
+        except (KeyboardInterrupt, EOFError):
+            clicycle.info("Installation cancelled")
+            sys.exit(0)
+
+
 def _handle_migration():
     """Handle migration from a previous installation."""
     try:
         if clicycle.confirm("Do you have a previous installation to migrate from?"):
-            migration_path = clicycle.prompt("Enter the path to your previous installation")
+            migration_path = clicycle.prompt(
+                "Enter the path to your previous installation"
+            )
             if migration_path:
                 success, message = migrate_from_path(migration_path)
                 if success:
@@ -129,7 +188,7 @@ async def _attempt_download(
             app_path = await download_app(settings_manager, progress_callback)
 
         if app_path:
-            clicycle.success("Download complete!")
+            clicycle.success("Download complete")
             return True, app_path
         clicycle.error("Download failed")
         return False, None
@@ -166,7 +225,7 @@ async def _download_application(
                 set_download_url_if_missing(settings_manager)
             return app_path
 
-    clicycle.info("Please check your internet connection and try again.")
+    clicycle.info("Please check your internet connection and try again")
     return None
 
 
@@ -177,15 +236,17 @@ def _configure_claude_desktop():
     if claude_config.is_claude_desktop_installed():
         clicycle.info("Claude Desktop detected!")
         try:
-            if clicycle.confirm("Would you like to configure Claude Desktop integration?"):
+            if clicycle.confirm(
+                "Would you like to configure Claude Desktop integration?"
+            ):
                 if claude_config.configure_for_packaged():
-                    clicycle.success("Claude Desktop configured successfully!")
+                    clicycle.success("Claude Desktop configured successfully")
                 else:
                     clicycle.warning("Failed to configure Claude Desktop")
         except (KeyboardInterrupt, EOFError):
             clicycle.info("Skipping Claude Desktop configuration")
     else:
-        clicycle.info("Claude Desktop not found. You can configure it later if needed.")
+        clicycle.info("Claude Desktop not found")
 
 
 def _validate_installation():
@@ -194,7 +255,7 @@ def _validate_installation():
     validator = InstallationValidator()
     is_valid, messages = validator.validate()
     if is_valid:
-        clicycle.success("Installation validated successfully!")
+        clicycle.success("Installation validated successfully")
     else:
         clicycle.warning("Installation completed with warnings:")
         for msg in messages:
@@ -205,11 +266,12 @@ async def run_installer():
     """Run the installation process."""
     _initialize_cli()
 
+    # Check for existing installation first
+    _check_existing_installation()
+
     install_dir = _setup_directories()
     if not install_dir:
         sys.exit(1)
-
-    _handle_migration()
 
     settings_manager = SettingsService()
     _configure_api_keys(settings_manager)
@@ -222,5 +284,5 @@ async def run_installer():
     display_shell_configuration(app_path)
     _validate_installation()
 
-    clicycle.success("Setup complete!")
+    clicycle.success("Setup complete")
     clicycle.info(f"Event Importer installed at: {app_path}")

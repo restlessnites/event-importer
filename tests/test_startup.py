@@ -13,7 +13,7 @@ def test_startup_checks_calls_ensure_database_ready():
     """Test that startup_checks calls ensure_database_ready."""
     with patch("app.startup.ensure_database_ready") as mock_ensure_db:
         startup_checks()
-        
+
         # Check that ensure_database_ready was called
         mock_ensure_db.assert_called_once()
 

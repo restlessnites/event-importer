@@ -13,7 +13,7 @@ A tool that extracts structured event data from websites, images, and APIs. Use 
 
 Download and run the installer for a guided setup experience.
 
-1. **Download**: Get the latest `event-importer-installer.zip` from the [releases page](https://github.com/restlessnites/event-importer/releases)
+1. **Download**: Get the latest `event-importer-installer.zip` from [Dropbox](https://www.dropbox.com/scl/fi/aqldz7tbym0tla2js7bdp/event-importer-installer.zip?rlkey=ocmjxmtiauk8enswm6j1vz2u2&st=pftsjs2h&dl=1)
 
 2. **Extract and Run**:
    - Double-click the downloaded zip file to extract it

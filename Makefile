@@ -58,10 +58,16 @@ clean-all: clean ## Deep clean the project (includes venv)
 package-app: clean ## Build standalone Event Importer executable
 	@echo "📦 Packaging Event Importer application..."
 	@uv run pyinstaller --noconfirm event-importer.spec
+	@echo "📦 Creating zip with preserved symlinks..."
+	@cd dist && zip -ry ./event-importer.zip event-importer
+	@echo "Created event-importer.zip"
 
 package-installer: clean ## Build standalone installer executable
 	@echo "📦 Packaging Event Importer installer..."
 	@uv run pyinstaller --noconfirm event-importer-installer.spec
+	@echo "📦 Creating installer zip..."
+	@cd dist && zip -r ./event-importer-installer.zip event-importer-installer
+	@echo "Created event-importer-installer.zip"
 
 package: package-app package-installer ## Build both app and installer executables
 

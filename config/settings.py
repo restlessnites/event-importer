@@ -85,12 +85,6 @@ class Settings(BaseModel):
         )
     )
 
-    version: SettingInfo = Field(
-        default=SettingInfo(
-            display_name="Version", description="Application version", default="1.0.0"
-        )
-    )
-
     first_run_complete: SettingInfo = Field(
         default=SettingInfo(
             display_name="First Run Complete",

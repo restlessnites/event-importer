@@ -6,22 +6,20 @@ This document provides detailed instructions for using the Event Importer throug
 
 ## Command Line Interface
 
-All CLI commands are available through the `event-importer` command.
-
 ### Import Events
 
 ```bash
 # Basic usage
-event-importer import-event "https://ra.co/events/1234567"
+event-importer events import "https://ra.co/events/1234567"
 
 # With specific method and timeout
-event-importer import-event "https://example.com/event" --method web --timeout 120
+event-importer events import "https://example.com/event" --method web --timeout 120
 
 # Force fresh import (ignore cache)
-event-importer import-event "https://ra.co/events/1234567" --ignore-cache
+event-importer events import "https://ra.co/events/1234567" --ignore-cache
 
 # Enable verbose logging
-event-importer import-event "https://ra.co/events/1234567" --verbose
+event-importer events import "https://ra.co/events/1234567" --verbose
 ```
 
 ### View Imported Events & Statistics
@@ -37,16 +35,16 @@ event-importer stats --detailed
 event-importer stats --combined
 
 # List recent events (default 10)
-event-importer list-events
+event-importer events list
 
 # List specific number of events
-event-importer list-events --limit 20
+event-importer events list --limit 20
 
 # Filter events by source
-event-importer list-events --source "ra.co"
+event-importer events list --source "ra.co"
 
 # Show details of a specific event by ID
-event-importer event-details 123
+event-importer events details 123
 ```
 
 ### Integrations Framework

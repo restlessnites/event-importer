@@ -12,9 +12,7 @@ def display_shell_configuration(app_path: Path):
     """Display shell PATH configuration."""
     clicycle.section("Shell Configuration")
 
-    if clicycle.confirm(
-        "Would you like to make 'event-importer' accessible from anywhere in your terminal?"
-    ):
+    if clicycle.confirm("Make 'event-importer' accessible from anywhere?"):
         try:
             if shell_service.is_path_configured():
                 clicycle.info("PATH already configured in your shell profile.")
