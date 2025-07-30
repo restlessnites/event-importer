@@ -84,29 +84,6 @@ class WebAgent(Agent):
                 error_msg = AgentMessages.WEB_EXTRACTION_FAILED
                 raise Exception(error_msg)
 
-            # Enhance image if web extraction and Google is enabled
-            if self.image_service.google_enabled:
-                await self.send_progress(
-                    request_id,
-                    ImportStatus.RUNNING,
-                    "Starting image enhancement",
-                    0.85,
-                )
-                event_data = await self._enhance_image_with_progress(
-                    event_data,
-                    request_id,
-                )
-            else:
-                logger.info(
-                    "Google image search not configured, skipping image enhancement",
-                )
-                await self.send_progress(
-                    request_id,
-                    ImportStatus.RUNNING,
-                    "Image enhancement disabled (no Google API)",
-                    0.9,
-                )
-
             # Generate and enhance descriptions
             if event_data:
                 await self.send_progress(
@@ -316,57 +293,3 @@ class WebAgent(Agent):
             logger.exception("Error cleaning HTML")
             # If cleaning fails, return original
             return html
-
-    async def _enhance_image_with_progress(
-        self: WebAgent,
-        event_data: EventData,
-        request_id: str,
-    ) -> EventData:
-        """Enhance image by calling the ImageService, with progress reporting."""
-        logger.info("Starting image enhancement process via ImageService")
-
-        # The enhancement process runs from 85% to 98% of the total import time
-        base_progress = 0.85
-        progress_range = 0.13  # 0.98 - 0.85
-
-        async def progress_callback(message: str, service_percent: float) -> None:
-            """Maps service progress (0.0-1.0) to agent's progress range."""
-            agent_percent = base_progress + (service_percent * progress_range)
-            await self.send_progress(
-                request_id,
-                ImportStatus.RUNNING,
-                message,
-                agent_percent,
-            )
-
-        try:
-            event_data = await self.image_service.enhance_event_image(
-                event_data,
-                progress_callback=progress_callback,
-            )
-
-            # Send a final status update for this stage
-            final_message = "Image enhancement complete"
-            if event_data.image_search and event_data.image_search.selected:
-                final_message = f"Using enhanced image (score: {event_data.image_search.selected.score})"
-            elif event_data.image_search and event_data.image_search.original:
-                final_message = f"Keeping original image (score: {event_data.image_search.original.score})"
-
-            await self.send_progress(
-                request_id,
-                ImportStatus.RUNNING,
-                final_message,
-                base_progress + progress_range,
-            )
-
-        except Exception as e:
-            logger.exception("Image enhancement failed")
-            await self.send_progress(
-                request_id,
-                ImportStatus.RUNNING,
-                f"Image enhancement failed: {str(e)[:50]}",
-                base_progress + progress_range,
-            )
-            # Don't fail the entire import if image enhancement fails
-
-        return event_data

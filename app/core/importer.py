@@ -17,7 +17,7 @@ from app.agents.web_agent import WebAgent
 from app.config import Config, get_config
 from app.core.progress import ProgressTracker
 from app.error_messages import AgentMessages, CommonMessages, ServiceMessages
-from app.errors import UnsupportedURLError, handle_errors_async
+from app.errors import APIError, UnsupportedURLError, handle_errors_async
 from app.schemas import (
     EventData,
     ImportMethod,
@@ -25,6 +25,7 @@ from app.schemas import (
     ImportRequest,
     ImportResult,
     ImportStatus,
+    ServiceFailure,
 )
 from app.services.genre import GenreService
 from app.services.image import ImageService
@@ -36,6 +37,28 @@ from app.shared.http import get_http_service
 from app.shared.url_analyzer import URLAnalyzer
 
 logger = logging.getLogger(__name__)
+
+
+class ServiceFailureCollector:
+    """Collects service failures during import."""
+
+    def __init__(self):
+        self.failures: list[ServiceFailure] = []
+
+    def add_failure(self, service: str, error: Exception) -> None:
+        """Add a service failure."""
+        error_msg = str(error)
+        detail = None
+
+        # Extract more detail for specific error types
+        if hasattr(error, '__class__'):
+            detail = f"{error.__class__.__name__}: {error_msg}"
+
+        self.failures.append(ServiceFailure(
+            service=service,
+            error=error_msg[:200],  # Truncate long errors
+            detail=detail
+        ))
 
 
 class EventImporter:
@@ -163,24 +186,57 @@ class EventImporter:
         self: EventImporter,
         request_id: str,
         event_data: EventData,
+        failure_collector: ServiceFailureCollector | None = None,
     ) -> EventData:
-        """Enhance event data, e.g., by adding genres."""
-        if event_data.genres:
-            return event_data
+        """Enhance event data with genres and images."""
+        # Image enhancement
+        if self._services["image"].google_enabled:
+            await self.progress_tracker.send_progress(
+                ImportProgress(
+                    request_id=request_id,
+                    status=ImportStatus.RUNNING,
+                    message="Enhancing images",
+                    progress=0.85,
+                ),
+            )
+            try:
+                event_data = await self._services["image"].enhance_event_image(
+                    event_data, failure_collector=failure_collector
+                )
+                await self.progress_tracker.send_progress(
+                    ImportProgress(
+                        request_id=request_id,
+                        status=ImportStatus.RUNNING,
+                        message="Image enhancement complete",
+                        progress=0.90,
+                    ),
+                )
+            except Exception as e:
+                logger.warning(f"Image enhancement failed: {e}")
+                if failure_collector:
+                    failure_collector.add_failure("GoogleImageSearch", e)
 
-        await self.progress_tracker.send_progress(
-            ImportProgress(
-                request_id=request_id,
-                status=ImportStatus.RUNNING,
-                message="Searching for artist genres",
-                progress=0.95,
-            ),
-        )
-        try:
-            return await self._services["genre"].enhance_genres(event_data)
-        except (ValueError, TypeError, KeyError) as e:
-            logger.warning(f"{ServiceMessages.GENRE_ENHANCEMENT_FAILED}: {e}")
-            return event_data  # Continue without genres
+        # Genre enhancement
+        if not event_data.genres:
+            await self.progress_tracker.send_progress(
+                ImportProgress(
+                    request_id=request_id,
+                    status=ImportStatus.RUNNING,
+                    message="Searching for artist genres",
+                    progress=0.95,
+                ),
+            )
+            try:
+                event_data = await self._services["genre"].enhance_genres(event_data)
+            except Exception as e:
+                logger.warning(f"{ServiceMessages.GENRE_ENHANCEMENT_FAILED}: {e}")
+                if failure_collector:
+                    if isinstance(e, APIError):
+                        failure_collector.add_failure(e.service, e)
+                    else:
+                        failure_collector.add_failure("GenreService", e)
+
+        return event_data
 
     async def _finalize_import(
         self: EventImporter,
@@ -188,6 +244,7 @@ class EventImporter:
         event_data: EventData | None,
         agent: Agent,
         start_time: datetime,
+        failure_collector: ServiceFailureCollector | None = None,
     ) -> ImportResult:
         """Finalize the import process by enhancing, caching, and creating a result."""
         if not event_data:
@@ -210,7 +267,9 @@ class EventImporter:
                 import_time=(datetime.now(UTC) - start_time).total_seconds(),
             )
 
-        enhanced_data = await self._enhance_event_data(request.request_id, event_data)
+        enhanced_data = await self._enhance_event_data(
+            request.request_id, event_data, failure_collector
+        )
         cache_event(str(request.url), enhanced_data.model_dump(mode="json"))
 
         await self.progress_tracker.send_progress(
@@ -229,6 +288,7 @@ class EventImporter:
             method_used=agent.import_method,
             event_data=enhanced_data,
             import_time=(datetime.now(UTC) - start_time).total_seconds(),
+            service_failures=failure_collector.failures if failure_collector else [],
         )
 
     async def _handle_import_error(
@@ -293,11 +353,16 @@ class EventImporter:
             ):
                 return cached_result
 
-            # 2. Run import via agent
+            # 2. Create failure collector
+            failure_collector = ServiceFailureCollector()
+
+            # 3. Run import via agent
             agent, event_data = await self._run_agent_import(request)
 
-            # 3. Finalize and return result
-            return await self._finalize_import(request, event_data, agent, start_time)
+            # 4. Finalize and return result
+            return await self._finalize_import(
+                request, event_data, agent, start_time, failure_collector
+            )
 
         except TimeoutError as e:
             return await self._handle_import_error(
@@ -437,35 +502,105 @@ class EventImporter:
             logger.warning(f"{ServiceMessages.GENRE_ENHANCEMENT_FAILED}: {e}")
             return event_data
 
-    async def rebuild_descriptions(
-        self: EventImporter, event_id: int
+    async def rebuild_description(
+        self: EventImporter, 
+        event_id: int, 
+        description_type: str,
+        supplementary_context: str | None = None
     ) -> EventData | None:
-        """Rebuild descriptions for a cached event."""
-        logger.info(f"Rebuilding descriptions for event ID: {event_id}")
+        """Rebuild description for a cached event (preview only - does not save).
+        
+        Args:
+            event_id: The ID of the event to rebuild description for
+            description_type: Which description to rebuild: 'short' or 'long'
+            supplementary_context: Optional context to help generate better descriptions
+        """
+        logger.info(f"Rebuilding {description_type} description for event ID: {event_id} (preview only)")
         cached_data = get_cached_event(event_id=event_id)
         if not cached_data:
             logger.error(f"No cached event found for ID: {event_id}")
             return None
 
         try:
+            # Remove the _db_id before creating EventData
+            cached_data.pop('_db_id', None)
             event_data = EventData(**cached_data)
 
-            # Use the LLM service to force a rebuild
+            # Copy the event data so we don't modify the original
+            updated_event_data = event_data.model_copy(deep=True)
+            
+            # Use the LLM service to generate only the requested description
             llm_service = self._services["llm"]
-            updated_event_data = await llm_service.generate_descriptions(
-                event_data, force_rebuild=True
-            )
-
-            # Cache the updated event data
-            cache_event(
-                updated_event_data.source_url,
-                updated_event_data.model_dump(mode="json"),
-            )
-            logger.info(f"Successfully rebuilt descriptions for event ID: {event_id}")
+            
+            if description_type == "short":
+                # Generate only short description
+                new_description = await llm_service.generate_short_description(
+                    event_data, supplementary_context
+                )
+                updated_event_data.short_description = new_description
+            else:  # description_type == "long"
+                # Generate only long description
+                new_description = await llm_service.generate_long_description(
+                    event_data, supplementary_context
+                )
+                updated_event_data.long_description = new_description
+            
+            logger.info(f"Successfully rebuilt {description_type} description for event ID: {event_id} (preview only)")
             return updated_event_data
 
         except (ValidationError, Exception) as e:
             logger.exception(
                 f"Failed to rebuild descriptions for event {event_id}: {e}"
             )
+            return None
+
+    async def update_event(self, event_id: int, updates: dict) -> EventData | None:
+        """Update specific fields of a cached event.
+        
+        Args:
+            event_id: The ID of the event to update
+            updates: Dictionary of fields to update
+            
+        Returns:
+            Updated EventData if successful, None otherwise
+        """
+        try:
+            logger.info(f"Updating event ID: {event_id} with fields: {list(updates.keys())}")
+            
+            # Get the cached event
+            event_data_dict = get_cached_event(event_id=event_id)
+            if not event_data_dict:
+                logger.warning(f"Event not found for ID: {event_id}")
+                return None
+            
+            # Remove the _db_id before creating EventData
+            event_data_dict.pop('_db_id', None)
+            
+            # Parse the event data
+            event_data = EventData(**event_data_dict)
+            
+            # Apply updates
+            for field, value in updates.items():
+                if hasattr(event_data, field):
+                    # Special handling for time field - convert dict to EventTime
+                    if field == "time" and isinstance(value, dict):
+                        from app.schemas import EventTime
+                        value = EventTime(**value)
+                    setattr(event_data, field, value)
+                else:
+                    logger.warning(f"Field '{field}' does not exist on EventData")
+            
+            # Re-validate the updated data
+            updated_event_data = EventData(**event_data.model_dump())
+            
+            # Cache the updated event data
+            cache_event(
+                str(updated_event_data.source_url),
+                updated_event_data.model_dump(mode="json"),
+            )
+            logger.info(f"Successfully updated event ID: {event_id}")
+            return updated_event_data
+            
+        except (ValidationError, Exception) as e:
+            logger.exception(f"Failed to update event {event_id}: {e}")
             return None

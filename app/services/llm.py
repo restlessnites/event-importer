@@ -121,6 +121,7 @@ class LLMService:
         self: LLMService,
         event_data: EventData,
         force_rebuild: bool = False,
+        supplementary_context: str | None = None,
     ) -> EventData:
         """Generate long/short descriptions for an event if they are missing."""
         # Descriptions are generated only if there's no long description,
@@ -132,20 +133,59 @@ class LLMService:
             event_data.short_description and len(event_data.short_description) <= 100
         )
 
-        if force_rebuild or needs_long or needs_short:
-            operation = LLMOperation(
-                "generate_descriptions",
-                self.primary_service.generate_descriptions,
-                self.fallback_service.generate_descriptions
-                if self.fallback_service
-                else None,
-                event_data,
-                force_rebuild=force_rebuild,
+        # Create a copy to avoid modifying the original
+        updated_event = event_data.model_copy(deep=True)
+
+        if force_rebuild or needs_long:
+            updated_event.long_description = await self.generate_long_description(
+                event_data, supplementary_context
             )
-            event_data = await self._execute_with_fallback(operation)
+
+        if force_rebuild or needs_short:
+            updated_event.short_description = await self.generate_short_description(
+                event_data, supplementary_context
+            )
 
         # Always enhance with lineup after potential generation
-        return self._enhance_description(event_data)
+        return self._enhance_description(updated_event)
+
+    async def generate_long_description(
+        self: LLMService,
+        event_data: EventData,
+        supplementary_context: str | None = None,
+    ) -> str:
+        """Generate a long description for an event."""
+        operation = LLMOperation(
+            "generate_descriptions",
+            self.primary_service.generate_descriptions,
+            self.fallback_service.generate_descriptions
+            if self.fallback_service
+            else None,
+            event_data,
+            force_rebuild=True,
+            supplementary_context=supplementary_context,
+        )
+        result = await self._execute_with_fallback(operation)
+        return result.long_description
+
+    async def generate_short_description(
+        self: LLMService,
+        event_data: EventData,
+        supplementary_context: str | None = None,
+    ) -> str:
+        """Generate a short description for an event."""
+        operation = LLMOperation(
+            "generate_descriptions",
+            self.primary_service.generate_descriptions,
+            self.fallback_service.generate_descriptions
+            if self.fallback_service
+            else None,
+            event_data,
+            force_rebuild=True,
+            supplementary_context=supplementary_context,
+        )
+        result = await self._execute_with_fallback(operation)
+        return result.short_description
 
     @retry_on_error(max_attempts=2)
     async def analyze_text(self: LLMService, prompt: str) -> str | None:

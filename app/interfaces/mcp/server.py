@@ -20,6 +20,7 @@ from app.services.integration_discovery import get_available_integrations
 from app.shared.database.connection import get_db_session, init_db
 from app.shared.database.models import EventCache
 from app.shared.http import close_http_service
+from app.shared.service_errors import ServiceErrorFormatter
 from app.shared.statistics import StatisticsService
 
 # Configure logging
@@ -131,14 +132,103 @@ class CoreMCPTools:
             },
         ),
         types.Tool(
-            name="rebuild_event_descriptions",
-            description="Rebuild descriptions for a specific event",
+            name="rebuild_event_description",
+            description="Rebuild a specific description for an event (preview only - does not save). The regenerated description will be returned for review. Use the update_event tool to save changes.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "event_id": {
                         "type": "integer",
-                        "description": "Event ID to rebuild descriptions for",
+                        "description": "Event ID to rebuild description for",
+                    },
+                    "description_type": {
+                        "type": "string",
+                        "enum": ["short", "long"],
+                        "description": "Which description to regenerate: 'short' or 'long'",
+                    },
+                    "supplementary_context": {
+                        "type": "string",
+                        "description": "Additional context to help regenerate the description (e.g., 'focus on the venue' or 'emphasize the artists')",
+                        "maxLength": 1000,
+                    },
+                },
+                "required": ["event_id", "description_type"],
+            },
+        ),
+        types.Tool(
+            name="update_event",
+            description="Update specific fields of an event. Use this after previewing changes with rebuild_event_description. IMPORTANT: Dates use YYYY-MM-DD format. Times use 24-hour HH:MM format. For multi-day events, set both date and end_date. The time object must include start, end, and timezone (IANA format like 'America/Los_Angeles'). Short descriptions should be concise summaries under 100 characters (max 200). Arrays like genres and lineup replace the entire list.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "event_id": {
+                        "type": "integer",
+                        "description": "Event ID to update",
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "Event title",
+                    },
+                    "venue": {
+                        "type": "string",
+                        "description": "Venue name",
+                    },
+                    "date": {
+                        "type": "string",
+                        "description": "Event start date in YYYY-MM-DD format",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    },
+                    "end_date": {
+                        "type": "string",
+                        "description": "Event end date for multi-day events in YYYY-MM-DD format",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    },
+                    "time": {
+                        "type": "object",
+                        "description": "Event time information",
+                        "properties": {
+                            "start": {
+                                "type": "string",
+                                "description": "Start time in HH:MM format (e.g., '19:00')",
+                                "pattern": "^\\d{2}:\\d{2}$",
+                            },
+                            "end": {
+                                "type": "string", 
+                                "description": "End time in HH:MM format (e.g., '23:00')",
+                                "pattern": "^\\d{2}:\\d{2}$",
+                            },
+                            "timezone": {
+                                "type": "string",
+                                "description": "IANA timezone identifier (e.g., 'America/Los_Angeles', 'America/New_York', 'Europe/London', 'Asia/Tokyo'). Must be a valid timezone from the IANA Time Zone Database. Use the exact format with continent/city.",
+                            },
+                        },
+                    },
+                    "short_description": {
+                        "type": "string",
+                        "description": "Short event description (aim for under 100 characters, max 200)",
+                        "maxLength": 200,
+                    },
+                    "long_description": {
+                        "type": "string",
+                        "description": "Detailed event description",
+                    },
+                    "genres": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of music genres",
+                    },
+                    "lineup": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of artists/performers",
+                    },
+                    "minimum_age": {
+                        "type": "string",
+                        "description": "Minimum age requirement (e.g., '18+', '21+', 'All Ages')",
+                    },
+                    "cost": {
+                        "type": "string",
+                        "description": "Ticket cost information (e.g., '$20', 'Free', '$15-30')",
                     },
                 },
                 "required": ["event_id"],
@@ -168,31 +258,114 @@ class CoreMCPTools:
     @staticmethod
     async def handle_import_event(arguments: dict, router: Router) -> dict:
         """Handle import_event tool call"""
-        return await router.route_request(arguments)
+        try:
+            result = await router.route_request(arguments)
+
+            # Format service failures for user-friendly display
+            ServiceErrorFormatter.format_for_mcp(result)
+
+            # Ensure we have a proper error response if import failed
+            if not result.get("success", False):
+                return {
+                    "success": False,
+                    "error": result.get("error", "Import failed"),
+                    "method_used": result.get("method_used"),
+                    "service_failures": result.get("service_failures", []),
+                    "service_failure_summary": result.get("service_failure_summary"),
+                }
+            return result
+        except Exception as e:
+            logger.exception("Error in handle_import_event")
+            return {
+                "success": False,
+                "error": f"{e.__class__.__name__}: {str(e)}",
+            }
 
     @staticmethod
-    async def handle_rebuild_event_descriptions(
+    async def handle_rebuild_event_description(
         arguments: dict, router: Router
     ) -> dict:
-        """Handle rebuild_event_descriptions tool call"""
+        """Handle rebuild_event_description tool call"""
         event_id = arguments.get("event_id")
         if not event_id:
             return {"success": False, "error": "Event ID is required"}
+        
+        description_type = arguments.get("description_type")
+        if not description_type or description_type not in ["short", "long"]:
+            return {"success": False, "error": "description_type must be 'short' or 'long'"}
 
-        updated_event = await router.importer.rebuild_descriptions(event_id)
+        try:
+            # Get supplementary context if provided
+            supplementary_context = arguments.get("supplementary_context")
+            updated_event = await router.importer.rebuild_description(
+                event_id, 
+                description_type=description_type,
+                supplementary_context=supplementary_context
+            )
 
-        if updated_event:
+            if updated_event:
+                return {
+                    "success": True,
+                    "event_id": event_id,
+                    "message": f"{description_type.capitalize()} description regenerated (preview only)",
+                    "updated_data": updated_event.model_dump(mode="json"),
+                }
             return {
-                "success": True,
+                "success": False,
                 "event_id": event_id,
-                "message": "Descriptions rebuilt successfully",
-                "updated_data": updated_event.model_dump(mode="json"),
+                "error": f"Event with ID {event_id} not found in cache",
             }
-        return {
-            "success": False,
-            "event_id": event_id,
-            "error": "Failed to rebuild descriptions",
+        except Exception as e:
+            logger.exception(f"Error rebuilding description for event {event_id}")
+            return {
+                "success": False,
+                "event_id": event_id,
+                "error": f"{e.__class__.__name__}: {str(e)}",
+            }
+
+    @staticmethod
+    async def handle_update_event(
+        arguments: dict, router: Router
+    ) -> dict:
+        """Handle update_event tool call"""
+        event_id = arguments.get("event_id")
+        if not event_id:
+            return {"success": False, "error": "Event ID is required"}
+        
+        # Extract updateable fields
+        allowed_fields = {
+            "title", "venue", "date", "end_date", "time", "short_description", 
+            "long_description", "genres", "lineup", "minimum_age", "cost"
         }
+        
+        updates = {k: v for k, v in arguments.items() if k in allowed_fields and v is not None}
+        
+        if not updates:
+            return {"success": False, "error": "No valid fields provided to update"}
+        
+        try:
+            updated_event = await router.importer.update_event(event_id, updates)
+            
+            if updated_event:
+                return {
+                    "success": True,
+                    "event_id": event_id,
+                    "message": f"Successfully updated {len(updates)} field(s)",
+                    "updated_fields": list(updates.keys()),
+                    "updated_data": updated_event.model_dump(mode="json"),
+                }
+            return {
+                "success": False,
+                "event_id": event_id,
+                "error": f"Event with ID {event_id} not found in cache",
+            }
+        except Exception as e:
+            logger.exception(f"Error updating event {event_id}")
+            return {
+                "success": False,
+                "event_id": event_id,
+                "error": f"{e.__class__.__name__}: {str(e)}",
+            }
 
     @staticmethod
     def _build_list_events_query(db_session, arguments: dict):
@@ -352,7 +525,8 @@ class CoreMCPTools:
         "list_events": handle_list_events.__func__,
         "show_event": handle_show_event.__func__,
         "get_statistics": handle_get_statistics.__func__,
-        "rebuild_event_descriptions": handle_rebuild_event_descriptions.__func__,
+        "rebuild_event_description": handle_rebuild_event_description.__func__,
+        "update_event": handle_update_event.__func__,
     }
 
 
@@ -442,7 +616,10 @@ async def main() -> None:
     try:
         config = get_config()
         features = config.get_enabled_features()
+        integrations = config.get_enabled_integrations()
         logger.info(f"Enabled features: {features}")
+        if integrations:
+            logger.info(f"Enabled integrations: {integrations}")
     except (ValueError, TypeError, KeyError):
         logger.exception(CommonMessages.CONFIGURATION_ERROR)
         sys.exit(1)

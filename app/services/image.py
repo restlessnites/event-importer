@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
 
 from app.config import Config
-from app.errors import handle_errors_async
+from app.errors import APIError, handle_errors_async
 from app.schemas import EventData, ImageCandidate, ImageSearchResult
 from app.shared.http import HTTPService
 
@@ -66,11 +66,16 @@ class ImageService:
         self.api_key = config.api.google_api_key
         self.cse_id = config.api.google_cse_id
 
+        # Image validation settings
+        self.max_image_size = 2 * 1024 * 1024  # 2MB
+        self.min_image_width = 500
+        self.min_image_height = 500
+
         if self.google_enabled:
-            logger.info("✅ Google Custom Search configured - image search enabled")
+            logger.info("Google Custom Search configured - image search enabled")
         else:
             logger.warning(
-                "⚠️ Google Custom Search not configured - image search disabled",
+                "Google Custom Search not configured - image search disabled",
             )
 
     @handle_errors_async(reraise=True)
@@ -81,7 +86,7 @@ class ImageService:
         http_service: HTTPService | None = None,
     ) -> tuple[bytes, str] | None:
         """Download and validate an image."""
-        max_size = max_size or self.config.extraction.max_image_size
+        max_size = max_size or self.max_image_size
         http = http_service or self.http
 
         # Download image data, disabling SSL verification for robustness
@@ -97,11 +102,8 @@ class ImageService:
             with Image.open(BytesIO(image_data)) as img:
                 # Check dimensions
                 if (
-                    self.config.extraction.min_image_width
-                    and img.width < self.config.extraction.min_image_width
-                ) or (
-                    self.config.extraction.min_image_height
-                    and img.height < self.config.extraction.min_image_height
+                    img.width < self.min_image_width
+                    or img.height < self.min_image_height
                 ):
                     return None
 
@@ -173,6 +175,7 @@ class ImageService:
         self: "ImageService",
         event_data: EventData,
         progress_callback: ProgressCallback | None = None,
+        failure_collector: Any | None = None,
     ) -> EventData:
         """Enhance the image for an event by searching for better alternatives."""
         if not self.google_enabled:
@@ -188,13 +191,13 @@ class ImageService:
 
         # The main workflow is broken into private helpers to reduce complexity
         original_url = await self._rate_original_image_if_present(
-            event_data, search_result, send_progress
+            event_data, search_result, send_progress, failure_collector
         )
         new_candidates = await self._search_for_new_candidates(
-            event_data, send_progress
+            event_data, send_progress, failure_collector
         )
         search_result.candidates = await self._rate_found_candidates(
-            new_candidates, send_progress
+            new_candidates, send_progress, failure_collector
         )
 
         await send_progress("Selecting best image", 0.95)
@@ -208,6 +211,7 @@ class ImageService:
         event_data: EventData,
         search_result: ImageSearchResult,
         send_progress: ProgressCallback,
+        failure_collector: Any | None = None,
     ) -> str | None:
         """Rate original image if present, update search_result, and return URL."""
         original_url = (
@@ -226,10 +230,18 @@ class ImageService:
             logger.info(f"Original image rated: score {candidate.score}")
         except Exception as e:
             logger.warning(f"Failed to rate original image {original_url}: {e}")
+            if failure_collector and hasattr(failure_collector, "add_failure"):
+                if isinstance(e, APIError):
+                    failure_collector.add_failure(e.service, e)
+                else:
+                    failure_collector.add_failure("ImageService", e)
         return original_url
 
     async def _search_for_new_candidates(
-        self: "ImageService", event_data: EventData, send_progress: ProgressCallback
+        self: "ImageService",
+        event_data: EventData,
+        send_progress: ProgressCallback,
+        failure_collector: Any | None = None,
     ) -> list[ImageCandidate]:
         """Search for new image candidates using generated queries."""
         queries = self._build_search_queries(event_data)
@@ -250,12 +262,19 @@ class ImageService:
                         )
             except Exception as e:
                 logger.warning(f"Search query '{query}' failed: {e}")
+                if failure_collector and hasattr(failure_collector, "add_failure"):
+                    # Use the specific service from APIError if available
+                    if isinstance(e, APIError):
+                        failure_collector.add_failure(e.service, e)
+                    else:
+                        failure_collector.add_failure("ImageService", e)
         return search_candidates
 
     async def _rate_found_candidates(
         self: "ImageService",
         candidates: list[ImageCandidate],
         send_progress: ProgressCallback,
+        failure_collector: Any | None = None,
     ) -> list[ImageCandidate]:
         """Rate a list of found image candidates."""
         await send_progress(f"Rating {len(candidates)} candidates", 0.5)
@@ -273,6 +292,11 @@ class ImageService:
                     rated_candidates.append(rated)
             except Exception as e:
                 logger.warning(f"Failed to rate image {candidate.url}: {e}")
+                if failure_collector and hasattr(failure_collector, "add_failure"):
+                    if isinstance(e, APIError):
+                        failure_collector.add_failure(e.service, e)
+                    else:
+                        failure_collector.add_failure("ImageService", e)
         return rated_candidates
 
     def _select_and_update_best_image(

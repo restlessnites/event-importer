@@ -294,6 +294,7 @@ class OpenAIService:
         self: OpenAIService,
         event_data: EventData,
         force_rebuild: bool = False,
+        supplementary_context: str | None = None,
     ) -> EventData:
         """Generate missing descriptions for an event."""
         if not self.client:
@@ -318,8 +319,12 @@ class OpenAIService:
         prompt_parts = [
             "Generate ONLY the missing or invalid descriptions for this event based on the available information:",
             f"\n{context_str}",
-            "\nRequirements:",
         ]
+
+        if supplementary_context:
+            prompt_parts.append(f"\nAdditional Context: {supplementary_context}")
+
+        prompt_parts.append("\nRequirements:")
 
         if needs_long:
             prompt_parts.append(

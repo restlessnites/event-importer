@@ -113,7 +113,7 @@ async def test_generate_descriptions_success(mock_config):
         assert result.long_description == "Long description"
         assert result.short_description == "Short desc"
         mock_claude.generate_descriptions.assert_called_once_with(
-            event_data, force_rebuild=False
+            event_data, force_rebuild=False, supplementary_context=None
         )
 
 
@@ -153,7 +153,7 @@ async def test_generate_descriptions_with_fallback(mock_config):
         assert result.short_description == "Fallback"
         mock_claude.generate_descriptions.assert_called_once()
         mock_openai.generate_descriptions.assert_called_once_with(
-            event_data, force_rebuild=False
+            event_data, force_rebuild=False, supplementary_context=None
         )
 
 

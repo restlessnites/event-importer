@@ -8,7 +8,6 @@ from typing import Any
 
 from app.config import get_config
 from app.core.importer import EventImporter
-from app.errors import handle_errors_async
 from app.schemas import ImportRequest, ImportStatus
 
 logger = logging.getLogger(__name__)
@@ -22,7 +21,6 @@ class Router:
         self.config = get_config()
         self.importer = EventImporter(self.config)
 
-    @handle_errors_async(reraise=False)
     async def route_request(
         self: Router,
         request_data: dict[str, Any],
@@ -46,26 +44,41 @@ class Router:
             result = await self.importer.import_event(request)
 
             # Convert to response format
-            if result.status == ImportStatus.SUCCESS and result.event_data:
-                return {
-                    "success": True,
-                    "data": result.event_data.model_dump(mode="json"),
-                    "method_used": result.method_used.value
-                    if result.method_used
-                    else None,
-                    "import_time": result.import_time,
-                }
-            return {
-                "success": False,
-                "error": result.error or "Import failed",
+            response = {
+                "success": result.status == ImportStatus.SUCCESS,
                 "method_used": result.method_used.value if result.method_used else None,
+                "import_time": result.import_time,
             }
+
+            # Add service failures if any
+            if result.service_failures:
+                response["service_failures"] = [
+                    failure.model_dump() for failure in result.service_failures
+                ]
+
+            if result.status == ImportStatus.SUCCESS and result.event_data:
+                response["data"] = result.event_data.model_dump(mode="json")
+            else:
+                response["error"] = result.error or "Import failed"
+
+            return response
 
         except (ValueError, TypeError, KeyError) as e:
             logger.exception("Router error")
             return {
                 "success": False,
                 "error": str(e),
+            }
+        except Exception as e:
+            logger.exception("Unexpected error in route_request")
+            error_msg = str(e)
+            # Extract more specific error information if available
+            if hasattr(e, '__class__'):
+                error_msg = f"{e.__class__.__name__}: {error_msg}"
+            return {
+                "success": False,
+                "error": error_msg,
+                "method_used": None,
             }
 
     async def get_progress(self: Router, request_id: str) -> dict[str, Any]:

@@ -91,13 +91,13 @@ def test_format_event_data_malformed():
 async def test_handle_import_event():
     """Test the handle_import_event method."""
     mock_router = AsyncMock()
-    mock_router.route_request.return_value = {"status": "success"}
+    mock_router.route_request.return_value = {"success": True, "status": "success"}
     arguments = {"url": "http://example.com"}
 
     result = await CoreMCPTools.handle_import_event(arguments, mock_router)
 
     mock_router.route_request.assert_awaited_once_with(arguments)
-    assert result == {"status": "success"}
+    assert result == {"success": True, "status": "success"}
 
 
 @pytest.mark.asyncio
@@ -113,7 +113,9 @@ async def test_handle_rebuild_event_descriptions_success():
         arguments, mock_router
     )
 
-    mock_router.importer.rebuild_descriptions.assert_awaited_once_with(1)
+    mock_router.importer.rebuild_descriptions.assert_awaited_once_with(
+        1, supplementary_context=None
+    )
     assert result == {
         "success": True,
         "event_id": 1,
@@ -136,7 +138,7 @@ async def test_handle_rebuild_event_descriptions_failure():
     assert result == {
         "success": False,
         "event_id": 1,
-        "error": "Failed to rebuild descriptions",
+        "error": "Event with ID 1 not found in cache",
     }
 
 

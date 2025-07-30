@@ -66,8 +66,10 @@ def get_cached_event(
 
         event_cache = query.first()
         if event_cache:
-            # Return the scraped_data dict instead of the SQLAlchemy object
-            return event_cache.scraped_data
+            # Return the scraped_data dict with the database ID included
+            data = event_cache.scraped_data.copy()
+            data['_db_id'] = event_cache.id
+            return data
         return None
 
     if db:

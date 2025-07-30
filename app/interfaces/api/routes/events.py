@@ -7,12 +7,16 @@ from fastapi import APIRouter, HTTPException
 from app.core.router import Router
 from app.interfaces.api.models.requests import (
     ImportEventRequest,
+    RebuildDescriptionRequest,
+    UpdateEventRequest,
 )
 from app.interfaces.api.models.responses import (
     ImportEventResponse,
     ProgressResponse,
     RebuildDescriptionResponse,
+    UpdateEventResponse,
 )
+from app.shared.service_errors import ServiceErrorFormatter
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +54,21 @@ async def import_event(request: ImportEventRequest) -> ImportEventResponse:
         router_instance = get_router()
         result = await router_instance.route_request(request_data)
 
+        # Add formatted service failure info if present
+        if result.get("service_failures"):
+            failure_info = ServiceErrorFormatter.format_for_api(result["service_failures"])
+            result.update(failure_info)
+
+        # Check if import failed
+        if not result.get("success", False):
+            error_msg = result.get("error", "Import failed")
+            # Determine appropriate status code based on error
+            status_code = 400 if "invalid" in error_msg.lower() else 500
+            raise HTTPException(
+                status_code=status_code,
+                detail=error_msg
+            )
+
         # Convert to response model
         return ImportEventResponse(**result)
 
@@ -73,21 +92,26 @@ async def get_import_progress(request_id: str) -> ProgressResponse:
 
 
 @router.post(
-    "/{event_id}/rebuild-descriptions", response_model=RebuildDescriptionResponse
+    "/{event_id}/rebuild-description", response_model=RebuildDescriptionResponse
 )
-async def rebuild_event_descriptions(
+async def rebuild_event_description(
     event_id: int,
+    request: RebuildDescriptionRequest,
 ) -> RebuildDescriptionResponse:
-    """Rebuild descriptions for a specific event."""
+    """Rebuild a specific description for an event (preview only)."""
     try:
         router_instance = get_router()
-        updated_event = await router_instance.importer.rebuild_descriptions(event_id)
+        updated_event = await router_instance.importer.rebuild_description(
+            event_id, 
+            description_type=request.description_type,
+            supplementary_context=request.supplementary_context
+        )
 
         if updated_event:
             return RebuildDescriptionResponse(
                 success=True,
                 event_id=event_id,
-                message="Descriptions rebuilt successfully",
+                message=f"{request.description_type.capitalize()} description regenerated (preview only)",
                 data=updated_event,
             )
         raise HTTPException(
@@ -95,6 +119,52 @@ async def rebuild_event_descriptions(
             detail=f"Event not found or failed to rebuild for ID: {event_id}",
         )
 
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
         logger.exception(f"Failed to rebuild descriptions for event {event_id}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.patch("/{event_id}", response_model=UpdateEventResponse)
+async def update_event(
+    event_id: int,
+    request: UpdateEventRequest,
+) -> UpdateEventResponse:
+    """Update specific fields of an event."""
+    try:
+        # Get the router instance
+        router_instance = get_router()
+        
+        # Get non-None fields from the request
+        updates = request.model_dump(exclude_unset=True)
+        
+        if not updates:
+            raise HTTPException(
+                status_code=400,
+                detail="No fields provided to update"
+            )
+        
+        # Update the event
+        updated_event = await router_instance.importer.update_event(event_id, updates)
+        
+        if updated_event:
+            return UpdateEventResponse(
+                success=True,
+                event_id=event_id,
+                message=f"Successfully updated {len(updates)} field(s)",
+                data=updated_event,
+                updated_fields=list(updates.keys())
+            )
+        
+        raise HTTPException(
+            status_code=404,
+            detail=f"Event not found with ID: {event_id}"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Failed to update event {event_id}")
         raise HTTPException(status_code=500, detail=str(e)) from e

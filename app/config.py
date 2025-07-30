@@ -11,6 +11,7 @@ from typing import Any
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.services.integration_discovery import get_available_integrations
 from app.shared.path import get_project_root, get_user_data_dir
 from config.storage import SettingsStorage
 
@@ -142,6 +143,22 @@ class Config(BaseSettings):
             features.append("ai_extraction")
 
         return sorted(features)
+
+    def get_enabled_integrations(self) -> list[str]:
+        """Get list of enabled integrations based on their configuration."""
+        enabled = []
+        integrations = get_available_integrations()
+
+        for name, integration_class in integrations.items():
+            try:
+                integration = integration_class()
+                if integration.is_enabled():
+                    enabled.append(name)
+            except Exception as e:
+                # If we can't instantiate or check, assume not enabled
+                logger.debug(f"Could not check if integration {name} is enabled: {e}")
+
+        return sorted(enabled)
 
 
 @cache

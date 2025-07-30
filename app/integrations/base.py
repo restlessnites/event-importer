@@ -25,6 +25,11 @@ class Integration(ABC):
         """The name of the integration (e.g., 'ticketfairy')"""
         raise NotImplementedError
 
+    @abstractmethod
+    def is_enabled(self) -> bool:
+        """Check if the integration is properly configured and enabled."""
+        raise NotImplementedError
+
     @final
     def get_mcp_tools(self) -> Any | None:
         """Dynamically load and return the MCP tools module, if it exists."""

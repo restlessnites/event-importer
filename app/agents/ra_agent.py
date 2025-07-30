@@ -7,7 +7,7 @@ from typing import Any
 
 from dateutil import parser as date_parser
 
-from app.error_messages import AgentMessages, ServiceMessages
+from app.error_messages import AgentMessages
 from app.schemas import EventData, EventLocation, ImportMethod, ImportStatus
 from app.shared.agent import Agent
 from app.shared.http import HTTPService
@@ -74,19 +74,7 @@ class ResidentAdvisorAgent(Agent):
             # Parse to our format
             event_data = self._parse_event(event_json, url)
 
-            if not event_data.genres and self.services.get("genre"):
-                await self.send_progress(
-                    request_id,
-                    ImportStatus.RUNNING,
-                    "Searching for genres",
-                    0.8,
-                )
-                try:
-                    genre_service = self.get_service("genre")
-                    event_data = await genre_service.enhance_genres(event_data)
-                except (ValueError, TypeError, KeyError) as e:
-                    logger.debug(f"{ServiceMessages.GENRE_SEARCH_FAILED}: {e}")
-                    # Continue without genres
+            # Genre enhancement now handled by importer for better error tracking
 
             # Enhance descriptions
             await self.send_progress(

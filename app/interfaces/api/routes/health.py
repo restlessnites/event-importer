@@ -19,8 +19,14 @@ async def health_check() -> HealthResponse:
     try:
         config = get_config()
         features = config.get_enabled_features()
+        integrations = config.get_enabled_integrations()
 
-        return HealthResponse(status="healthy", version=__version__, features=features)
+        return HealthResponse(
+            status="healthy",
+            version=__version__,
+            features=features,
+            integrations=integrations
+        )
     except (ValueError, TypeError, KeyError):
         logger.exception("Health check error")
         return HealthResponse(status="unhealthy", version=__version__, features=[])

@@ -37,7 +37,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         config = get_config()
         features = config.get_enabled_features()
+        integrations = config.get_enabled_integrations()
         logger.info(f"Enabled features: {features}")
+        if integrations:
+            logger.info(f"Enabled integrations: {integrations}")
     except (ValueError, TypeError, KeyError):
         logger.exception(CommonMessages.STARTUP_FAILED)
         sys.exit(1)

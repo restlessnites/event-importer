@@ -236,7 +236,7 @@ class EventData(BaseModel):
     promoters: list[str] = Field(default_factory=list)
     lineup: list[str] = Field(default_factory=list)
     long_description: str | None = None
-    short_description: str | None = Field(None, max_length=150)
+    short_description: str | None = Field(None, max_length=200)
     genres: list[str] = Field(default_factory=list)
     location: EventLocation | None = None
     images: dict[str, str] | None = None
@@ -528,6 +528,14 @@ class ImportProgress(BaseModel):
         return value.isoformat()
 
 
+class ServiceFailure(BaseModel):
+    """Information about a failed service during import."""
+
+    service: str
+    error: str
+    detail: str | None = None
+
+
 class ImportResult(BaseModel):
     """Final result of import request."""
 
@@ -540,6 +548,7 @@ class ImportResult(BaseModel):
     raw_data: dict[str, Any] | None = None
     import_time: float = Field(default=0.0, ge=0.0)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    service_failures: list[ServiceFailure] = Field(default_factory=list)
 
     def __bool__(self: ImportResult) -> bool:
         """Check if import was successful."""
