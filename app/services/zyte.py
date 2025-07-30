@@ -21,6 +21,7 @@ class ZyteService:
         """Initialize Zyte service."""
         self.config = config
         self.http = http_service
+        self.api_url = "https://api.zyte.com/v1/extract"
 
     async def fetch_html(self: ZyteService, url: str) -> str:
         """Fetch HTML from a URL using Zyte API.
@@ -30,15 +31,7 @@ class ZyteService:
             "url": url,
             "browserHtml": True,
             "javascript": True,
-            "actions": [
-                {
-                    "action": "waitForTimeout",
-                    "timeout": self.config.zyte.javascript_wait,
-                },
-            ],
         }
-        if self.config.zyte.use_residential_proxy:
-            payload["geolocation"] = self.config.zyte.geolocation
 
         try:
             html, response_url = await self._make_request(payload)
@@ -66,19 +59,8 @@ class ZyteService:
         payload = {
             "url": url,
             "screenshot": True,
-            "screenshotOptions": {
-                "fullPage": self.config.zyte.screenshot_full_page,
-            },
             "javascript": True,
-            "actions": [
-                {
-                    "action": "waitForTimeout",
-                    "timeout": self.config.zyte.javascript_wait,
-                },
-            ],
         }
-        if self.config.zyte.use_residential_proxy:
-            payload["geolocation"] = self.config.zyte.geolocation
 
         try:
             image_bytes, _ = await self._make_request(payload, is_screenshot=True)
@@ -95,17 +77,17 @@ class ZyteService:
         is_screenshot: bool = False,
     ) -> tuple[Any, str]:
         """Make the actual request to Zyte API."""
-        if not self.config.api.zyte_key:
+        if not self.config.api.zyte_api_key:
             service_name = "Zyte"
             error_msg = "No API key provided"
             raise APIError(service_name, error_msg)
 
         try:
             response = await self.http.post_json(
-                self.config.zyte.api_url,
+                self.api_url,
                 service="Zyte",
                 json=payload,
-                auth=(self.config.api.zyte_key or "", ""),
+                auth=(self.config.api.zyte_api_key or "", ""),
             )
 
             response_url = response.get("url", payload["url"])
