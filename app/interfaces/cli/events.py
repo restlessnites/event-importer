@@ -78,7 +78,7 @@ def list_events(limit: int, source: str):
                     else "Unknown"
                 )
 
-                start_date = data.get("start_datetime", "No date")
+                start_date = data.get("date", "No date")
 
                 table_data.append(
                     {

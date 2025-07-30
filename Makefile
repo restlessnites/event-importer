@@ -59,21 +59,21 @@ package-app: clean ## Build standalone Event Importer executable
 	@echo "📦 Packaging Event Importer application..."
 	@uv run pyinstaller --noconfirm event-importer.spec
 	@echo "📦 Creating zip with preserved symlinks..."
-	@cd dist && zip -ry ../event-importer.zip event-importer
+	@cd dist && zip -ry ./event-importer.zip event-importer
 	@echo "✅ Created event-importer.zip"
 
 package-app-x86_64: clean ## Build Event Importer for Intel Mac (x86_64)
 	@echo "📦 Packaging Event Importer for Intel Mac (x86_64)..."
 	@uv run pyinstaller --noconfirm event-importer-x86_64.spec
 	@echo "📦 Creating zip with preserved symlinks..."
-	@cd dist && zip -ry ../event-importer-x86_64.zip event-importer
+	@cd dist && zip -ry ./event-importer-x86_64.zip event-importer
 	@echo "✅ Created event-importer-x86_64.zip"
 
 package-installer: clean ## Build standalone installer executable
 	@echo "📦 Packaging Event Importer installer..."
 	@uv run pyinstaller --noconfirm event-importer-installer.spec
 	@echo "📦 Creating installer zip..."
-	@cd dist && zip -r ../event-importer-installer.zip event-importer-installer
+	@cd dist && zip -r ./event-importer-installer.zip event-importer-installer
 	@echo "✅ Created event-importer-installer.zip"
 
 package-installer-x86_64: clean ## Build installer for Intel Mac (x86_64)
@@ -89,14 +89,14 @@ package-x86_64: package-app-x86_64 package-installer-x86_64 ## Build both for In
 
 package-universal: ## Build universal binary for macOS (requires both architectures)
 	@echo "📦 Building universal binary for macOS..."
-	@echo "⚠️  This requires building on both Intel and Apple Silicon Macs"
-	@echo "⚠️  Then using 'lipo' to combine the binaries"
+	@echo "⚠️ This requires building on both Intel and Apple Silicon Macs"
+	@echo "⚠️ Then using 'lipo' to combine the binaries"
 	@echo "📚 See docs/CROSS_PLATFORM.md for details"
 
 package-windows: ## Build for Windows (must run on Windows)
 	@echo "📦 Building for Windows..."
-	@echo "⚠️  This must be run on a Windows machine with Python and uv installed"
-	@echo "⚠️  Use: uv run pyinstaller --noconfirm event-importer-windows.spec"
+	@echo "⚠️ This must be run on a Windows machine with Python and uv installed"
+	@echo "⚠️ Use: uv run pyinstaller --noconfirm event-importer-windows.spec"
 	@echo "📚 See docs/CROSS_PLATFORM.md for details"
 
 
