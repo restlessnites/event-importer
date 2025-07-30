@@ -58,13 +58,17 @@ def _setup_directories():
 
 
 def _check_existing_installation():
-    """Check for existing installation and handle accordingly."""
+    """Check for existing installation and handle accordingly.
+
+    Returns:
+        bool | None: True to keep settings, False to replace, None for new install
+    """
     install_dir = get_install_dir()
 
     if not install_dir.exists():
         # No existing installation, check for migration
         _handle_migration()
-        return
+        return None
 
     # Existing installation detected
     clicycle.section("Existing Installation Detected")
@@ -96,21 +100,33 @@ def _check_existing_installation():
                 sys.exit(0)
             elif choice == "migrate":
                 _handle_migration()
+                return True  # Keep settings after migration
             elif choice == "reinstall":
                 clicycle.warning("This will replace your current installation")
                 if clicycle.confirm("Are you sure you want to continue?"):
-                    clicycle.info("Proceeding with reinstallation")
-                else:
-                    clicycle.info("Installation cancelled")
-                    sys.exit(0)
+                    # Ask about settings
+                    keep_settings = clicycle.confirm(
+                        "Do you want to keep your existing settings and API keys?"
+                    )
+                    if keep_settings:
+                        clicycle.info("Proceeding with reinstallation (keeping settings)")
+                    else:
+                        clicycle.info("Proceeding with reinstallation (replacing settings)")
+                    return keep_settings
+                clicycle.info("Installation cancelled")
+                sys.exit(0)
             elif choice == "update":
                 clicycle.info(
                     "Proceeding with update (settings and data will be preserved)"
                 )
+                return True
 
         except (KeyboardInterrupt, EOFError):
             clicycle.info("Installation cancelled")
             sys.exit(0)
+
+    # Default for non-reinstall paths
+    return None
 
 
 def _handle_migration():
@@ -267,14 +283,24 @@ async def run_installer():
     _initialize_cli()
 
     # Check for existing installation first
-    _check_existing_installation()
+    keep_settings = _check_existing_installation()
 
     install_dir = _setup_directories()
     if not install_dir:
         sys.exit(1)
 
     settings_manager = SettingsService()
-    _configure_api_keys(settings_manager)
+
+    # Handle settings based on user choice
+    if keep_settings is False:
+        # User chose to replace settings
+        clicycle.info("Clearing existing settings...")
+        settings_manager.clear_all()
+        _configure_api_keys(settings_manager)
+    elif keep_settings is None:
+        # New install, configure API keys
+        _configure_api_keys(settings_manager)
+    # else: keep_settings is True, so we skip API key configuration
 
     app_path = await _download_application(settings_manager, install_dir)
     if not app_path:

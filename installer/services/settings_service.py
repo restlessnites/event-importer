@@ -31,3 +31,7 @@ class SettingsService:
     def get_all(self) -> dict[str, str]:
         """Get all current settings."""
         return self.storage.get_all()
+
+    def clear_all(self) -> None:
+        """Clear all settings values (reset to defaults)."""
+        self.storage.clear_all()

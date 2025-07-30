@@ -90,12 +90,6 @@ class SettingsStorage:
             conn.execute("DELETE FROM app_settings WHERE key = ?", (key,))
             conn.commit()
 
-    def clear_all(self) -> None:
-        """Clear all settings (use with caution)."""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("DELETE FROM app_settings")
-            conn.commit()
-
     def export_json(self) -> str:
         """Export all settings as JSON."""
         return json.dumps(self.get_all(), indent=2)
@@ -126,3 +120,17 @@ class SettingsStorage:
             return True
         except Exception:
             return False
+
+    def clear_all(self) -> None:
+        """Clear all settings values (reset to defaults)."""
+        # Get all current settings
+        all_settings = get_all_settings()
+
+        with sqlite3.connect(self.db_path) as conn:
+            # Update all settings to empty string (default value)
+            for key in all_settings:
+                conn.execute(
+                    "UPDATE app_settings SET value = '', updated_at = ? WHERE key = ?",
+                    (datetime.now(), key)
+                )
+            conn.commit()

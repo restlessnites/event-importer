@@ -3,7 +3,7 @@
 import hashlib
 import shutil
 import stat
-import zipfile
+import subprocess  # noqa: S404
 from collections.abc import Callable
 from pathlib import Path
 
@@ -91,14 +91,13 @@ class AppDownloader:
 
         try:
             # Use system unzip to preserve symlinks
-            import subprocess
             temp_extract.mkdir(parents=True)
             result = subprocess.run(
                 ["unzip", "-o", str(temp_path), "-d", str(temp_extract)],
                 capture_output=True,
                 text=True
             )
-            
+
             if result.returncode != 0:
                 raise Exception(f"Failed to extract zip: {result.stderr}")
 
