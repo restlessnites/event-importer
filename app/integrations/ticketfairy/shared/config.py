@@ -10,6 +10,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from app.shared.path import get_project_root
+from config.storage import SettingsStorage
 
 load_dotenv()
 
