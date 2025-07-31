@@ -1,64 +1,38 @@
 #!/usr/bin/env -S uv run python
 """Simple test to verify Google Custom Search API is working with CLI."""
 
+from unittest.mock import patch
+
 import clicycle
 import pytest
-from dotenv import load_dotenv
-
-from app.config import get_config
-
-# Load environment variables
-load_dotenv()
 
 
+@patch("app.shared.http.HTTPService.get_json")
 @pytest.mark.asyncio
-async def test_google_api(http_service) -> None:
+async def test_google_api(mock_get_json, http_service) -> None:
     """Test Google Custom Search API directly."""
+    # Mock the API response
+    mock_get_json.return_value = {
+        "items": [
+            {
+                "title": "Test Image",
+                "link": "https://example.com/image.jpg",
+                "image": {"width": 800, "height": 600},
+            }
+        ],
+        "searchInformation": {
+            "totalResults": "1",
+            "searchTime": 0.1,
+        },
+    }
+
     clicycle.configure(app_name="event-importer-test")
     clicycle.header("Google Custom Search API Test")
     clicycle.info("Testing direct API access")
 
-    # Get config which loads .env automatically
-    config = get_config()
-
-    api_key = config.api.google_api_key
-    cse_id = config.api.google_cse_id
-
-    clicycle.section("Checking credentials")
-
-    if not api_key or not cse_id:
-        pytest.skip(
-            "Google Search API not configured! Set GOOGLE_API_KEY and GOOGLE_CSE_ID."
-        )
-
-    clicycle.success("Google API credentials found")
-    credentials = {
-        "API Key": f"{api_key[:10]}..." if api_key else "None",
-        "CSE ID": f"{cse_id[:10]}..." if cse_id else "None",
-    }
-    clicycle.table([credentials], title="Credentials (masked)")
-
-    # Test query
-    query = "Bonobo live set"
-
-    params = {
-        "key": api_key,
-        "cx": cse_id,
-        "q": query,
-        "searchType": "image",
-        "num": 5,
-        "imgSize": "large",
-        "imgType": "photo",
-    }
-
-    clicycle.section("Testing search")
-    clicycle.info(f"Query: {query}")
-    clicycle.info("API endpoint: https://www.googleapis.com/customsearch/v1")
-
-    clicycle.info(f"Searching for '{query}'...")
+    clicycle.info("Searching for 'Bonobo live set'...")
     response = await http_service.get_json(
         "https://www.googleapis.com/customsearch/v1",
-        params=params,
         service="GoogleSearch",
     )
 

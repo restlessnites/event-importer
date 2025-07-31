@@ -53,8 +53,9 @@ def mock_http_calls(mocker: MockerFixture) -> None:
     [RA_URL, DICE_URL],
 )
 @pytest.mark.asyncio
-async def test_import(url: str, mock_http_calls: None) -> None:
+async def test_import(url: str, db_session, mock_http_calls, monkeypatch) -> None:
     """Test importing an event with mocked API responses."""
+    monkeypatch.setattr("app.shared.database.utils.get_db_session", lambda: db_session)
     request = ImportRequest(url=url)
     importer = EventImporter()
 
