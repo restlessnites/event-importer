@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import datetime
-
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -11,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.config import get_config
 from app.services.claude import ClaudeService
 from app.services.genre import GenreService
+from app.services.image import ImageService
 from app.services.llm import LLMService
 from app.services.openai import OpenAIService
 from app.shared.database.connection import (
@@ -74,10 +73,8 @@ def genre_service(http_service: HTTPService, llm_service: LLMService) -> GenreSe
 
 
 @pytest.fixture(scope="function")
-def image_service(http_service: HTTPService) -> "ImageService":
+def image_service(http_service: HTTPService) -> ImageService:
     """Return an ImageService instance."""
-    from app.services.image import ImageService
-
     return ImageService(get_config(), http_service)
 
 
