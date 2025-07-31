@@ -268,3 +268,37 @@ class LLMService:
         if event_data:
             return self._enhance_description(event_data)
         return None
+
+    @retry_on_error(max_attempts=2)
+    async def extract_genres_with_context(
+        self: LLMService,
+        prompt: str,
+    ) -> list[str]:
+        """Extract genres using structured output with custom prompt."""
+        # Use Claude's structured genre tool with custom prompt
+        if self.primary_service:
+            try:
+                # Use Claude's structured tool directly with custom prompt
+                result = await self.primary_service._call_with_tool(
+                    prompt,
+                    tool=self.primary_service.GENRE_TOOL,
+                    tool_name="enhance_genres",
+                )
+                if result and result.get("genres"):
+                    return result["genres"]
+                return []
+            except Exception as e:
+                logger.debug(f"Primary service genre extraction failed: {e}")
+                if self.fallback_service:
+                    # Fallback to text analysis if structured fails
+                    response = await self.fallback_service.analyze_text(prompt)
+                    if response:
+                        # Simple extraction - look for genres in text
+                        import re
+                        genres = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', response)
+                        # Filter to likely genre words
+                        genre_words = ['House', 'Techno', 'Electronic', 'Rock', 'Pop', 'Jazz', 'Hip-Hop', 'Trap', 'Dubstep', 'Drum', 'Bass']
+                        found_genres = [g for g in genres if any(word in g for word in genre_words)]
+                        return found_genres[:4]
+                raise e
+        return []

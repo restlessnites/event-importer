@@ -736,8 +736,12 @@ class EventImporter:
                 else:
                     logger.warning(f"Field '{field}' does not exist on EventData")
 
-            # Create updated event data using Pydantic's validation
-            # First get the current data as dict, then update it, then validate
+            if not validated_updates:
+                logger.warning("No valid updates to apply")
+                return event_data
+
+            # Create updated event data using model_copy to preserve field types like HttpUrl
+            # But first create a dict that will be validated by EventData constructor
             current_data = event_data.model_dump()
             current_data.update(validated_updates)
             updated_event_data = EventData(**current_data)

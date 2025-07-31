@@ -314,6 +314,7 @@ class CoreMCPTools:
     async def handle_import_event(arguments: dict, router: Router) -> dict:
         """Handle import_event tool call"""
         try:
+            logger.info(f"MCP import_event called with arguments: {arguments}")
             result = await router.route_request(arguments)
 
             # Format service failures for user-friendly display

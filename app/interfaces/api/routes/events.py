@@ -55,6 +55,9 @@ async def import_event(request: ImportEventRequest) -> ImportEventResponse:
         if request.include_raw_data:
             request_data["include_raw_data"] = request.include_raw_data
 
+        if request.ignore_cache:
+            request_data["ignore_cache"] = request.ignore_cache
+
         # Route the request
         router_instance = get_router()
         result = await router_instance.route_request(request_data)
