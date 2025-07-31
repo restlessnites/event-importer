@@ -159,11 +159,11 @@ These endpoints provide analytics about the events stored in the local database.
   curl http://localhost:8000/api/v1/health
   ```
 
-### Event Updates and Description Rebuilding
+### Event Updates and Rebuilding
 
 #### Rebuild Event Description
 
-- **Endpoint**: `POST /api/v1/events/{event_id}/rebuild-description`
+- **Endpoint**: `POST /api/v1/events/{event_id}/rebuild/description`
 - **Description**: Regenerate the event description using AI. Does not save automatically - returns preview only.
 - **Request Body**:
 
@@ -190,11 +190,101 @@ These endpoints provide analytics about the events stored in the local database.
 - **Example**:
 
   ```bash
-  curl -X POST http://localhost:8000/api/v1/events/123/rebuild-description \
+  curl -X POST http://localhost:8000/api/v1/events/123/rebuild/description \
     -H "Content-Type: application/json" \
     -d '{
       "description_type": "short",
       "supplementary_context": "Underground techno event"
+    }'
+  ```
+
+#### Rebuild Event Genres
+
+- **Endpoint**: `POST /api/v1/events/{event_id}/rebuild/genres`
+- **Description**: Re-analyze and regenerate event genres using AI and search. Does not save automatically - returns preview only.
+- **Request Body**:
+
+  ```json
+  {
+    "supplementary_context": "string (optional, required if event has no lineup)"
+  }
+  ```
+
+  **Parameters**:
+  - `supplementary_context`: Additional context to help identify genres. Required if the event has no lineup (e.g., provide artist names).
+
+- **Success Response (200 OK)**:
+
+  ```json
+  {
+    "success": true,
+    "genres": ["Electronic", "House", "Techno"],
+    "service_failures": [
+      {
+        "service": "GoogleSearch",
+        "error": "API key not configured"
+      }
+    ]
+  }
+  ```
+
+- **Example**:
+
+  ```bash
+  curl -X POST http://localhost:8000/api/v1/events/123/rebuild/genres \
+    -H "Content-Type: application/json" \
+    -d '{
+      "supplementary_context": "Four Tet, Floating Points"
+    }'
+  ```
+
+#### Rebuild Event Image
+
+- **Endpoint**: `POST /api/v1/events/{event_id}/rebuild/image`
+- **Description**: Search for and select the best image for the event. Does not save automatically - returns preview only.
+- **Request Body**:
+
+  ```json
+  {
+    "supplementary_context": "string (optional)"
+  }
+  ```
+
+  **Parameters**:
+  - `supplementary_context`: Additional context to help find better images (e.g., "festival poster 2024").
+
+- **Success Response (200 OK)**:
+
+  ```json
+  {
+    "success": true,
+    "image_candidates": [
+      {
+        "url": "https://example.com/image1.jpg",
+        "score": 0.9,
+        "source": "Event Website",
+        "dimensions": "1200x630",
+        "reason": "High quality official event poster"
+      }
+    ],
+    "best_image": {
+      "url": "https://example.com/image1.jpg",
+      "score": 0.9,
+      "source": "Event Website",
+      "dimensions": "1200x630",
+      "reason": "High quality official event poster"
+    },
+    "service_failures": []
+  }
+  ```
+
+- **Example**:
+
+  ```bash
+  curl -X POST http://localhost:8000/api/v1/events/123/rebuild/image \
+    -H "Content-Type: application/json" \
+    -d '{
+      "supplementary_context": "official event poster"
     }'
   ```
 

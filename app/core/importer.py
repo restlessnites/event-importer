@@ -713,18 +713,34 @@ class EventImporter:
             # Parse the event data
             event_data = EventData(**event_data_dict)
 
-            # Apply updates
+            # Prepare updates with proper validation
+            validated_updates = {}
             for field, value in updates.items():
                 if hasattr(event_data, field):
-                    # Special handling for time field - convert dict to EventTime
+                    # Special handling for complex fields
                     if field == "time" and isinstance(value, dict):
-                        value = EventTime(**value)
-                    setattr(event_data, field, value)
+                        validated_updates[field] = EventTime(**value)
+                    elif field == "images" and isinstance(value, dict):
+                        # Validate images structure
+                        if not all(k in ["full", "thumbnail"] for k in value):
+                            logger.warning("Invalid image keys. Only 'full' and 'thumbnail' are allowed")
+                            continue
+                        # Ensure both full and thumbnail are provided if updating images
+                        if "full" in value and "thumbnail" not in value:
+                            value["thumbnail"] = value["full"]  # Use full as thumbnail if not provided
+                        elif "thumbnail" in value and "full" not in value:
+                            value["full"] = value["thumbnail"]  # Use thumbnail as full if not provided
+                        validated_updates[field] = value
+                    else:
+                        validated_updates[field] = value
                 else:
                     logger.warning(f"Field '{field}' does not exist on EventData")
 
-            # Re-validate the updated data
-            updated_event_data = EventData(**event_data.model_dump())
+            # Create updated event data using Pydantic's validation
+            # First get the current data as dict, then update it, then validate
+            current_data = event_data.model_dump()
+            current_data.update(validated_updates)
+            updated_event_data = EventData(**current_data)
 
             # Cache the updated event data
             cache_event(

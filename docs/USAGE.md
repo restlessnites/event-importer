@@ -47,6 +47,52 @@ event-importer events list --source "ra.co"
 event-importer events details 123
 ```
 
+### Rebuild Event Data
+
+Rebuild commands allow you to regenerate specific parts of event data using AI and search services. All rebuild operations return a preview only - use the update command to save changes.
+
+```bash
+# Rebuild event description (short or long)
+event-importer events rebuild description 123 --type short
+event-importer events rebuild description 123 --type long --context "Underground techno event"
+
+# Rebuild event genres
+event-importer events rebuild genres 123
+event-importer events rebuild genres 123 --context "Four Tet, Floating Points"
+
+# Rebuild event image (searches for best image)
+event-importer events rebuild image 123
+event-importer events rebuild image 123 --context "official poster 2024"
+```
+
+### Update Event Fields
+
+```bash
+# Update single field
+event-importer events update 123 --title "New Event Title"
+
+# Update multiple fields
+event-importer events update 123 --title "New Title" --venue "New Venue" --date "2024-12-31"
+
+# Update complex fields
+event-importer events update 123 --genres "House,Techno,Electronic" --lineup "DJ Shadow,Cut Chemist"
+
+# Update all supported fields
+event-importer events update 123 \
+  --title "Updated Title" \
+  --venue "Updated Venue" \
+  --date "2024-12-31" \
+  --end-date "2025-01-01" \
+  --short-description "Electronic music night" \
+  --long-description "Join us for an unforgettable night..." \
+  --genres "House,Techno" \
+  --lineup "Main Act,Support Act" \
+  --minimum-age "21+" \
+  --cost "$30" \
+  --ticket-url "https://tickets.com/event" \
+  --promoters "Promoter1,Promoter2"
+```
+
 ### Settings Management
 
 ```bash
@@ -110,7 +156,9 @@ event-importer api
 
 - **POST** `/api/v1/events/import` - Import an event
 - **GET** `/api/v1/events/import/{id}/progress` - Check import progress
-- **POST** `/api/v1/events/{event_id}/rebuild-description` - Rebuild event description (long or short)
+- **POST** `/api/v1/events/{event_id}/rebuild/description` - Rebuild event description (long or short)
+- **POST** `/api/v1/events/{event_id}/rebuild/genres` - Rebuild event genres
+- **POST** `/api/v1/events/{event_id}/rebuild/image` - Search for and select best image
 - **PATCH** `/api/v1/events/{event_id}` - Update event fields
 
 #### Statistics
@@ -141,11 +189,25 @@ curl -X POST http://localhost:8000/api/v1/events/import \
   -d '{"url": "https://ra.co/events/1234567"}'
 
 # Rebuild event description
-curl -X POST http://localhost:8000/api/v1/events/123/rebuild-description \
+curl -X POST http://localhost:8000/api/v1/events/123/rebuild/description \
   -H "Content-Type: application/json" \
   -d '{
     "description_type": "short",
     "supplementary_context": "Electronic music festival"
+  }'
+
+# Rebuild event genres
+curl -X POST http://localhost:8000/api/v1/events/123/rebuild/genres \
+  -H "Content-Type: application/json" \
+  -d '{
+    "supplementary_context": "Four Tet, Floating Points"
+  }'
+
+# Rebuild event image
+curl -X POST http://localhost:8000/api/v1/events/123/rebuild/image \
+  -H "Content-Type: application/json" \
+  -d '{
+    "supplementary_context": "official poster"
   }'
 
 # Update event fields

@@ -1,6 +1,7 @@
 """Event import API routes."""
 
 import logging
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
@@ -95,7 +96,7 @@ async def get_import_progress(request_id: str) -> ProgressResponse:
 
 
 @router.post(
-    "/{event_id}/rebuild-description", response_model=RebuildDescriptionResponse
+    "/{event_id}/rebuild/description", response_model=RebuildDescriptionResponse
 )
 async def rebuild_event_description(
     event_id: int,
@@ -169,7 +170,7 @@ async def update_event(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@router.post("/{event_id}/rebuild-genres", response_model=RebuildGenresResponse)
+@router.post("/{event_id}/rebuild/genres", response_model=RebuildGenresResponse)
 async def rebuild_event_genres(
     event_id: int,
     request: RebuildGenresRequest,
@@ -183,15 +184,13 @@ async def rebuild_event_genres(
         )
 
         # Format service failures if any
-        result = {}
+        result: dict[str, Any] = {"service_failures": []}
         if service_failures:
             # Convert ServiceFailure objects to dicts for the formatter
             failure_dicts = [f.model_dump() for f in service_failures]
             result["service_failures"] = failure_dicts
             failure_info = ServiceErrorFormatter.format_for_api(failure_dicts)
             result.update(failure_info)
-        else:
-            result["service_failures"] = []
 
         if updated_event:
             return RebuildGenresResponse(
@@ -221,7 +220,26 @@ async def rebuild_event_genres(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@router.post("/{event_id}/rebuild-image", response_model=RebuildImageResponse)
+def _extract_image_search_results_for_api(
+    image_search: Any,
+) -> tuple[list[dict], dict | None]:
+    """Extract and format image candidates and best image from search results for API response."""
+    if not image_search:
+        return [], None
+
+    candidates = [c.model_dump() for c in image_search.candidates]
+    best_image = image_search.selected.model_dump() if image_search.selected else None
+
+    if image_search.original:
+        original_data = image_search.original.model_dump()
+        original_data["source"] = "original"
+        if not any(c["url"] == original_data["url"] for c in candidates):
+            candidates.append(original_data)
+
+    return candidates, best_image
+
+
+@router.post("/{event_id}/rebuild/image", response_model=RebuildImageResponse)
 async def rebuild_event_image(
     event_id: int,
     request: RebuildImageRequest,
@@ -234,56 +252,16 @@ async def rebuild_event_image(
             supplementary_context=request.supplementary_context,
         )
 
-        # Format service failures if any
-        result = {}
+        result: dict[str, Any] = {"service_failures": []}
         if service_failures:
-            # Convert ServiceFailure objects to dicts for the formatter
             failure_dicts = [f.model_dump() for f in service_failures]
             result["service_failures"] = failure_dicts
-            failure_info = ServiceErrorFormatter.format_for_api(failure_dicts)
-            result.update(failure_info)
-        else:
-            result["service_failures"] = []
+            result.update(ServiceErrorFormatter.format_for_api(failure_dicts))
 
         if updated_event:
-            # Extract image info from the response
-            candidates = []
-            best_image = None
-
-            if updated_event.image_search:
-                # Get all candidates with their scores
-                for candidate in updated_event.image_search.candidates:
-                    candidates.append({
-                        "url": candidate.url,
-                        "score": candidate.score,
-                        "source": candidate.source,
-                        "dimensions": candidate.dimensions,
-                        "reason": candidate.reason,
-                    })
-
-                # Get the best image
-                if updated_event.image_search.selected:
-                    best_image = {
-                        "url": updated_event.image_search.selected.url,
-                        "score": updated_event.image_search.selected.score,
-                        "source": updated_event.image_search.selected.source,
-                        "dimensions": updated_event.image_search.selected.dimensions,
-                        "reason": updated_event.image_search.selected.reason,
-                    }
-
-                # Include original if it was rated
-                if updated_event.image_search.original:
-                    original = {
-                        "url": updated_event.image_search.original.url,
-                        "score": updated_event.image_search.original.score,
-                        "source": "original",
-                        "dimensions": updated_event.image_search.original.dimensions,
-                        "reason": updated_event.image_search.original.reason,
-                    }
-                    # Add to candidates if not already there
-                    if not any(c["url"] == original["url"] for c in candidates):
-                        candidates.append(original)
-
+            candidates, best_image = _extract_image_search_results_for_api(
+                updated_event.image_search
+            )
             return RebuildImageResponse(
                 success=True,
                 event_id=event_id,
@@ -291,21 +269,16 @@ async def rebuild_event_image(
                 data=updated_event,
                 image_candidates=candidates,
                 best_image=best_image,
-                **result,  # Include service failure info
+                **result,
             )
 
-        # If no event data returned, include error info
         error_msg = f"Event not found or failed to rebuild image for ID: {event_id}"
         if service_failures:
             error_msg += f". {result.get('service_failure_summary', '')}"
 
-        raise HTTPException(
-            status_code=404,
-            detail=error_msg,
-        )
+        raise HTTPException(status_code=404, detail=error_msg)
 
     except HTTPException:
-        # Re-raise HTTP exceptions as-is
         raise
     except Exception as e:
         logger.exception(f"Failed to rebuild image for event {event_id}")

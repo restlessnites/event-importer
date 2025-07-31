@@ -203,7 +203,9 @@ class ImageService:
         )
 
         await send_progress("Selecting best image", 0.95)
-        self._select_and_update_best_image(event_data, search_result, original_url, force_search)
+        self._select_and_update_best_image(
+            event_data, search_result, original_url, force_search
+        )
 
         event_data.image_search = search_result
         return event_data
@@ -239,6 +241,39 @@ class ImageService:
                     failure_collector.add_failure("ImageService", e)
         return original_url
 
+    async def _execute_search_query(
+        self: "ImageService",
+        query: str,
+        query_index: int,
+        failure_collector: Any | None = None,
+    ) -> list[ImageCandidate]:
+        """Execute a single image search query and return candidates, handling errors."""
+        try:
+            results = await self._search_google_images(query, 5)
+            logger.info(
+                f"Google Image Search returned {len(results)} results for query: '{query}'"
+            )
+            if not results:
+                error_msg = (
+                    f"Google Image Search returned no results for query: '{query}'"
+                )
+                if failure_collector:
+                    failure_collector.add_failure(
+                        "GoogleImageSearch", ValueError(error_msg)
+                    )
+                return []
+            return [
+                ImageCandidate(url=url, source=f"query_{query_index}")
+                for result in results
+                if (url := result.get("link"))
+            ]
+        except Exception as e:
+            logger.warning(f"Search query '{query}' failed: {e}")
+            if failure_collector and hasattr(failure_collector, "add_failure"):
+                service = e.service if isinstance(e, APIError) else "GoogleImageSearch"
+                failure_collector.add_failure(service, e)
+            return []
+
     async def _search_for_new_candidates(
         self: "ImageService",
         event_data: EventData,
@@ -248,18 +283,12 @@ class ImageService:
     ) -> list[ImageCandidate]:
         """Search for new image candidates using generated queries."""
         queries = self._build_search_queries(event_data)
-
-        # If supplementary context provided, add an additional targeted query
         if supplementary_context:
-            # Add a more focused query using the context (no quotes for flexibility)
             queries.insert(0, supplementary_context)
             logger.info(f"Added supplementary context query: '{supplementary_context}'")
 
         if not queries:
-            error_msg = "No search queries generated for image search"
-            if failure_collector:
-                failure_collector.add_failure("ImageService", ValueError(error_msg))
-            logger.warning(error_msg)
+            logger.warning("No search queries generated for image search")
             return []
 
         await send_progress(f"Searching with {len(queries)} queries", 0.15)
@@ -269,38 +298,20 @@ class ImageService:
             await send_progress(
                 f"Query {i + 1}/{len(queries)}: '{query[:30]}...'", progress
             )
-            try:
-                results = await self._search_google_images(query, 5)
 
-                # Log what we got back
-                logger.info(f"Google Image Search returned {len(results)} results for query: '{query}'")
+            new_candidates = await self._execute_search_query(
+                query, i, failure_collector
+            )
 
-                # If no results, this is worth reporting
-                if not results:
-                    error_msg = f"Google Image Search returned no results for query: '{query}'"
-                    if failure_collector:
-                        failure_collector.add_failure("GoogleImageSearch", ValueError(error_msg))
-                    continue
-
-                found_count = 0
-                for result in results:
-                    url = result.get("link")
-                    if url and not any(c.url == url for c in search_candidates):
-                        search_candidates.append(
-                            ImageCandidate(url=url, source=f"query_{i}")
-                        )
-                        found_count += 1
-
-                logger.info(f"Added {found_count} new candidates from query: '{query}'")
-
-            except Exception as e:
-                logger.warning(f"Search query '{query}' failed: {e}")
-                if failure_collector and hasattr(failure_collector, "add_failure"):
-                    # Use the specific service from APIError if available
-                    if isinstance(e, APIError):
-                        failure_collector.add_failure(e.service, e)
-                    else:
-                        failure_collector.add_failure("GoogleImageSearch", e)
+            # Add new, unique candidates to the list
+            added_count = 0
+            for candidate in new_candidates:
+                if not any(c.url == candidate.url for c in search_candidates):
+                    search_candidates.append(candidate)
+                    added_count += 1
+            logger.info(
+                f"Found {len(new_candidates)} results, added {added_count} unique candidates from query: '{query}'"
+            )
         return search_candidates
 
     async def _rate_found_candidates(
@@ -346,9 +357,13 @@ class ImageService:
         # Only use original if no search candidates found
         if force_search and search_result.candidates:
             # Find best among search candidates only (exclude original)
-            search_only_candidates = [c for c in search_result.candidates if c.url != original_url]
+            search_only_candidates = [
+                c for c in search_result.candidates if c.url != original_url
+            ]
             if search_only_candidates:
-                best_search_candidate = max(search_only_candidates, key=lambda c: c.score)
+                best_search_candidate = max(
+                    search_only_candidates, key=lambda c: c.score
+                )
                 logger.info(
                     f"Force search: Selected new image (score: {best_search_candidate.score}): {best_search_candidate.url}"
                 )
@@ -419,9 +434,11 @@ class ImageService:
 
         # For events without lineup, search for event materials
         queries = [
-            f'{event_name} event poster',
-            f'{event_name} flyer',
-            f'{event_data.venue} event {event_name}' if event_data.venue else f'{event_name} event',
+            f"{event_name} event poster",
+            f"{event_name} flyer",
+            f"{event_data.venue} event {event_name}"
+            if event_data.venue
+            else f"{event_name} event",
         ]
         logger.info(f"Building event queries: {queries}")
         return queries
@@ -463,20 +480,24 @@ class ImageService:
                 raise APIError(
                     service="GoogleImageSearch",
                     message=error_info.get("message", "Unknown Google API error"),
-                    status_code=error_info.get("code", 0)
+                    status_code=error_info.get("code", 0),
                 )
 
             # Check if we have search information
             search_info = response.get("searchInformation", {})
             total_results = search_info.get("totalResults", "0")
-            logger.info(f"Google search info - Total results: {total_results}, Query: '{query}'")
+            logger.info(
+                f"Google search info - Total results: {total_results}, Query: '{query}'"
+            )
 
             # Get the actual results
             results = response.get("items", [])
 
             # If no items but no error, log why
             if not results and int(total_results) > 0:
-                logger.warning(f"Google returned totalResults={total_results} but no items for query: '{query}'")
+                logger.warning(
+                    f"Google returned totalResults={total_results} but no items for query: '{query}'"
+                )
 
             return results if results else []
 
@@ -488,5 +509,5 @@ class ImageService:
             raise APIError(
                 service="GoogleImageSearch",
                 message=f"Search failed: {str(e)}",
-                status_code=0
+                status_code=0,
             ) from e

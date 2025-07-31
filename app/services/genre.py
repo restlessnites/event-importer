@@ -50,7 +50,7 @@ class GenreService:
         1. No genres are present
         2. We have artists to search for
         3. Google search is enabled
-        
+
         Args:
             event_data: Event data to enhance
             supplementary_context: Optional context to help identify genres
@@ -58,7 +58,7 @@ class GenreService:
         # Check if we already have genres
         if event_data.genres:
             return event_data
-            
+
         # Check if Google is enabled
         if not self.google_enabled:
             logger.warning("Genre enhancement skipped: Google Search not configured")
@@ -73,12 +73,11 @@ class GenreService:
                 )
                 logger.error(error_msg)
                 raise ValueError(error_msg)
-            else:
-                # Extract artist names from supplementary context
-                logger.info(f"No lineup found. Using supplementary context as artist info: {supplementary_context}")
-                primary_artist = supplementary_context
-                # Don't pass supplementary_context again since we're using it as the artist
-                context_to_pass = None
+            # Extract artist names from supplementary context
+            logger.info(f"No lineup found. Using supplementary context as artist info: {supplementary_context}")
+            primary_artist = supplementary_context
+            # Don't pass supplementary_context again since we're using it as the artist
+            context_to_pass = None
         else:
             primary_artist = event_data.lineup[0]
             # Pass supplementary_context for additional context
@@ -136,7 +135,7 @@ class GenreService:
         # Check if this looks like a description rather than an artist name
         # (happens when event has no lineup and supplementary_context is used as artist)
         is_description = len(artist_name.split()) > 4 or any(word in artist_name.lower() for word in ['similar', 'like', 'genre', 'style'])
-        
+
         if supplementary_context:
             # Use supplementary context to help find genres
             if is_description:
@@ -170,18 +169,18 @@ class GenreService:
                 search_text,
                 event_context,
             )
-            
+
             if genres:
                 logger.info(f"Found {len(genres)} genres for {artist_name}: {genres}")
             else:
                 logger.warning(f"No genres extracted from search results for {artist_name}")
-                
+
             return genres
 
         except APIError as e:
             logger.error(f"API error during genre search for {artist_name}: {e}")
             raise  # Re-raise to be handled by caller
-        except Exception as e:
+        except Exception:
             logger.exception(f"{ServiceMessages.GENRE_SEARCH_FAILED} for {artist_name}")
             raise  # Re-raise to be handled by caller
 
@@ -219,7 +218,7 @@ class GenreService:
 
             # Get results
             results = response.get("items", [])
-            
+
             # Log if no results found
             if not results and int(total_results) > 0:
                 logger.warning(f"Google returned totalResults={total_results} but no items for genre query: '{query}'")
@@ -272,10 +271,10 @@ class GenreService:
         """Use LLM to extract genres from search text."""
         # Check if this is a genre description rather than an artist name
         is_genre_description = len(artist_name.split()) > 4 or any(
-            word in artist_name.lower() 
+            word in artist_name.lower()
             for word in ['indie', 'rock', 'electronic', 'jazz', 'hip hop', 'genre', 'music', 'style']
         )
-        
+
         if is_genre_description:
             # Use a simpler prompt for genre extraction when supplementary context is genre-related
             prompt = GenrePrompts.build_genre_extraction_prompt(
@@ -295,13 +294,13 @@ class GenreService:
             if not response:
                 logger.warning("LLM returned empty response for genre analysis")
                 return []
-            
+
             logger.info(f"LLM genre response: {response[:500]}...")  # Log first 500 chars
             genres = self._parse_genre_response(response)
-            
+
             if not genres:
                 logger.warning(f"Failed to parse genres from LLM response: {response[:200]}...")
-                
+
             return genres
         except Exception as e:
             logger.error(f"{ServiceMessages.LLM_GENRE_ANALYSIS_FAILED}: {e}")
@@ -322,7 +321,7 @@ class GenreService:
                         return valid_genres
                 except json.JSONDecodeError as e:
                     logger.debug(f"JSON parse failed: {e}")
-            
+
             # If no JSON found or parsing failed, try to extract from text
             # Look for common patterns like "Genres: Rock, Pop" or bullet points
             patterns = [
@@ -330,7 +329,7 @@ class GenreService:
                 r"(?:^|\n)[-•*]\s*([A-Z][a-zA-Z\s&-]+?)(?:\n|$)",
                 r"(?:^|\n)(?:\d+\.)\s*([A-Z][a-zA-Z\s&-]+?)(?:\n|$)",
             ]
-            
+
             for pattern in patterns:
                 matches = re.findall(pattern, response, re.MULTILINE)
                 if matches:
@@ -340,13 +339,13 @@ class GenreService:
                         # Split by comma if it's a comma-separated list
                         items = [item.strip() for item in match.split(",")]
                         genres.extend(items)
-                    
+
                     # Filter valid genres
                     valid_genres = [
-                        g.strip() for g in genres 
+                        g.strip() for g in genres
                         if g.strip() and len(g.strip()) < 30  # Reasonable genre length
                     ][:4]  # Max 4 genres
-                    
+
                     if valid_genres:
                         logger.debug(f"Extracted genres from text pattern: {valid_genres}")
                         return valid_genres

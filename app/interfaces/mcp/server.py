@@ -230,6 +230,23 @@ class CoreMCPTools:
                         "type": "string",
                         "description": "Ticket cost information (e.g., '$20', 'Free', '$15-30')",
                     },
+                    "ticket_url": {
+                        "type": "string",
+                        "description": "URL for ticket purchase",
+                    },
+                    "promoters": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of event promoters",
+                    },
+                    "images": {
+                        "type": "object",
+                        "description": "Image URLs with 'full' and 'thumbnail' keys",
+                        "properties": {
+                            "full": {"type": "string"},
+                            "thumbnail": {"type": "string"},
+                        },
+                    },
                 },
                 "required": ["event_id"],
             },
@@ -382,6 +399,9 @@ class CoreMCPTools:
             "lineup",
             "minimum_age",
             "cost",
+            "ticket_url",
+            "promoters",
+            "images",
         }
 
         updates = {
@@ -435,9 +455,15 @@ class CoreMCPTools:
             if service_failures:
                 # Convert ServiceFailure objects to dicts
                 failure_dicts = [f.model_dump() for f in service_failures]
-                ServiceErrorFormatter.format_for_mcp({"service_failures": failure_dicts})
+                ServiceErrorFormatter.format_for_mcp(
+                    {"service_failures": failure_dicts}
+                )
                 result["service_failures"] = failure_dicts
-                result["service_failure_summary"] = ServiceErrorFormatter.format_for_api(failure_dicts).get("service_failure_summary")
+                result["service_failure_summary"] = (
+                    ServiceErrorFormatter.format_for_api(failure_dicts).get(
+                        "service_failure_summary"
+                    )
+                )
 
             if updated_event:
                 return {
@@ -469,6 +495,27 @@ class CoreMCPTools:
             }
 
     @staticmethod
+    def _extract_image_search_results(
+        image_search: Any,
+    ) -> tuple[list[dict], dict | None]:
+        """Extract and format image candidates and best image from search results."""
+        if not image_search:
+            return [], None
+
+        candidates = [c.model_dump() for c in image_search.candidates]
+        best_image = (
+            image_search.selected.model_dump() if image_search.selected else None
+        )
+
+        if image_search.original:
+            original_data = image_search.original.model_dump()
+            original_data["source"] = "original"
+            if not any(c["url"] == original_data["url"] for c in candidates):
+                candidates.append(original_data)
+
+        return candidates, best_image
+
+    @staticmethod
     async def handle_rebuild_event_image(arguments: dict, router: Router) -> dict:
         """Handle rebuild_event_image tool call"""
         event_id = arguments.get("event_id")
@@ -476,61 +523,32 @@ class CoreMCPTools:
             return {"success": False, "error": "Event ID is required"}
 
         try:
-            # Get supplementary context if provided
             supplementary_context = arguments.get("supplementary_context")
             updated_event, service_failures = await router.importer.rebuild_image(
                 event_id,
                 supplementary_context=supplementary_context,
             )
 
-            # Format service failures for display
             result = {}
             if service_failures:
-                # Convert ServiceFailure objects to dicts
                 failure_dicts = [f.model_dump() for f in service_failures]
-                ServiceErrorFormatter.format_for_mcp({"service_failures": failure_dicts})
+                ServiceErrorFormatter.format_for_mcp(
+                    {"service_failures": failure_dicts}
+                )
                 result["service_failures"] = failure_dicts
-                result["service_failure_summary"] = ServiceErrorFormatter.format_for_api(failure_dicts).get("service_failure_summary")
+                result["service_failure_summary"] = (
+                    ServiceErrorFormatter.format_for_api(failure_dicts).get(
+                        "service_failure_summary"
+                    )
+                )
 
             if updated_event:
-                # Extract all candidates for display
-                candidates = []
-                best_image = None
-
-                if updated_event.image_search:
-                    # Get all candidates
-                    for candidate in updated_event.image_search.candidates:
-                        candidates.append({
-                            "url": candidate.url,
-                            "score": candidate.score,
-                            "source": candidate.source,
-                            "dimensions": candidate.dimensions,
-                            "reason": candidate.reason,
-                        })
-
-                    # Get the best image
-                    if updated_event.image_search.selected:
-                        best_image = {
-                            "url": updated_event.image_search.selected.url,
-                            "score": updated_event.image_search.selected.score,
-                            "source": updated_event.image_search.selected.source,
-                            "dimensions": updated_event.image_search.selected.dimensions,
-                            "reason": updated_event.image_search.selected.reason,
-                        }
-
-                    # Include original if it was rated
-                    if updated_event.image_search.original:
-                        original = {
-                            "url": updated_event.image_search.original.url,
-                            "score": updated_event.image_search.original.score,
-                            "source": "original",
-                            "dimensions": updated_event.image_search.original.dimensions,
-                            "reason": updated_event.image_search.original.reason,
-                        }
-                        # Add to candidates if not already there
-                        if not any(c["url"] == original["url"] for c in candidates):
-                            candidates.append(original)
-
+                (
+                    candidates,
+                    best_image,
+                ) = CoreMCPTools._extract_image_search_results(
+                    updated_event.image_search
+                )
                 return {
                     "success": True,
                     "event_id": event_id,
@@ -782,13 +800,9 @@ async def handle_call_tool(
                 arguments, router
             )
         elif name == "rebuild_event_genres":
-            result = await CoreMCPTools.handle_rebuild_event_genres(
-                arguments, router
-            )
+            result = await CoreMCPTools.handle_rebuild_event_genres(arguments, router)
         elif name == "rebuild_event_image":
-            result = await CoreMCPTools.handle_rebuild_event_image(
-                arguments, router
-            )
+            result = await CoreMCPTools.handle_rebuild_event_image(arguments, router)
         # Handle update_event which also needs router
         elif name == "update_event":
             result = await CoreMCPTools.handle_update_event(arguments, router)

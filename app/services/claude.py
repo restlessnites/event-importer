@@ -272,43 +272,13 @@ class ClaudeService:
         if not force_rebuild and not needs_long and not needs_short:
             return event_data
 
-        # Build prompt using EventPrompts
-        context_str = EventPrompts._build_event_context(
-            event_data.model_dump(exclude_unset=True)
+        # Build prompt using centralized EventPrompts
+        prompt = EventPrompts.build_description_generation_prompt(
+            event_data,
+            needs_long=needs_long,
+            needs_short=needs_short,
+            supplementary_context=supplementary_context,
         )
-        prompt_parts = [
-            "Generate ONLY the missing or invalid descriptions for this event based on the available information:",
-            f"\n{context_str}",
-        ]
-
-        if supplementary_context:
-            prompt_parts.append(f"\nAdditional Context: {supplementary_context}")
-
-        prompt_parts.append("\nRequirements:")
-
-        if needs_long:
-            prompt_parts.append(
-                """
-                **LONG DESCRIPTION**:
-                - Create a natural, engaging description incorporating all available information.
-                - Should be 2-4 sentences, informative and complete, but UNDER 500 characters.
-                - Include lineup/artists, venue, date, genres, promoters, location.
-                - If a description DOES exist in the source, use it as-is (just clean it up).
-                """
-            )
-
-        if needs_short:
-            prompt_parts.append(
-                """
-                **SHORT DESCRIPTION**:
-                - Must be under 100 characters.
-                - Factual only - NO adjectives or marketing language.
-                - Format: "[Genre] with [Artist]" or similar.
-                - Examples: "Electronic music with DJ Shadow", "Jazz quartet at Blue Note".
-                """
-            )
-
-        prompt = "\n".join(prompt_parts)
 
         try:
             result = await self._call_with_tool(prompt)

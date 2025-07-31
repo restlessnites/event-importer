@@ -185,6 +185,14 @@ event-importer events list
 # View event details
 event-importer events details 1
 
+# Rebuild event data (preview only - use update to save)
+event-importer events rebuild description 1 --type short
+event-importer events rebuild genres 1 --context "electronic music"
+event-importer events rebuild image 1
+
+# Update event fields
+event-importer events update 1 --title "New Title" --venue "New Venue"
+
 # Get statistics
 event-importer stats
 

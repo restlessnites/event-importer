@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.schemas import EventData
+
 
 class EventPrompts:
     """Modular prompt builder for event extraction and generation."""
@@ -181,6 +183,42 @@ Genre Guidelines:
                 context_parts.append(f"Location: {loc_str}")
 
         return "\\n".join(context_parts)
+
+    @classmethod
+    def build_description_generation_prompt(
+        cls: type[EventPrompts],
+        event_data: EventData,
+        needs_long: bool = True,
+        needs_short: bool = True,
+        supplementary_context: str | None = None,
+    ) -> str:
+        """Build prompt for generating missing descriptions.
+
+        Args:
+            event_data: The event data to generate descriptions for
+            needs_long: Whether to include long description generation rules
+            needs_short: Whether to include short description generation rules
+            supplementary_context: Additional context to help generate descriptions
+        """
+        context = cls._build_event_context(event_data.model_dump())
+
+        prompt_parts = [
+            "Generate missing descriptions for this event.",
+            f"\\n{context}",
+        ]
+
+        if supplementary_context:
+            prompt_parts.append(f"\\nAdditional Context: {supplementary_context}")
+
+        prompt_parts.append("\\nRequirements:")
+
+        # Add description generation rules based on what's needed
+        if needs_long:
+            prompt_parts.append(cls.LONG_DESCRIPTION_GENERATION)
+        if needs_short:
+            prompt_parts.append(cls.SHORT_DESCRIPTION_GENERATION)
+
+        return "\\n".join(prompt_parts)
 
     @classmethod
     def build_genre_enhancement_prompt(

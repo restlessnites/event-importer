@@ -213,6 +213,60 @@ Here are the tools you can now use in your conversations with the AI.
 
 ---
 
+#### `rebuild_genres`
+
+**What it does**: Re-analyzes and regenerates the genres for an event using AI and search. Shows a preview without saving.
+
+**When to use it**: When an event has incorrect or missing genres, or when you want to provide additional context to improve genre detection.
+
+**Parameters**:
+
+- `event_id` (required): The ID of the event to rebuild genres for.
+- `supplementary_context` (optional): Additional context to help identify genres. Required if the event has no lineup.
+
+**Example Conversation**:
+> **You**: Event 15 has no genres. Can you rebuild them? The artists are Four Tet and Floating Points.
+>
+> **Claude**: *(uses `rebuild_genres` with `event_id: 15, supplementary_context: "Four Tet, Floating Points"`)*
+>
+> **Claude**: I've analyzed the event and found these genres:
+> - Electronic
+> - Ambient
+> - IDM
+> - Experimental
+>
+> This is a preview. Would you like me to save these genres?
+
+---
+
+#### `rebuild_image`
+
+**What it does**: Searches for and selects the best image for an event. Shows all candidates found and the selected best image.
+
+**When to use it**: When an event has a low-quality image or no image, and you want to find a better one.
+
+**Parameters**:
+
+- `event_id` (required): The ID of the event to find images for.
+- `supplementary_context` (optional): Additional context to help find better images (e.g., "official poster 2024").
+
+**Example Conversation**:
+> **You**: Event 20 has a blurry image. Can you find a better one?
+>
+> **Claude**: *(uses `rebuild_image` with `event_id: 20`)*
+>
+> **Claude**: I found 5 image candidates:
+>
+> **Best Image Selected**:
+> - Score: 0.9
+> - Source: Event Website
+> - Dimensions: 1200x630
+> - Reason: High quality official event poster
+>
+> Would you like me to update the event with this image?
+
+---
+
 ### Integration Tools (TicketFairy)
 
 These tools are for submitting imported events to the TicketFairy service. This is a more advanced use case.
