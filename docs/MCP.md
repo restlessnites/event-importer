@@ -206,6 +206,7 @@ Here are the tools you can now use in your conversations with the AI.
 > **Claude**: *(uses `update_event` with `event_id: 23, updates: {"venue": "The New Warehouse", "time": {"start": "22:00", "end": "04:00", "timezone": "America/Los_Angeles"}}`)*
 >
 > **Claude**: I've updated event 23:
+>
 > - Venue changed to "The New Warehouse"
 > - Start time changed to 10:00 PM
 >
@@ -230,6 +231,7 @@ Here are the tools you can now use in your conversations with the AI.
 > **Claude**: *(uses `rebuild_genres` with `event_id: 15, supplementary_context: "Four Tet, Floating Points"`)*
 >
 > **Claude**: I've analyzed the event and found these genres:
+>
 > - Electronic
 > - Ambient
 > - IDM
@@ -258,7 +260,8 @@ Here are the tools you can now use in your conversations with the AI.
 > **Claude**: I found 5 image candidates:
 >
 > **Best Image Selected**:
-> - Score: 0.9
+>
+> - Score: 230
 > - Source: Event Website
 > - Dimensions: 1200x630
 > - Reason: High quality official event poster

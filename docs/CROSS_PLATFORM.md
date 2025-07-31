@@ -5,6 +5,7 @@ This guide explains how to build Event Importer for different platforms and arch
 ## Important Limitations
 
 PyInstaller creates platform-specific executables. You **cannot** build:
+
 - Windows executables on macOS or Linux
 - macOS executables on Windows or Linux  
 - Linux executables on Windows or macOS
@@ -30,6 +31,7 @@ make package-x86_64
 ```
 
 This creates:
+
 - `event-importer-x86_64.zip` - Intel-compatible app
 - `event-importer-installer` - Intel-compatible installer
 
@@ -38,18 +40,21 @@ This creates:
 To create a universal binary that runs on both Intel and Apple Silicon:
 
 1. Build on Intel Mac:
+
    ```bash
    make package
    mv dist/event-importer/event-importer event-importer-x86_64
    ```
 
 2. Build on Apple Silicon Mac:
+
    ```bash
    make package
    mv dist/event-importer/event-importer event-importer-arm64
    ```
 
 3. Combine using `lipo`:
+
    ```bash
    lipo -create -output event-importer-universal \
      event-importer-x86_64 \
@@ -65,6 +70,7 @@ To create a universal binary that runs on both Intel and Apple Silicon:
 1. Windows 10 or 11
 2. Python 3.11 or 3.12
 3. Install uv:
+
    ```powershell
    powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
    ```
@@ -72,27 +78,32 @@ To create a universal binary that runs on both Intel and Apple Silicon:
 ### Building on Windows
 
 1. Clone the repository:
+
    ```powershell
    git clone https://github.com/yourusername/event-importer.git
    cd event-importer
    ```
 
 2. Install dependencies:
+
    ```powershell
    uv sync
    ```
 
 3. Build the application:
+
    ```powershell
    uv run pyinstaller --noconfirm event-importer-windows.spec
    ```
 
 4. Build the installer:
+
    ```powershell
    uv run pyinstaller --noconfirm event-importer-installer-windows.spec
    ```
 
 5. Create zip files:
+
    ```powershell
    cd dist
    Compress-Archive -Path event-importer -DestinationPath ..\event-importer-windows.zip
@@ -112,11 +123,12 @@ To create a universal binary that runs on both Intel and Apple Silicon:
 
 ## Linux Builds
 
-### Prerequisites
+### Hello Nerds
 
-1. Ubuntu 20.04+ or similar
+1. Ubuntu 20.04+ or similars
 2. Python 3.11 or 3.12
 3. Install uv:
+
    ```bash
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
@@ -124,6 +136,7 @@ To create a universal binary that runs on both Intel and Apple Silicon:
 ### Building on Linux
 
 1. Clone and build:
+
    ```bash
    git clone https://github.com/yourusername/event-importer.git
    cd event-importer
@@ -132,6 +145,7 @@ To create a universal binary that runs on both Intel and Apple Silicon:
    ```
 
 2. Create AppImage (recommended for distribution):
+
    ```bash
    # Install appimagetool
    wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
@@ -189,12 +203,14 @@ jobs:
 To check what architecture your build supports:
 
 ### macOS
+
 ```bash
 file dist/event-importer/event-importer
 # Output will show: Mach-O 64-bit executable x86_64 or arm64
 ```
 
 ### Windows
+
 ```powershell
 dumpbin /headers dist\event-importer\event-importer.exe | findstr "machine"
 ```
@@ -202,14 +218,17 @@ dumpbin /headers dist\event-importer\event-importer.exe | findstr "machine"
 ## Troubleshooting
 
 ### "Cannot execute binary file" Error
+
 - You're trying to run a binary built for a different architecture
 - Solution: Build for your specific architecture
 
 ### Missing Dependencies on Target Machine
+
 - PyInstaller should bundle everything, but some system libraries might be missing
 - Solution: Test on a clean VM of the target OS
 
 ### Code Signing Issues
+
 - macOS: Unsigned apps require user approval in System Preferences
 - Windows: May trigger SmartScreen warnings
 - Solution: Sign your executables with proper certificates

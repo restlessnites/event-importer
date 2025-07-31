@@ -332,6 +332,7 @@ When you import an event, the response includes a `service_failures` array that 
 ### Viewing Service Failures
 
 #### CLI
+
 ```bash
 # Service failures are displayed as warnings after import
 event-importer events import https://example.com/event
@@ -342,7 +343,9 @@ event-importer events import https://example.com/event
 ```
 
 #### API
+
 The HTTP API includes service failures in the response JSON (see example above).
 
 #### MCP
+
 When using with Claude Desktop, service failures are included in the tool response for visibility.
