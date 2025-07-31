@@ -36,10 +36,24 @@ async def test_import_event_api_error(
     """Test that the agent handles API errors gracefully."""
     # Arrange
     url = "https://www.ticketmaster.com/event/123"
-    http_service.get.return_value.json = AsyncMock(
+
+    # First call for direct lookup will fail with 401
+    direct_lookup_response = AsyncMock()
+    direct_lookup_response.status = 401
+    direct_lookup_response.json = AsyncMock(
         return_value={"fault": {"faultstring": "Invalid API Key"}}
     )
-    http_service.get.return_value.status = 401
+
+    # Second call for search will also fail
+    search_response = AsyncMock()
+    search_response.status = 401
+    search_response.json = AsyncMock(
+        return_value={"fault": {"faultstring": "Invalid API Key"}}
+    )
+
+    # Configure http_service to return different responses for each call
+    http_service.get.side_effect = [direct_lookup_response, search_response]
+
     agent = TicketmasterAgent(
         mock_config, services={"http": http_service, "llm": llm_service}
     )
@@ -49,9 +63,10 @@ async def test_import_event_api_error(
 
     # Assert
     assert result is None
+    # The final error log should be about not finding the event
     mock_logger.error.assert_called_with(
-        "Ticketmaster API error: Invalid API Key",
-        extra={"status_code": 401, "url": url},
+        "Could not find event via direct lookup or search",
+        extra={"url": url},
     )
 
 

@@ -304,8 +304,8 @@ GENRE GUIDELINES:
         return f"""Based on the search results below, identify the most relevant music genres.
 
 SEARCH QUERY: "{search_query}"
-EVENT: {event_context.get('title', 'Unknown')}
-VENUE: {event_context.get('venue', 'Unknown')}
+EVENT: {event_context.get("title", "Unknown")}
+VENUE: {event_context.get("venue", "Unknown")}
 
 SEARCH RESULTS:
 {search_results}

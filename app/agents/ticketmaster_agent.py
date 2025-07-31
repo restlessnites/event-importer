@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from typing import Any
+from urllib.parse import urlparse
 
 from app.schemas import (
     Coordinates,
@@ -62,28 +63,27 @@ class TicketmasterAgent(Agent):
                 )
                 return None
 
-            await self.send_progress(
-                request_id,
-                ImportStatus.RUNNING,
-                "Fetching event data from Ticketmaster API",
-                0.5,
-            )
-            api_url = (
-                f"https://app.ticketmaster.com/discovery/v2/events/{event_id}.json"
-            )
-            params = {"apikey": api_key}
+            # Try direct event lookup first
+            api_event_data = await self._try_direct_event_lookup(event_id, api_key)
 
-            http_service = self.get_service("http")
-            response = await http_service.get(api_url, params=params)
-
-            if response.status != 200:
-                error_data = await response.json()
-                error_message = error_data.get("fault", {}).get(
-                    "faultstring", "Unknown API error"
+            # If direct lookup fails, try search
+            if not api_event_data:
+                logger.info(
+                    "Direct event lookup failed, trying search",
+                    extra={"url": url, "event_id": event_id},
                 )
+                await self.send_progress(
+                    request_id,
+                    ImportStatus.RUNNING,
+                    "Searching for event by name",
+                    0.4,
+                )
+                api_event_data = await self._search_for_event(url, api_key)
+
+            if not api_event_data:
                 logger.error(
-                    f"Ticketmaster API error: {error_message}",
-                    extra={"status_code": response.status, "url": url},
+                    "Could not find event via direct lookup or search",
+                    extra={"url": url},
                 )
                 return None  # Allow fallback to web scraper
 
@@ -93,7 +93,6 @@ class TicketmasterAgent(Agent):
                 "Processing event data",
                 0.7,
             )
-            api_event_data = await response.json()
             event_data = self._transform_event_data(api_event_data, url)
 
             if not event_data:
@@ -138,6 +137,169 @@ class TicketmasterAgent(Agent):
         """Extract event ID from Ticketmaster URL."""
         match = re.search(r"/event/(\w+)", url)
         return match.group(1) if match else None
+
+    async def _try_direct_event_lookup(
+        self, event_id: str, api_key: str
+    ) -> dict | None:
+        """Try to fetch event directly by ID."""
+        try:
+            api_url = (
+                f"https://app.ticketmaster.com/discovery/v2/events/{event_id}.json"
+            )
+            params = {"apikey": api_key}
+
+            http_service = self.get_service("http")
+            response = await http_service.get(api_url, params=params)
+
+            if response.status == 200:
+                return await response.json()
+
+            error_data = await response.json()
+            if response.status == 404:
+                logger.info(
+                    f"Event not found with ID {event_id}, will try search",
+                    extra={"error": error_data},
+                )
+            else:
+                logger.error(
+                    f"Ticketmaster API error: {error_data}",
+                    extra={"status_code": response.status},
+                )
+            return None
+        except Exception:
+            logger.exception("Direct event lookup failed")
+            return None
+
+    async def _search_for_event(self, url: str, api_key: str) -> dict | None:
+        """Search for event using keywords from URL."""
+        try:
+            # Extract search info from URL
+            search_info = self._extract_search_info_from_url(url)
+            if not search_info.get("keyword"):
+                logger.warning("Could not extract search keywords from URL")
+                return None
+
+            # Search parameters
+            params = {
+                "apikey": api_key,
+                "keyword": search_info["keyword"],
+                "size": 20,
+                "sort": "date,asc",
+            }
+
+            # Add state code but not city (city might be too specific)
+            if search_info.get("stateCode"):
+                params["stateCode"] = search_info["stateCode"]
+
+            # Add date range if we have a date
+            if search_info.get("date"):
+                # Convert MM-DD-YYYY to YYYY-MM-DD
+                date_parts = search_info["date"].split("-")
+                if len(date_parts) == 3:
+                    formatted_date = f"{date_parts[2]}-{date_parts[0].zfill(2)}-{date_parts[1].zfill(2)}"
+                    params["localStartDateTime"] = (
+                        f"{formatted_date}T00:00:00,{formatted_date}T23:59:59"
+                    )
+
+            http_service = self.get_service("http")
+            search_url = "https://app.ticketmaster.com/discovery/v2/events.json"
+            response = await http_service.get(search_url, params=params)
+
+            if response.status != 200:
+                logger.error(f"Search failed with status {response.status}")
+                return None
+
+            data = await response.json()
+            events = data.get("_embedded", {}).get("events", [])
+
+            if not events:
+                logger.warning(
+                    f"No events found for search: {search_info}",
+                    extra={
+                        "total_elements": data.get("page", {}).get("totalElements", 0)
+                    },
+                )
+                return None
+
+            # Return the first matching event
+            event = events[0]
+            logger.info(
+                f"Found event via search: {event.get('name')} (ID: {event.get('id')})"
+            )
+            return event
+
+        except Exception:
+            logger.exception("Event search failed")
+            return None
+
+    def _extract_search_info_from_url(self, url: str) -> dict:
+        """Extract searchable information from URL."""
+        search_info = {}
+        path = urlparse(url).path
+
+        # Extract components from URL path
+        # Example: /the-brian-jonestown-massacre-los-angeles-california-11-22-2025/event/...
+        parts = path.strip("/").split("/")
+        if parts and parts[0] != "event":
+            # The slug before /event/ contains event info
+            slug = parts[0]
+            words = slug.split("-")
+
+            # Try to identify location (usually near the end)
+            location_keywords = [
+                "california",
+                "new-york",
+                "texas",
+                "florida",
+                "illinois",
+            ]
+            city_parts = []
+            state = None
+
+            for i, word in enumerate(words):
+                if word.lower() in location_keywords:
+                    state = word
+                    # City is usually before state
+                    if i > 0:
+                        city_parts = words[max(0, i - 2) : i]
+                    break
+
+            # Extract date if present (format: MM-DD-YYYY)
+            date_match = re.search(r"(\d{1,2}-\d{1,2}-\d{4})", slug)
+            if date_match:
+                search_info["date"] = date_match.group(1)
+
+            # Build keyword from remaining parts (artist/event name)
+            keyword_parts = []
+            keyword_parts = self._filter_keyword_words(words, city_parts, state)
+
+            if keyword_parts:
+                # Take first 5-6 words as keyword
+                search_info["keyword"] = " ".join(keyword_parts[:6])
+
+            if city_parts:
+                search_info["city"] = " ".join(city_parts).title()
+            if state:
+                search_info["stateCode"] = state[:2].upper()
+
+        logger.info(f"Extracted search info: {search_info}")
+        return search_info
+
+    def _filter_keyword_words(
+        self, words: list[str], city_parts: list[str], state: str | None
+    ) -> list[str]:
+        """Filter words to build keyword, excluding location and dates."""
+        keyword_parts = []
+        for word in words:
+            if (
+                word not in city_parts
+                and word != state
+                and not re.match(r"\d{1,2}-\d{1,2}-\d{4}", word)
+                and not re.match(r"\d{4}", word)  # Skip year
+                and len(word) > 2
+            ):
+                keyword_parts.append(word)
+        return keyword_parts
 
     def _transform_event_data(
         self, event_data: dict[str, Any], source_url: str

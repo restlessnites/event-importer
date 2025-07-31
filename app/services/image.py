@@ -468,7 +468,9 @@ class ImageService:
 
         try:
             logger.info(f"DEBUG: Google Image Search params: {params}")
-            logger.info(f"DEBUG: Params types: {[(k, type(v).__name__) for k, v in params.items()]}")
+            logger.info(
+                f"DEBUG: Params types: {[(k, type(v).__name__) for k, v in params.items()]}"
+            )
             response = await self.http.get_json(
                 "https://www.googleapis.com/customsearch/v1",
                 service="GoogleImageSearch",

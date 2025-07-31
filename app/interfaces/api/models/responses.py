@@ -95,10 +95,12 @@ class RebuildImageResponse(BaseModel):
     message: str = Field(..., description="Status message")
     data: EventData | None = Field(None, description="Updated event data")
     image_candidates: list[dict] | None = Field(
-        None, description="All image candidates found with scores, sources, dimensions and reasons"
+        None,
+        description="All image candidates found with scores, sources, dimensions and reasons",
     )
     best_image: dict | None = Field(
-        None, description="The best image candidate selected with score, source, dimensions and reason"
+        None,
+        description="The best image candidate selected with score, source, dimensions and reason",
     )
     service_failures: list[ServiceFailure] | None = Field(
         None, description="List of services that failed during rebuild"

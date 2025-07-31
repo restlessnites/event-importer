@@ -60,7 +60,9 @@ class UpdateEventRequest(BaseModel):
     cost: str | None = Field(None, description="Ticket cost information")
     ticket_url: str | None = Field(None, description="URL for ticket purchase")
     promoters: list[str] | None = Field(None, description="List of event promoters")
-    images: dict[str, str] | None = Field(None, description="Image URLs (full and thumbnail)")
+    images: dict[str, str] | None = Field(
+        None, description="Image URLs (full and thumbnail)"
+    )
 
     @field_validator("ticket_url")
     @classmethod
@@ -85,7 +87,9 @@ class UpdateEventRequest(BaseModel):
         # Check keys
         invalid_keys = set(v.keys()) - {"full", "thumbnail"}
         if invalid_keys:
-            raise ValueError(f"Invalid image keys: {invalid_keys}. Only 'full' and 'thumbnail' are allowed")
+            raise ValueError(
+                f"Invalid image keys: {invalid_keys}. Only 'full' and 'thumbnail' are allowed"
+            )
 
         # Validate URLs
         for key, url in v.items():
@@ -93,7 +97,9 @@ class UpdateEventRequest(BaseModel):
                 try:
                     HttpUrl(url)
                 except Exception as err:
-                    raise ValueError(f"Invalid URL format for image '{key}': {url}") from err
+                    raise ValueError(
+                        f"Invalid URL format for image '{key}': {url}"
+                    ) from err
 
         return v
 

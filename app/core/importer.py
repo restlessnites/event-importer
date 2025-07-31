@@ -171,7 +171,7 @@ class EventImporter:
         # --- Fallback to WebAgent if TicketmasterAgent fails ---
         if (
             not event_data
-            and agent.name == "Ticketmaster"
+            and agent.name.lower() == "ticketmaster"
             and (web_agent := self._get_agent_by_name("WebScraper"))
         ):
             logger.info(
@@ -427,8 +427,9 @@ class EventImporter:
             }
 
             target_agents = method_mapping.get(force_method, [])
+            target_agents_lower = [t.lower() for t in target_agents]
             for agent in self.agents:
-                if agent.name in target_agents:
+                if agent.name.lower() in target_agents_lower:
                     return agent
 
             logger.warning(f"Forced method '{force_method}' not available")
@@ -441,7 +442,7 @@ class EventImporter:
         if analysis.get("type") == "resident_advisor" and "event_id" in analysis:
             return self._get_agent_by_name("ResidentAdvisor")
         if analysis.get("type") == "ticketmaster":
-            agent = self._get_agent_by_name("Ticketmaster")
+            agent = self._get_agent_by_name("ticketmaster")
             # Only return if API key is configured
             return agent if self.config.api.ticketmaster_api_key else None
         if analysis.get("type") == "dice":
@@ -462,9 +463,10 @@ class EventImporter:
         return self._get_agent_by_name("WebScraper")
 
     def _get_agent_by_name(self: EventImporter, name: str) -> Agent | None:
-        """Get agent by name."""
+        """Get agent by name (case-insensitive)."""
+        name_lower = name.lower()
         for agent in self.agents:
-            if agent.name == name:
+            if agent.name.lower() == name_lower:
                 return agent
         return None
 

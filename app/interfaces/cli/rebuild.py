@@ -63,7 +63,10 @@ def _display_genre_rebuild_results(result, service_failures):
     """Display results and failures for genre rebuild."""
     if service_failures:
         failure_info = ServiceErrorFormatter.format_for_cli(
-            [f.model_dump() if hasattr(f, 'model_dump') else f for f in service_failures]
+            [
+                f.model_dump() if hasattr(f, "model_dump") else f
+                for f in service_failures
+            ]
         )
         if failure_info:
             clicycle.warning("Some services failed:")
@@ -127,7 +130,10 @@ def _display_image_rebuild_results(result, service_failures):
     """Display results and failures for image rebuild."""
     if service_failures:
         failure_info = ServiceErrorFormatter.format_for_cli(
-            [f.model_dump() if hasattr(f, 'model_dump') else f for f in service_failures]
+            [
+                f.model_dump() if hasattr(f, "model_dump") else f
+                for f in service_failures
+            ]
         )
         if failure_info:
             clicycle.warning("Some services failed:")

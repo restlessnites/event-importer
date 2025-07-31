@@ -29,8 +29,8 @@ class URLAnalyzer:
         if not url.startswith(("http://", "https://")):
             url = "https://" + url
 
-        parsed = urlparse(url.lower())
-        domain = parsed.netloc.replace("www.", "")
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower().replace("www.", "")
         path = parsed.path
 
         # Check for Resident Advisor
