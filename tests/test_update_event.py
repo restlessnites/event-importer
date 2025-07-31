@@ -225,13 +225,14 @@ class TestUpdateEventExtended:
         with patch("app.core.importer.get_cached_event") as mock_get:
             mock_get.return_value = cached_data
 
-            # The update method doesn't validate structure, EventData does
-            # This will fail at the EventData validation level
-            result = await importer.update_event(1, {"images": "not-a-dict"})
+            with patch("app.core.importer.cache_event") as mock_cache:
+                # The update method doesn't validate structure, EventData does
+                # This will fail at the EventData validation level
+                result = await importer.update_event(1, {"images": "not-a-dict"})
 
-            # The event is returned but images becomes None due to validation
-            assert result is not None
-            assert result.images is None
+                # The event is returned but images becomes None due to validation
+                assert result is not None
+                assert result.images is None
 
     @pytest.mark.asyncio
     async def test_update_partial_images(self, mock_config, mock_event_data):
