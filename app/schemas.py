@@ -315,13 +315,13 @@ class EventData(BaseModel):
             )
             default_date = datetime(current_year, 1, 1)
             parsed = date_parser.parse(date_str, fuzzy=True, default=default_date)
-            if not has_explicit_year:
-                if parsed.year != current_year:
-                    parsed = parsed.replace(year=current_year)
-                if parsed.date() < current_date.date():
-                    days_diff = (current_date.date() - parsed.date()).days
-                    if days_diff > 1:
-                        parsed = parsed.replace(year=current_year + 1)
+            if not has_explicit_year and parsed.date() < current_date.date():
+                # If the date is in the past, check how far back.
+                days_diff = (current_date.date() - parsed.date()).days
+                # If it's over 90 days ago, assume it's for the next year.
+                # Otherwise, it's a recent event from the current year.
+                if days_diff > 90:
+                    parsed = parsed.replace(year=current_year + 1)
             return parsed.date().isoformat()
         except (ValueError, TypeError) as e:
             logger.debug(f"Date parsing failed for '{v}': {e}")

@@ -1,0 +1,171 @@
+{
+  "next_page_cursor": null,
+  "sections": [
+    {
+      "items": [
+        {
+          "event": {
+            "presented_by": "Presented by Framework.",
+            "marketeers": [
+              {
+                "fb_pixel_id": null,
+                "ga_tracking_id": null,
+                "google_ads_conversion_id": null,
+                "google_ads_purchase_conversion_label": null,
+                "id": 732,
+                "name": "Framework",
+                "privacy_policy_link": "https://thisisframework.com/privacy-policy/",
+                "show_opt_in_form": true,
+                "show_web_opt_in_form": true,
+                "tiktok_pixel_id": null,
+                "twitter_checkout_initiated_pixel_id": null,
+                "twitter_pixel_id": null,
+                "twitter_purchase_pixel_id": null
+              }
+            ],
+            "tty_to_extras": [],
+            "seats_io_event_id": null,
+            "date_unix": 1761436800,
+            "summary_lineup": {
+              "top_artists": [
+                {
+                  "about": null,
+                  "artist_id": "122374",
+                  "image": null,
+                  "is_headliner": false,
+                  "name": "Jaime Jones"
+                }
+              ],
+              "total_artists": 1,
+              "total_free_texts": 0
+            },
+            "is_hidden_event": false,
+            "id": "6840a2dd615fc3000143ac70",
+            "images": {
+              "landscape": "https://dice-media.imgix.net/attachments/2025-07-24/e1952908-e7e2-424f-a6ea-7858dcc92ced.jpg?rect=0%2C900%2C4500%2C2700",
+              "portrait": "https://dice-media.imgix.net/attachments/2025-07-24/e1952908-e7e2-424f-a6ea-7858dcc92ced.jpg?rect=1013%2C0%2C2475%2C4500",
+              "square": "https://dice-media.imgix.net/attachments/2025-07-24/e1952908-e7e2-424f-a6ea-7858dcc92ced.jpg?rect=0%2C0%2C4500%2C4500"
+            },
+            "social_links": {
+              "event_share": "https://link.dice.fm/Ua9a0598fb50?dice_id=Ua9a0598fb50",
+              "post_competition_referral": "https://link.dice.fm/B3c1dac237ef?dice_id=B3c1dac237ef",
+              "post_purchase_extras_available_referral": "https://link.dice.fm/J7a5bd91ced7?dice_id=J7a5bd91ced7",
+              "post_purchase_referral": "https://link.dice.fm/Y928c6cddf45?dice_id=Y928c6cddf45",
+              "post_reminder_referral": "https://link.dice.fm/U6631c80406f?dice_id=U6631c80406f",
+              "post_waitinglist_referral": "https://link.dice.fm/A9cffda6e357?dice_id=A9cffda6e357"
+            },
+            "venues": [
+              {
+                "accessibility": {
+                  "url": null
+                },
+                "address": "2653 East 12th Street, Los Angeles, California 90023, United States",
+                "city": {
+                  "country_code": "US",
+                  "country_id": "5982dffafa1614a04fe33793",
+                  "country_name": "United States of America",
+                  "id": "5982e13c613de866017c3e3a",
+                  "location": {
+                    "accuracy": 12,
+                    "lat": 34.055439,
+                    "lng": -118.345849,
+                    "place": "America/Los_Angeles"
+                  },
+                  "name": "Los Angeles"
+                },
+                "doors_close_date": null,
+                "doors_open_date": "2025-10-25T17:00:00-07:00",
+                "highlights": [],
+                "id": "14060",
+                "image": null,
+                "location": {
+                  "lat": 34.022477,
+                  "lng": -118.220823
+                },
+                "name": "The Dock at the Historic Sears Building",
+                "perm_name": "the-dock-at-the-historic-sears-building-q2xgp",
+                "profile_active": false,
+                "space_name": null
+              }
+            ],
+            "secondary_status": null,
+            "seating": null,
+            "name": "Framework presents Paradise Los Angeles ",
+            "attendance_type": "live_only",
+            "price": {
+              "amount": null,
+              "amount_from": 7705,
+              "currency": "USD",
+              "sales_tax": null
+            },
+            "is_fully_locked": false,
+            "has_multiple_ticket_types": true,
+            "status": "on-sale",
+            "event_tag": null,
+            "acquisition_type": "purchase",
+            "impression_id": "e594e8a55730878b:0",
+            "previews": [],
+            "offers_extras": false,
+            "shopping_cart_enabled": false,
+            "new": false,
+            "score": 0,
+            "properties": [],
+            "public_refund_policy": {
+              "hours": 12,
+              "type": "cooling_off_enabled"
+            },
+            "billing_promoter": {
+              "id": "6888",
+              "image": {
+                "url": "https://dice-media.imgix.net/attachments/2023-07-18/18bb735b-e88f-41af-b50c-758dd372c530.jpg"
+              },
+              "name": "Framework",
+              "perm_name": "framework-y7q2",
+              "profile_active": true
+            },
+            "about": {
+              "description": "For table reservations please contact: reservations@thisisframework.com\n\nFor any ticketing questions please reach out via our help form dice.fm/contact",
+              "highlights": [
+                {
+                  "external_link": null,
+                  "subtitle": null,
+                  "title": "This is a 21+ event",
+                  "type": "age_restriction"
+                }
+              ]
+            },
+            "unicorn": false,
+            "tags_types": [
+              {
+                "name": "party",
+                "title": "Party",
+                "value": "music:party"
+              }
+            ],
+            "faqs": [],
+            "perm_name": "l86kmr-framework-presents-paradise-los-angeles-25th-oct-the-dock-at-the-historic-sears-building-los-angeles-tickets",
+            "streaming_options": null,
+            "seats_io_public_key": null,
+            "dates": {
+              "announcement_date": "2025-06-12T08:00:00-07:00",
+              "event_end_date": "2025-10-26T00:00:00-07:00",
+              "event_start_date": "2025-10-25T17:00:00-07:00",
+              "is_multi_days_event": false,
+              "pre_sale_start_date": null,
+              "sale_end_date": "2025-10-25T20:00:00-07:00",
+              "sale_start_date": "2025-06-12T10:00:00-07:00",
+              "timezone": "America/Los_Angeles"
+            },
+            "is_ticket_available_at_door": false,
+            "announcement_date_unix": 1749740400,
+            "max_tickets": 6
+          },
+          "type": "event"
+        }
+      ],
+      "section_type": "polymorphic_search",
+      "subtitle": null,
+      "title": null
+    }
+  ]
+}

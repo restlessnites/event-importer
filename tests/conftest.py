@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import datetime
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.config import get_config
 from app.services.claude import ClaudeService
+from app.services.genre import GenreService
 from app.services.llm import LLMService
 from app.services.openai import OpenAIService
 from app.shared.database.connection import (
@@ -40,30 +43,42 @@ def db_session(engine):
     connection.close()
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def http_service() -> HTTPService:
     """Return an HTTPService instance."""
     return HTTPService(get_config())
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def claude_service() -> ClaudeService:
     """Return a ClaudeService instance."""
     return ClaudeService(get_config())
 
 
-@pytest.fixture(scope="session")
-def openai_service(http_service: HTTPService) -> OpenAIService:
+@pytest.fixture(scope="function")
+def openai_service() -> OpenAIService:
     """Return an OpenAIService instance."""
-    return OpenAIService(get_config(), http_service)
+    return OpenAIService(get_config())
 
 
-@pytest.fixture(scope="session")
-def llm_service(
-    claude_service: ClaudeService, openai_service: OpenAIService
-) -> LLMService:
+@pytest.fixture(scope="function")
+def llm_service() -> LLMService:
     """Return an LLMService instance."""
-    return LLMService(get_config(), claude_service, openai_service)
+    return LLMService(get_config())
+
+
+@pytest.fixture(scope="function")
+def genre_service(http_service: HTTPService, llm_service: LLMService) -> GenreService:
+    """Return a GenreService instance."""
+    return GenreService(get_config(), http_service, llm_service)
+
+
+@pytest.fixture(scope="function")
+def image_service(http_service: HTTPService) -> "ImageService":
+    """Return an ImageService instance."""
+    from app.services.image import ImageService
+
+    return ImageService(get_config(), http_service)
 
 
 @pytest.fixture

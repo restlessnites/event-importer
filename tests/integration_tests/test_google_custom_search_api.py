@@ -1,8 +1,6 @@
 #!/usr/bin/env -S uv run python
 """Simple test to verify Google Custom Search API is working with CLI."""
 
-import traceback
-
 import clicycle
 import pytest
 from dotenv import load_dotenv
@@ -29,9 +27,9 @@ async def test_google_api(http_service) -> None:
     clicycle.section("Checking credentials")
 
     if not api_key or not cse_id:
-        clicycle.error("Google Search API not configured!")
-        clicycle.info("Set GOOGLE_API_KEY and GOOGLE_CSE_ID in .env file")
-        return
+        pytest.skip(
+            "Google Search API not configured! Set GOOGLE_API_KEY and GOOGLE_CSE_ID."
+        )
 
     clicycle.success("Google API credentials found")
     credentials = {
@@ -57,60 +55,46 @@ async def test_google_api(http_service) -> None:
     clicycle.info(f"Query: {query}")
     clicycle.info("API endpoint: https://www.googleapis.com/customsearch/v1")
 
-    try:
-        clicycle.info(f"Searching for '{query}'...")
-        response = await http_service.get_json(
-            "https://www.googleapis.com/customsearch/v1",
-            params=params,
-            service="GoogleSearch",
-        )
+    clicycle.info(f"Searching for '{query}'...")
+    response = await http_service.get_json(
+        "https://www.googleapis.com/customsearch/v1",
+        params=params,
+        service="GoogleSearch",
+    )
 
-        if "error" in response:
-            clicycle.error(
-                f"API Error: {response['error'].get('message', 'Unknown error')}"
+    # Assert that the API call was successful and returned results
+    assert "error" not in response, f"API Error: {response.get('error')}"
+    assert "items" in response and response["items"], "No 'items' found in response"
+
+    clicycle.success(f"Found {len(response['items'])} results")
+
+    # Display results in a table
+    clicycle.section("Search Results")
+
+    results = []
+    for i, item in enumerate(response["items"], 1):
+        result = {
+            "#": str(i),
+            "Title": item.get("title", "No title")[:40],
+            "Size": "Unknown",
+            "URL": item.get("link", "No URL"),
+        }
+
+        if "image" in item and item["image"].get("width"):
+            result["Size"] = (
+                f"{item['image']['width']}x{item['image'].get('height', '?')}"
             )
-            if "code" in response["error"]:
-                clicycle.info(f"Error code: {response['error']['code']}")
-            return
 
-        if "items" not in response:
-            clicycle.warning("No results found")
-            clicycle.info(f"API Response: {response}")
-            return
+        results.append(result)
 
-        clicycle.success(f"Found {len(response['items'])} results")
+    clicycle.table(results, title="Image Search Results")
 
-        # Display results in a table
-        clicycle.section("Search Results")
-
-        results = []
-        for i, item in enumerate(response["items"], 1):
-            result = {
-                "#": str(i),
-                "Title": item.get("title", "No title")[:40],
-                "Size": "Unknown",
-                "URL": item.get("link", "No URL"),
-            }
-
-            if "image" in item and item["image"].get("width"):
-                result["Size"] = (
-                    f"{item['image']['width']}x{item['image'].get('height', '?')}"
-                )
-
-            results.append(result)
-
-        clicycle.table(results, title="Image Search Results")
-
-        # Show API usage info if available
-        if "searchInformation" in response:
-            info = response["searchInformation"]
-            clicycle.section("Search Information")
-            clicycle.info(f"Total results: {info.get('totalResults', 'Unknown')}")
-            clicycle.info(f"Search time: {info.get('searchTime', 'Unknown')}s")
-
-    except Exception as e:
-        clicycle.error(f"Request failed: {e}")
-        clicycle.error(f"Traceback: {traceback.format_exc()}")
+    # Show API usage info if available
+    if "searchInformation" in response:
+        info = response["searchInformation"]
+        clicycle.section("Search Information")
+        clicycle.info(f"Total results: {info.get('totalResults', 'Unknown')}")
+        clicycle.info(f"Search time: {info.get('searchTime', 'Unknown')}s")
 
     clicycle.success("Google API test completed")
 

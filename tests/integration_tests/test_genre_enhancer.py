@@ -8,7 +8,6 @@ import clicycle
 import pytest
 from dotenv import load_dotenv
 
-from app.config import get_config
 from app.schemas import EventData
 from app.services.genre import GenreService
 
@@ -19,89 +18,89 @@ load_dotenv()
 logging.basicConfig(level=logging.WARNING)
 
 
+@pytest.fixture
+def modest_mouse_event():
+    """Fixture for an event with existing genres."""
+    return EventData(
+        title="Modest Mouse",
+        lineup=["Modest Mouse"],
+        genres=["Indie", "Alternative"],
+        source_url="http://example.com/modest-mouse",
+    )
+
+
+@pytest.fixture
+def aphex_twin_event():
+    """Fixture for an event with no genres."""
+    return EventData(
+        title="Aphex Twin",
+        lineup=["Aphex Twin"],
+        source_url="http://example.com/aphex-twin",
+    )
+
+
 @pytest.mark.asyncio
-async def test_genre_service(capsys, http_service, claude_service):
+async def test_genre_service(
+    capsys, genre_service: GenreService, modest_mouse_event, aphex_twin_event
+):
     """Test the genre enhancement service."""
     clicycle.configure(app_name="event-importer-test")
     clicycle.header("Testing Genre Service")
 
-    config = get_config()
-    genre_service = GenreService(config, http_service, claude_service)
     genre_service.google_enabled = True
 
-    # Test case 1: Event with existing genres
-    clicycle.section("Test 1: Event with existing genres")
-    event_with_genres = EventData(
-        title="Modest Mouse",
-        lineup=["Modest Mouse"],
-        genres=["Indie", "Alternative"],
-    )
-    event_with_genres.genres = []
-
-    # Mock the search method to avoid external calls
-    async def mock_search_genres(
-        artist_name, event_context, supplementary_context=None
-    ):
-        print(f"Mocking search for {artist_name} with context {event_context}")
-        return ["Indie Rock", "Alternative Rock"]
-
-    genre_service._search_artist_genres = mock_search_genres
-
-    enhanced_event = await genre_service.enhance_genres(event_with_genres)
-    clicycle.table([enhanced_event.model_dump()], title="Enhanced Event Data")
-
-    assert "indie rock" in enhanced_event.genres
-    assert "alternative rock" in enhanced_event.genres
+    # Test case 1: Event with existing genres should be skipped
+    clicycle.section("Test 1: Event with existing genres (should be skipped)")
+    enhanced_event = await genre_service.enhance_genres(modest_mouse_event)
+    assert enhanced_event.genres == ["Indie", "Alternative"]
+    clicycle.success("Skipped enhancement as expected.")
 
     # Test case 2: Event with no genres
     clicycle.section("Test 2: Event with no genres")
-    event_no_genres = EventData(
-        title="Aphex Twin",
-        lineup=["Aphex Twin"],
-    )
 
-    async def mock_search_genres_no_genres(
+    async def mock_search_artist_genres(
         artist_name, event_context, supplementary_context=None
     ):
-        print(f"Mocking search for {artist_name} with context {event_context}")
         return ["Electronic", "IDM"]
 
-    genre_service._search_artist_genres = mock_search_genres_no_genres
+    genre_service._search_artist_genres = mock_search_artist_genres
 
-    enhanced_event_no_genres = await genre_service.enhance_genres(event_no_genres)
+    enhanced_event_no_genres = await genre_service.enhance_genres(aphex_twin_event)
     clicycle.table([enhanced_event_no_genres.model_dump()], title="Enhanced Event Data")
     assert "electronic" in enhanced_event_no_genres.genres
     assert "idm" in enhanced_event_no_genres.genres
 
-    captured = capsys.readouterr()
-    assert "TESTING GENRE SERVICE" in captured.out
-
 
 @pytest.mark.asyncio
-async def test_individual_artist(capsys, http_service, claude_service):
-    """Test searching for a specific artist's genres."""
+async def test_individual_artist_search(
+    capsys, genre_service: GenreService, monkeypatch
+):
+    """Test the internal _search_artist_genres method."""
     clicycle.configure(app_name="event-importer-test")
     clicycle.header("Testing Individual Artist Search")
 
-    config = get_config()
-    genre_service = GenreService(config, http_service, claude_service)
+    # Mock the direct dependencies of _search_artist_genres
+    async def mock_google_search(query):
+        return [{"snippet": "Boards of Canada are a Scottish electronic music duo..."}]
 
-    if not genre_service.google_enabled:
-        clicycle.error("Claude API key not set!")
-        return
+    async def mock_extract_with_llm(artist_name, search_text, event_context):
+        # This is the raw output we expect from the LLM
+        return ["electronic", "idm", "ambient"]
 
-    # Test with a well-known artist
+    monkeypatch.setattr(genre_service, "_google_search", mock_google_search)
+    monkeypatch.setattr(
+        genre_service, "_extract_genres_with_llm", mock_extract_with_llm
+    )
+
+    def mock_validate_genres(genres):
+        return [g.lower() for g in genres]
+
+    monkeypatch.setattr(
+        "app.services.genre.MusicGenres.validate_genres", mock_validate_genres
+    )
+
     artist_name = "Boards of Canada"
-    clicycle.section(f"Searching for genres for '{artist_name}'")
-
-    async def mock_search_genres_boc(
-        artist_name, event_context, supplementary_context=None
-    ):
-        print(f"Mocking search for {artist_name} with context {event_context}")
-        return ["Electronic", "Ambient", "IDM"]
-
-    genre_service._search_artist_genres = mock_search_genres_boc
-
+    # We are testing the _search_artist_genres method directly
     genres = await genre_service._search_artist_genres(
         artist_name, event_context={"title": artist_name}
     )
@@ -109,54 +108,42 @@ async def test_individual_artist(capsys, http_service, claude_service):
     clicycle.table(
         [{"Genre": g} for g in genres], title=f"Found Genres for {artist_name}"
     )
-
-    assert "Electronic" in genres
-    assert "Ambient" in genres
-    assert "IDM" in genres
-
-    captured = capsys.readouterr()
-    assert "TESTING INDIVIDUAL ARTIST SEARCH" in captured.out
+    # The assertions should be against the direct, unfiltered output of the method
+    assert "electronic" in [g.lower() for g in genres]
+    assert "ambient" in [g.lower() for g in genres]
+    assert "idm" in [g.lower() for g in genres]
 
 
 @pytest.mark.asyncio
-async def test_claude_analysis(capsys, claude_service):
-    """Test Claude's genre analysis directly."""
+async def test_claude_genre_analysis(capsys, claude_service):
+    """Test Claude's ability to extract genres from text."""
     clicycle.configure(app_name="event-importer-test")
-    config = get_config()
-
-    if not config.api.anthropic_api_key:
-        clicycle.error("Anthropic API key not set!")
-        return
-
     clicycle.header("Testing Claude Genre Analysis")
 
     text_to_analyze = (
         "Four Tet is an English electronic musician. His work has taken on a more "
         "abstract, experimental sound, but also touches on elements of house music."
     )
-    event_data = EventData(title="Four Tet", description=text_to_analyze)
 
-    clicycle.info(f"Analyzing text: '{text_to_analyze}'")
+    async def mock_call_with_tool(prompt, tool, tool_name):
+        return {"genres": ["Electronic", "House", "Experimental"]}
 
-    # Mock the enhance_genres method to avoid external calls
-    async def mock_enhance_genres(event_data):
-        event_data.genres = ["Electronic", "House", "Experimental"]
-        return event_data
+    claude_service._call_with_tool = mock_call_with_tool
 
-    claude_service.enhance_genres = mock_enhance_genres
+    event_data = EventData(
+        title="Four Tet",
+        description=text_to_analyze,
+        genres=["Electronic"],
+        source_url="http://example.com/four-tet",
+    )
 
     enhanced_event = await claude_service.enhance_genres(event_data)
-
     clicycle.table(
         [{"Genre": g} for g in enhanced_event.genres], title="Claude's Analysis"
     )
-
     assert "Electronic" in enhanced_event.genres
     assert "House" in enhanced_event.genres
     assert "Experimental" in enhanced_event.genres
-
-    captured = capsys.readouterr()
-    assert "TESTING CLAUDE GENRE ANALYSIS" in captured.out
 
 
 async def main() -> None:
@@ -165,6 +152,7 @@ async def main() -> None:
     clicycle.header("Genre Enhancement Test Suite")
 
     try:
+        # This function is not meant to be run directly but through pytest
         clicycle.info("Run individual tests with pytest:")
         clicycle.info("pytest tests/integration_tests/test_genre_enhancer.py -v")
 
@@ -175,8 +163,6 @@ async def main() -> None:
     except Exception as e:
         clicycle.error(f"Test suite failed: {e}")
         raise
-        # Clean up - HTTPService is now a fixture that handles its own cleanup
-        pass
 
 
 if __name__ == "__main__":

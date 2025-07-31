@@ -1,12 +1,14 @@
 """Tests for CLI events commands."""
 
-from unittest.mock import MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner
 
 from app.interfaces.cli.commands import cli
 from app.schemas import EventData, EventLocation, EventTime
+from app.shared.database.models import EventCache
 
 
 @pytest.fixture
@@ -34,77 +36,71 @@ def mock_event_data():
 class TestEventsCLI:
     """Test cases for events CLI commands."""
 
-    def test_list_events_empty(self, runner):
+    def test_list_events_empty(self, runner, db_session, monkeypatch):
         """Test listing events when database is empty."""
-        with patch("app.interfaces.cli.events.get_db_session") as mock_db:
-            mock_session = MagicMock()
-            mock_db.return_value.__enter__.return_value = mock_session
-            mock_session.query.return_value.order_by.return_value.limit.return_value.all.return_value = []
+        monkeypatch.setattr(
+            "app.interfaces.cli.events.get_db_session", lambda: db_session
+        )
+        result = runner.invoke(cli, ["events", "list"])
 
-            result = runner.invoke(cli, ["events", "list"])
+        assert result.exit_code == 0
+        assert "No events found" in result.output
 
-            assert result.exit_code == 0
-            assert "No events found" in result.output
-
-    def test_list_events_with_data(self, runner, mock_event_data):
+    def test_list_events_with_data(
+        self, runner, db_session, mock_event_data, monkeypatch
+    ):
         """Test listing events with data."""
-        with patch("app.interfaces.cli.events.get_db_session") as mock_db:
-            mock_session = MagicMock()
-            mock_db.return_value.__enter__.return_value = mock_session
+        monkeypatch.setattr(
+            "app.interfaces.cli.events.get_db_session", lambda: db_session
+        )
 
-            # Mock event cache
-            mock_event = MagicMock()
-            mock_event.id = 1
-            mock_event.source_url = "https://example.com/event/123"
-            mock_event.scraped_data = mock_event_data.model_dump(mode="json")
-            mock_event.scraped_at = MagicMock()
+        # Add a test event to the database
+        event = EventCache(
+            source_url="https://example.com/event/123",
+            scraped_data=mock_event_data.model_dump(mode="json"),
+            data_hash="test_hash",
+            scraped_at=datetime.now(UTC),
+        )
+        db_session.add(event)
+        db_session.commit()
 
-            mock_session.query.return_value.order_by.return_value.limit.return_value.all.return_value = [
-                mock_event
-            ]
+        result = runner.invoke(cli, ["events", "list"])
 
-            result = runner.invoke(cli, ["events", "list"])
+        assert result.exit_code == 0
+        assert "Test Concert" in result.output
+        assert "example.com" in result.output
 
-            assert result.exit_code == 0
-            assert "Test Concert" in result.output
-
-    def test_show_event_details(self, runner, mock_event_data):
+    def test_show_event_details(self, runner, db_session, mock_event_data, monkeypatch):
         """Test showing event details."""
-        with patch("app.interfaces.cli.events.get_db_session") as mock_db:
-            mock_session = MagicMock()
-            mock_db.return_value.__enter__.return_value = mock_session
+        monkeypatch.setattr(
+            "app.interfaces.cli.events.get_db_session", lambda: db_session
+        )
 
-            # Mock event cache
-            mock_event = MagicMock()
-            mock_event.id = 1
-            mock_event.source_url = "https://example.com/event/123"
-            mock_event.scraped_data = mock_event_data.model_dump(mode="json")
-            mock_event.scraped_at = MagicMock()
-            mock_event.submissions = []
+        # Add a test event to the database
+        event = EventCache(
+            source_url="https://example.com/event/123",
+            scraped_data=mock_event_data.model_dump(mode="json"),
+            data_hash="test_hash",
+            scraped_at=datetime.now(UTC),
+        )
+        db_session.add(event)
+        db_session.commit()
 
-            mock_session.query.return_value.filter.return_value.first.return_value = (
-                mock_event
-            )
+        result = runner.invoke(cli, ["events", "details", str(event.id)])
 
-            result = runner.invoke(cli, ["events", "details", "1"])
+        assert result.exit_code == 0
+        assert "TEST CONCERT" in result.output
+        assert "The Fillmore" in result.output
 
-            assert result.exit_code == 0
-            assert "TEST CONCERT" in result.output
-            assert "The Fillmore" in result.output
-
-    def test_show_event_not_found(self, runner):
+    def test_show_event_not_found(self, runner, db_session, monkeypatch):
         """Test showing details for non-existent event."""
-        with patch("app.interfaces.cli.events.get_db_session") as mock_db:
-            mock_session = MagicMock()
-            mock_db.return_value.__enter__.return_value = mock_session
-            mock_session.query.return_value.filter.return_value.first.return_value = (
-                None
-            )
+        monkeypatch.setattr(
+            "app.interfaces.cli.events.get_db_session", lambda: db_session
+        )
+        result = runner.invoke(cli, ["events", "details", "999"])
 
-            result = runner.invoke(cli, ["events", "details", "999"])
-
-            assert result.exit_code == 1
-            assert "Event with ID 999 not found" in result.output
+        assert result.exit_code == 1
+        assert "Event with ID 999 not found" in result.output
 
     def test_import_event_success(self, runner, mock_event_data):
         """Test importing an event successfully."""

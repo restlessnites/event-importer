@@ -1,0 +1,190 @@
+{
+  "next_page_cursor": null,
+  "sections": [
+    {
+      "items": [
+        {
+          "event": {
+            "properties": [],
+            "dates": {
+              "announcement_date": "2025-07-30T10:00:00-07:00",
+              "event_end_date": "2025-10-04T03:30:00-07:00",
+              "event_start_date": "2025-10-03T22:00:00-07:00",
+              "is_multi_days_event": false,
+              "pre_sale_start_date": null,
+              "sale_end_date": "2025-10-04T02:00:00-07:00",
+              "sale_start_date": "2025-07-30T10:00:00-07:00",
+              "timezone": "America/Los_Angeles"
+            },
+            "max_tickets": 6,
+            "faqs": [],
+            "attendance_type": "live_only",
+            "social_links": {
+              "event_share": "https://link.dice.fm/w761ec87c79d?dice_id=w761ec87c79d",
+              "post_competition_referral": "https://link.dice.fm/Taf7042dac23?dice_id=Taf7042dac23",
+              "post_purchase_extras_available_referral": "https://link.dice.fm/S928fd51aa26?dice_id=S928fd51aa26",
+              "post_purchase_referral": "https://link.dice.fm/Sb612136be59?dice_id=Sb612136be59",
+              "post_reminder_referral": "https://link.dice.fm/B92068d3318f?dice_id=B92068d3318f",
+              "post_waitinglist_referral": "https://link.dice.fm/P97d1c4053ec?dice_id=P97d1c4053ec"
+            },
+            "acquisition_type": "purchase",
+            "seats_io_public_key": null,
+            "venues": [
+              {
+                "accessibility": {
+                  "url": null
+                },
+                "address": "1642 N Las Palmas Ave, Los Angeles, CA 90028, USA",
+                "city": {
+                  "country_code": "US",
+                  "country_id": "5982dffafa1614a04fe33793",
+                  "country_name": "United States of America",
+                  "id": "5982e13c613de866017c3e3a",
+                  "location": {
+                    "accuracy": 12,
+                    "lat": 34.055439,
+                    "lng": -118.345849,
+                    "place": "America/Los_Angeles"
+                  },
+                  "name": "Los Angeles"
+                },
+                "doors_close_date": null,
+                "doors_open_date": "2025-10-03T22:00:00-07:00",
+                "highlights": [],
+                "id": "1404",
+                "image": null,
+                "location": {
+                  "lat": 34.1010258,
+                  "lng": -118.3360313
+                },
+                "name": "Sound Nightclub",
+                "perm_name": "sound-nightclub-kxeo",
+                "profile_active": true,
+                "space_name": null
+              }
+            ],
+            "id": "6881204192b065000169cadb",
+            "is_ticket_available_at_door": false,
+            "presented_by": "Presented by Sound.",
+            "streaming_options": null,
+            "name": "Josh Baker",
+            "is_fully_locked": false,
+            "public_refund_policy": {
+              "hours": 24,
+              "type": "cooling_off_enabled"
+            },
+            "status": "sold-out",
+            "event_tag": null,
+            "offers_extras": false,
+            "about": {
+              "description": "For table reservations please contact: reservations@soundnightclub.com\n\nFor any ticketing questions please reach out via our help form: https://dice.fm/contact",
+              "highlights": [
+                {
+                  "external_link": null,
+                  "subtitle": null,
+                  "title": "This is a 21+ event. ",
+                  "type": "age_restriction"
+                }
+              ]
+            },
+            "date_unix": 1759554000,
+            "impression_id": "34d3109d4aa96be7:0",
+            "summary_lineup": {
+              "top_artists": [
+                {
+                  "about": null,
+                  "artist_id": "41617",
+                  "image": {
+                    "url": "https://dice-media.imgix.net/attachments/2024-08-08/d01a147d-e9ae-4bb5-bd80-7e17bd8fc6b4.jpg?rect=0%2C43%2C554%2C554"
+                  },
+                  "is_headliner": false,
+                  "name": "Josh Baker"
+                }
+              ],
+              "total_artists": 1,
+              "total_free_texts": 0
+            },
+            "has_multiple_ticket_types": false,
+            "seating": null,
+            "previews": [
+              {
+                "artist": "Josh Baker",
+                "preview_url": "https://p.scdn.co/mp3-preview/3237791e4bcb65435ecfcf89d16847480b6e0a69?cid=921526b9c2da4b7b96e197790a02347e",
+                "redirect_url": "https://open.spotify.com/track/5bdKaYnig6IqBsQQqBUjHm",
+                "title": "Josh Baker - Back It Up",
+                "track_name": "Back It Up",
+                "type": "spotify"
+              },
+              {
+                "artist": "Josh Baker & Omar+",
+                "preview_url": "https://audio-ssl.itunes.apple.com/itunes-assets/AudioPreview211/v4/db/90/16/db901661-a98f-802d-f01f-f14814de61b4/mzaf_11110602170556278164.plus.aac.p.m4a",
+                "redirect_url": "https://music.apple.com/us/album/back-it-up/1800278480?i=1800278494&uo=4&at=1001ld8Z&ct=app_event",
+                "title": "Josh Baker & Omar+ - Back It Up",
+                "track_name": "Back It Up",
+                "type": "apple_music"
+              }
+            ],
+            "marketeers": [
+              {
+                "fb_pixel_id": "697992830302150",
+                "ga_tracking_id": null,
+                "google_ads_conversion_id": null,
+                "google_ads_purchase_conversion_label": null,
+                "id": 38,
+                "name": "Sound Nightclub",
+                "privacy_policy_link": "https://www.soundnightclub.com/privacy-policy/",
+                "show_opt_in_form": true,
+                "show_web_opt_in_form": true,
+                "tiktok_pixel_id": null,
+                "twitter_checkout_initiated_pixel_id": null,
+                "twitter_pixel_id": null,
+                "twitter_purchase_pixel_id": null
+              }
+            ],
+            "price": {
+              "amount": 4172,
+              "amount_from": null,
+              "currency": "USD",
+              "sales_tax": 0
+            },
+            "tags_types": [
+              {
+                "name": "gig",
+                "title": "Gigs",
+                "value": "music:gig"
+              }
+            ],
+            "announcement_date_unix": 1753894800,
+            "new": false,
+            "score": 0,
+            "shopping_cart_enabled": false,
+            "is_hidden_event": false,
+            "tty_to_extras": [],
+            "billing_promoter": {
+              "id": "1651",
+              "image": {
+                "url": null
+              },
+              "name": "Sound",
+              "perm_name": "sound-lqkx",
+              "profile_active": false
+            },
+            "perm_name": "q2r5ro-josh-baker-3rd-oct-sound-nightclub-los-angeles-tickets",
+            "unicorn": false,
+            "images": {
+              "landscape": "https://dice-media.imgix.net/attachments/2025-07-30/5b2573c5-48f5-4a43-9bc8-747e13f074d3.jpg?rect=0%2C233%2C1164%2C698",
+              "portrait": "https://dice-media.imgix.net/attachments/2025-07-30/5b2573c5-48f5-4a43-9bc8-747e13f074d3.jpg?rect=262%2C0%2C640%2C1164",
+              "square": "https://dice-media.imgix.net/attachments/2025-07-30/5b2573c5-48f5-4a43-9bc8-747e13f074d3.jpg?rect=0%2C0%2C1164%2C1164"
+            },
+            "seats_io_event_id": null,
+            "secondary_status": "waiting-list"
+          },
+          "type": "event"
+        }
+      ],
+      "section_type": "polymorphic_search",
+      "subtitle": null,
+      "title": null
+    }
+  ]
+}

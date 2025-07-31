@@ -9,19 +9,14 @@ from __future__ import annotations
 import asyncio
 import traceback
 from datetime import datetime
-from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
+import clicycle
+import pytest
 from dateutil import parser as date_parser
 
 from app.core.router import Router
 from app.schemas import EventData
-
-if TYPE_CHECKING:
-    pass
-
-import clicycle
-import pytest
 
 
 def test_dateutil_directly() -> None:

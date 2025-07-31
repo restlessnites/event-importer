@@ -96,7 +96,8 @@ async def test_multiple_listeners(progress_tracker):
     callback2.assert_called_once_with(progress)
 
 
-def test_get_history(progress_tracker):
+@pytest.mark.asyncio
+async def test_get_history(progress_tracker):
     """Test getting progress history."""
     request_id = "test-history"
 
@@ -105,7 +106,42 @@ def test_get_history(progress_tracker):
     assert history == []
 
     # After sending progress, history is updated
-    # (Note: this would normally be done via send_progress)
+    progress = ImportProgress(
+        request_id=request_id,
+        status=ImportStatus.RUNNING,
+        message="Step 1",
+        progress=0.5,
+    )
+    await progress_tracker.send_progress(progress)
+
+    history = progress_tracker.get_history(request_id)
+    assert len(history) == 1
+    assert history[0] == progress
+
+
+@pytest.mark.asyncio
+async def test_request_id_isolation(progress_tracker):
+    """Test that listeners are isolated by request_id."""
+    callback1 = AsyncMock()
+    request_id1 = "request-1"
+    progress_tracker.add_listener(request_id1, callback1)
+
+    callback2 = AsyncMock()
+    request_id2 = "request-2"
+    progress_tracker.add_listener(request_id2, callback2)
+
+    # Send progress for the first request
+    progress1 = ImportProgress(
+        request_id=request_id1,
+        status=ImportStatus.RUNNING,
+        message="Request 1 progress",
+        progress=0.25,
+    )
+    await progress_tracker.send_progress(progress1)
+
+    # Verify only the correct listener was called
+    callback1.assert_called_once_with(progress1)
+    callback2.assert_not_called()
 
 
 @pytest.mark.asyncio

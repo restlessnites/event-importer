@@ -23,7 +23,35 @@ logger = logging.getLogger(__name__)
 
 
 class DiceAgent(Agent):
-    """Agent for importing events from Dice.fm using search API."""
+    """
+    Agent for importing events from Dice.fm.
+
+    This agent implements a multi-step process to import event data due to the
+    lack of a direct event lookup API. The process is as follows:
+
+    1.  **Extract Search Query**: A search query is generated from the event URL
+        by parsing its slug. This provides a best-effort search term to locate
+        the event.
+
+    2.  **Unified Search API Call**: The agent calls the `unified_search` API
+        endpoint (`https://api.dice.fm/unified_search`). This endpoint does not
+        filter strictly by the query; instead, it returns a broad list of
+        events that are generally related to the query terms.
+
+    3.  **Find Event by `perm_name`**: The agent iterates through the search
+        results and compares the `perm_name` of each event with the slug from
+        the original URL. This is the key step to uniquely identify the correct
+        event from the list. The `id` of the matching event is then extracted.
+
+    4.  **Fetch Detailed Event Data**: Using the extracted event ID, the agent
+        makes a second API call to the `ticket_types` endpoint
+        (`https://api.dice.fm/events/{event_id}/ticket_types`). This endpoint
+        provides all the detailed information about the event, including lineup,
+        venue, times, and ticket prices.
+
+    5.  **Transform Data**: The detailed data from the `ticket_types` response
+        is then transformed into the standardized `EventData` schema.
+    """
 
     http: HTTPService
 
@@ -34,7 +62,6 @@ class DiceAgent(Agent):
         services: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(config, progress_callback, services)
-        # Use shared services with proper error handling
         self.http = self.get_service("http")
 
     @property
@@ -57,11 +84,9 @@ class DiceAgent(Agent):
                 0.2,
             )
 
-            # Extract search query from URL
             search_query = self._extract_search_query_from_url(url)
             logger.info(f"Generated search query: {search_query}")
 
-            # Use unified search API to find the event
             event_id = await self._search_for_event_id(search_query, url, request_id)
             if not event_id:
                 error_msg = AgentMessages.DICE_EVENT_NOT_FOUND
@@ -76,7 +101,6 @@ class DiceAgent(Agent):
                 0.6,
             )
 
-            # Step 2: Fetch event data from API using the extracted ID
             api_data = await self._fetch_api_data(event_id, request_id)
             if not api_data:
                 error_msg = AgentMessages.DICE_DATA_FETCH_FAILED
@@ -89,13 +113,11 @@ class DiceAgent(Agent):
                 0.8,
             )
 
-            # Step 3: Transform API data to EventData
             event_data = self._transform_api_data(api_data, url)
             if not event_data:
                 error_msg = AgentMessages.DICE_DATA_TRANSFORM_FAILED
                 raise Exception(error_msg)
 
-            # Enhance descriptions
             await self.send_progress(
                 request_id,
                 ImportStatus.RUNNING,
@@ -107,7 +129,6 @@ class DiceAgent(Agent):
                 event_data = await llm_service.generate_descriptions(event_data)
             except Exception:
                 logger.exception("Failed to enhance descriptions")
-                # Continue without descriptions rather than failing completely
 
             await self.send_progress(
                 request_id,
@@ -131,19 +152,27 @@ class DiceAgent(Agent):
             return None
 
     def _extract_search_query_from_url(self, url: str) -> str:
-        """Extract search query from Dice URL, removing date components and 'tickets'."""
+        """
+        Extract a search query from a Dice URL.
+
+        This function parses the URL's path to create a search query by removing
+        the event ID, date components, and the word "tickets".
+
+        Args:
+            url: The Dice event URL.
+
+        Returns:
+            A cleaned-up search query string.
+        """
         try:
             slug = url.split("/event/")[-1]
             words = slug.split("-")
 
-            # Remove event ID
             words = words[1:]
 
-            # Remove 'tickets' from the end
             if words and words[-1] == "tickets":
                 words.pop()
 
-            # Filter out date-related words
             months = [
                 "jan",
                 "feb",
@@ -168,7 +197,7 @@ class DiceAgent(Agent):
             return " ".join(non_date_words)
 
         except IndexError:
-            return url  # Fallback
+            return url
 
     async def _search_for_event_id(
         self,
@@ -176,10 +205,23 @@ class DiceAgent(Agent):
         original_url: str,
         request_id: str,
     ) -> str | None:
-        """Search for event using Dice unified search API and match against the perm_name."""
+        """
+        Search for an event ID using the Dice unified search API.
+
+        This method sends a query to the `unified_search` endpoint and then
+        iterates through the results to find an event whose `perm_name`
+        matches the slug of the original URL.
+
+        Args:
+            search_query: The query string generated from the URL.
+            original_url: The original Dice event URL.
+            request_id: The ID of the import request.
+
+        Returns:
+            The event ID if found, otherwise None.
+        """
         try:
             search_url = "https://api.dice.fm/unified_search"
-
             headers = {
                 "Accept": "application/json",
                 "Accept-Language": "en-US",
@@ -190,7 +232,6 @@ class DiceAgent(Agent):
                 "X-Api-Timestamp": "2024-03-25",
                 "X-Client-Timezone": "America/Los_Angeles",
             }
-
             payload = {"q": search_query}
 
             response = await self.http.post_json(
@@ -201,7 +242,6 @@ class DiceAgent(Agent):
                 timeout=10,
             )
 
-            # Log the search response for debugging
             await self.send_progress(
                 request_id,
                 ImportStatus.RUNNING,
@@ -209,7 +249,6 @@ class DiceAgent(Agent):
                 0.22,
             )
 
-            # Extract event ID from search results by matching the slug
             original_slug = original_url.split("/event/")[-1]
 
             if "sections" in response:
@@ -218,7 +257,6 @@ class DiceAgent(Agent):
                         for item in section["items"]:
                             if "event" in item:
                                 event = item["event"]
-                                # Verify that the event perm_name matches the original URL's slug
                                 if event.get("perm_name") == original_slug:
                                     return event.get("id")
 
@@ -233,11 +271,21 @@ class DiceAgent(Agent):
         event_id: str,
         request_id: str,
     ) -> dict[str, Any] | None:
-        """Fetch event data from Dice API."""
-        try:
-            # Use the ticket_types endpoint
-            api_url = f"https://api.dice.fm/events/{event_id}/ticket_types"
+        """
+        Fetch detailed event data from the Dice API.
 
+        This method uses the event ID to call the `ticket_types` endpoint, which
+        returns comprehensive information about the event.
+
+        Args:
+            event_id: The ID of the event to fetch.
+            request_id: The ID of the import request.
+
+        Returns:
+            A dictionary containing the API response data, or None on failure.
+        """
+        try:
+            api_url = f"https://api.dice.fm/events/{event_id}/ticket_types"
             headers = {
                 "Accept": "application/json",
                 "Accept-Language": "en-US",
@@ -256,7 +304,6 @@ class DiceAgent(Agent):
                 timeout=30.0,
             )
 
-            # Log the event data response for debugging
             await self.send_progress(
                 request_id,
                 ImportStatus.RUNNING,

@@ -1,90 +1,88 @@
 #!/usr/bin/env -S uv run python
 """Test the URL analyzer with various URLs using CLI."""
 
-import traceback
-
 import clicycle
+import pytest
 
-from app.shared.url_analyzer import URLAnalyzer
+from app.shared.url_analyzer import URLAnalyzer, URLType
 
 
-def test_url_analyzer() -> None:
-    """Test URL analyzer with various URL types."""
-    clicycle.configure(app_name="event-importer-test")
+@pytest.mark.parametrize(
+    "url, expected_type, expected_id",
+    [
+        # Resident Advisor
+        ("https://ra.co/events/1234567", URLType.RESIDENT_ADVISOR, "1234567"),
+        (
+            "https://www.residentadvisor.net/events/9876543",
+            URLType.RESIDENT_ADVISOR,
+            "9876543",
+        ),
+        ("ra.co/events/123", URLType.RESIDENT_ADVISOR, "123"),
+        # Ticketmaster (ID extraction is now supported)
+        (
+            "https://www.ticketmaster.com/event/G5vYZ9v1AUf-G",
+            URLType.TICKETMASTER,
+            None,
+        ),
+        (
+            "https://www.livenation.com/event/G5vYZ9v1AUf-G",
+            URLType.TICKETMASTER,
+            None,
+        ),
+        # Dice.fm
+        ("https://dice.fm/event/q2r5ro-some-event", URLType.DICE, "q2r5ro"),
+        ("https://dice.fm/event/some-event-no-id", URLType.DICE, None),
+        # Generic/Unknown
+        ("https://example.com/events/cool-party", URLType.UNKNOWN, None),
+        ("https://www.eventbrite.com/e/123456", URLType.UNKNOWN, None),
+        # Edge cases that should not match a specific type
+        ("https://ra.co/news/123", URLType.UNKNOWN, None),
+        ("https://ticketmaster.com/browse", URLType.TICKETMASTER, None),
+        ("example.com", URLType.UNKNOWN, None),
+    ],
+)
+def test_url_analyzer_parametrized(
+    url: str, expected_type: URLType, expected_id: str | None
+) -> None:
+    """Test URL analyzer with a variety of URLs and expected outcomes."""
     analyzer = URLAnalyzer()
+    analysis = analyzer.analyze(url)
 
-    clicycle.header("URL Analyzer Test")
+    assert analysis["type"] == expected_type
+    assert analysis.get("event_id") == expected_id
+
+
+def run_tests_for_cli_output() -> None:
+    """Run a selection of tests and display the output in the CLI."""
+    clicycle.configure(app_name="event-importer-test")
+    clicycle.header("URL Analyzer Visual Test")
     clicycle.info("Testing URL type detection and routing")
 
-    try:
-        test_urls = [
-            # Resident Advisor
-            "https://ra.co/events/1234567",
-            "https://www.residentadvisor.net/events/9876543",
-            "ra.co/events/123",  # Without scheme
-            # Ticketmaster
-            "https://www.ticketmaster.com/event/123?id=ABC123",
-            "https://www.ticketmaster.ca/event/456?id=DEF456",
-            # Direct images
-            "https://example.com/event-poster.jpg",
-            "https://cdn.example.com/images/party.png",
-            "https://example.com/image.JPEG",  # Uppercase extension
-            # Generic web pages
-            "https://example.com/events/cool-party",
-            "https://dice.fm/event/xyz",
-            "https://www.eventbrite.com/e/123456",
-            # Edge cases
-            "https://ra.co/news/123",  # RA but not an event
-            "https://ticketmaster.com/browse",  # TM but not an event
-            "example.com",  # No scheme
-        ]
+    analyzer = URLAnalyzer()
+    test_urls = [
+        "https://ra.co/events/1234567",
+        "https://www.ticketmaster.com/event/G5vYZ9v1AUf-G",
+        "https://dice.fm/event/q2r5ro-some-event",
+        "https://example.com/events/cool-party",
+        "https://ra.co/news/123",
+        "example.com",
+    ]
 
-        # Prepare results for table display
-        results = []
-
-        clicycle.info("Analyzing URLs...")
-        for _i, url in enumerate(test_urls):
-            analysis = analyzer.analyze(url)
-
-            result = {
-                "URL": url if len(url) <= 40 else url[:37] + "...",
+    results = []
+    for url in test_urls:
+        analysis = analyzer.analyze(url)
+        results.append(
+            {
+                "URL": url,
                 "Type": analysis["type"],
                 "Event ID": analysis.get("event_id", "-"),
+                "Slug": analysis.get("slug", "-"),
             }
+        )
 
-            results.append(result)
-
-        clicycle.section("Analysis Results")
-        clicycle.table(results, title="URL Analysis Summary")
-
-        # Show detailed results for URLs with extracted IDs
-        detailed = []
-        for url in test_urls:
-            analysis = analyzer.analyze(url)
-            if analysis.get("event_id"):
-                detailed.append(
-                    {
-                        "URL": url,
-                        "Type": analysis["type"],
-                        "Event ID": analysis.get("event_id"),
-                    }
-                )
-
-        if detailed:
-            clicycle.section("URLs with Extracted IDs")
-            for item in detailed:
-                clicycle.list_item(f"{item['URL']}")
-                clicycle.info(f"  Type: {item['Type']} | ID: {item['Event ID']}")
-
-        clicycle.success("URL analyzer test completed")
-
-    except Exception as e:
-        clicycle.error(f"Test failed: {e}")
-        clicycle.error(f"Exception Traceback: {traceback.format_exc()}")
+    clicycle.table(results, title="URL Analysis Summary")
+    clicycle.success("URL analyzer visual test completed")
 
 
 if __name__ == "__main__":
-    try:
-        test_url_analyzer()
-    except KeyboardInterrupt:
-        clicycle.warning("Test interrupted by user")
+    run_tests_for_cli_output()

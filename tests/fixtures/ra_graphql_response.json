@@ -1,0 +1,57 @@
+{
+  "data": {
+    "event": {
+      "id": "1908868",
+      "title": "Light In Harlem",
+      "content": "House and more good music\u2028\n\nOPEN 22:00\u2028\nDOOR:2,000JPY\n\u2028Under23:1,000JPY\n\u2028W/Wristband \u00a5500JPY\u2028(\uff0b1D for All Entrance fees)\u2028\n\nDJ:\u2028Little Dead Girl\u2028DNG(CYK)",
+      "contentUrl": "/events/1908868",
+      "date": "2025-04-03T00:00:00.000",
+      "startTime": "2025-04-03T22:00:00.000",
+      "endTime": "2025-04-04T05:00:00.000",
+      "cost": "\u00a52000",
+      "flyerFront": null,
+      "images": [
+        {
+          "id": "1843872",
+          "filename": "https://images.ra.co/de4a8b614fa679a4171260d836df15f7929f7587.jpg",
+          "alt": null,
+          "type": "FLYERFRONT",
+          "crop": null
+        },
+        {
+          "id": "1843873",
+          "filename": "https://images.ra.co/f0d276130ce9a9da7911e3cf561d4b8139005080.jpg",
+          "alt": null,
+          "type": "FLYERBACK",
+          "crop": null
+        }
+      ],
+      "venue": {
+        "name": "West Harlem",
+        "area": {
+          "name": "Kyoto",
+          "country": {
+            "name": "Japan"
+          }
+        }
+      },
+      "artists": [
+        {
+          "name": "Little Dead Girl"
+        },
+        {
+          "name": "DNG (1)"
+        }
+      ],
+      "promoters": [],
+      "genres": [
+        {
+          "name": "House"
+        },
+        {
+          "name": "Disco"
+        }
+      ]
+    }
+  }
+}

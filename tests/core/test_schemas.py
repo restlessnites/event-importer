@@ -18,6 +18,10 @@ from app.schemas import EventData, EventTime
         ("10:00 PM", "2:00 AM", "2024-03-10", "2024-03-11"),
         # Test case 5: Descriptive times
         ("Doors at 7pm", "Ends at 1am", "2024-07-04", "2024-07-05"),
+        # Edge Case 6: New Year's Eve rollover
+        ("23:00", "01:00", "2023-12-31", "2024-01-01"),
+        # Edge Case 7: Leap day rollover
+        ("22:00", "02:00", "2024-02-29", "2024-03-01"),
     ],
 )
 def test_end_date_calculation(
@@ -69,3 +73,10 @@ def test_end_date_insufficient_info():
         time=EventTime(start="22:00", end="02:00"),
     )
     assert event_no_date.end_date is None
+
+    # Case 4: Missing time object entirely
+    event_no_time_obj = EventData(
+        title="Test Event",
+        date="2024-01-01",
+    )
+    assert event_no_time_obj.end_date is None
