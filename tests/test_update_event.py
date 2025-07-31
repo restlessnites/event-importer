@@ -225,7 +225,7 @@ class TestUpdateEventExtended:
         with patch("app.core.importer.get_cached_event") as mock_get:
             mock_get.return_value = cached_data
 
-            with patch("app.core.importer.cache_event") as mock_cache:
+            with patch("app.core.importer.cache_event") as _mock_cache:
                 # The update method doesn't validate structure, EventData does
                 # This will fail at the EventData validation level
                 result = await importer.update_event(1, {"images": "not-a-dict"})
