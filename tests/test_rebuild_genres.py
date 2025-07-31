@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.importer import EventImporter
+from app.errors import APIError
 from app.interfaces.api.server import create_app
 from app.schemas import EventData, ServiceFailure
 
@@ -192,12 +193,17 @@ class TestRebuildGenres:
             assert response.status_code == 200
             data = response.json()
             assert data["success"] is True
-            assert "genres" in data["data"] or data.get("genres") == ["Electronic", "House"]
+            assert "genres" in data["data"] or data.get("genres") == [
+                "Electronic",
+                "House",
+            ]
             assert len(data["service_failures"]) == 1
             assert data["service_failures"][0]["service"] == "TestService"
 
     @pytest.mark.asyncio
-    async def test_rebuild_genres_with_service_failures(self, mock_config, mock_event_data):
+    async def test_rebuild_genres_with_service_failures(
+        self, mock_config, mock_event_data
+    ):
         """Test rebuilding genres with service failures."""
         importer = EventImporter(mock_config)
 
@@ -211,7 +217,6 @@ class TestRebuildGenres:
             async def mock_enhance_genres(event_data, supplementary_context=None):
                 # The actual enhance_genres method doesn't take failure_collector
                 # It throws exceptions which are caught by rebuild_genres
-                from app.errors import APIError
                 # Raise an API error that will be caught
                 raise APIError("GoogleSearch", "API key not configured")
 
@@ -227,4 +232,8 @@ class TestRebuildGenres:
             # When enhance_genres fails, genres are cleared (as per line 598 in importer.py)
             assert result.genres == []  # Genres were cleared before enhancement
             assert len(failures) == 1
-            assert failures[0].service == "GoogleSearch" if hasattr(failures[0], 'service') else failures[0]["service"] == "GoogleSearch"
+            assert (
+                failures[0].service == "GoogleSearch"
+                if hasattr(failures[0], "service")
+                else failures[0]["service"] == "GoogleSearch"
+            )

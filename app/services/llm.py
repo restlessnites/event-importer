@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
 
@@ -294,11 +295,26 @@ class LLMService:
                     response = await self.fallback_service.analyze_text(prompt)
                     if response:
                         # Simple extraction - look for genres in text
-                        import re
-                        genres = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', response)
+                        genres = re.findall(
+                            r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b", response
+                        )
                         # Filter to likely genre words
-                        genre_words = ['House', 'Techno', 'Electronic', 'Rock', 'Pop', 'Jazz', 'Hip-Hop', 'Trap', 'Dubstep', 'Drum', 'Bass']
-                        found_genres = [g for g in genres if any(word in g for word in genre_words)]
+                        genre_words = [
+                            "House",
+                            "Techno",
+                            "Electronic",
+                            "Rock",
+                            "Pop",
+                            "Jazz",
+                            "Hip-Hop",
+                            "Trap",
+                            "Dubstep",
+                            "Drum",
+                            "Bass",
+                        ]
+                        found_genres = [
+                            g for g in genres if any(word in g for word in genre_words)
+                        ]
                         return found_genres[:4]
                 raise e
         return []

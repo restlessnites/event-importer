@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import HttpUrl
 
 from app.core.importer import EventImporter
 from app.interfaces.api.server import create_app
@@ -143,7 +144,9 @@ class TestUpdateEventExtended:
 
             # The update method doesn't validate URLs, EventData does
             # So this will succeed if EventData accepts it
-            assert result is not None or result is None  # Either way is fine for this test
+            assert (
+                result is not None or result is None
+            )  # Either way is fine for this test
 
     @pytest.mark.asyncio
     async def test_update_event_api_extended_fields(self, mock_event_data):
@@ -157,7 +160,6 @@ class TestUpdateEventExtended:
             mock_importer = AsyncMock()
 
             # Updated event with new fields
-            from pydantic import HttpUrl
             updated_event = mock_event_data.model_copy()
             updated_event.ticket_url = HttpUrl("https://api-updated.com/tickets")
             updated_event.promoters = ["API Promoter"]
@@ -181,10 +183,16 @@ class TestUpdateEventExtended:
             assert response.status_code == 200
             data = response.json()
             assert data["success"] is True
-            assert data.get("data", data.get("event", {})).get("ticket_url") == "https://api-updated.com/tickets"
+            assert (
+                data.get("data", data.get("event", {})).get("ticket_url")
+                == "https://api-updated.com/tickets"
+            )
             event_data = data.get("data", data.get("event", {}))
             assert event_data.get("promoters") == ["API Promoter"]
-            assert event_data.get("images", {}).get("full") == "https://api-updated.com/image.jpg"
+            assert (
+                event_data.get("images", {}).get("full")
+                == "https://api-updated.com/image.jpg"
+            )
 
     @pytest.mark.asyncio
     async def test_update_empty_promoters_list(self, mock_config, mock_event_data):
@@ -252,4 +260,8 @@ class TestUpdateEventExtended:
                 assert result.images["full"] == "https://new.com/full.jpg"
                 # When updating images, EventData might preserve the structure
                 # So thumbnail might still exist with same URL as full
-                assert result.images.get("thumbnail") in [None, "https://old.com/thumb.jpg", "https://new.com/full.jpg"]
+                assert result.images.get("thumbnail") in [
+                    None,
+                    "https://old.com/thumb.jpg",
+                    "https://new.com/full.jpg",
+                ]

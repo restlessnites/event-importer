@@ -686,6 +686,31 @@ class EventImporter:
             failure_collector.add_failure("ImageRebuild", e)
             return None, failure_collector.failures
 
+    async def _prepare_updates(self, updates: dict, event_data: EventData) -> dict:
+        """Validate and prepare update fields."""
+        validated_updates = {}
+        for field, value in updates.items():
+            if not hasattr(event_data, field):
+                logger.warning(f"Field '{field}' does not exist on EventData")
+                continue
+
+            if field == "time" and isinstance(value, dict):
+                validated_updates[field] = EventTime(**value)
+            elif field == "images" and isinstance(value, dict):
+                if not all(k in ["full", "thumbnail"] for k in value):
+                    logger.warning(
+                        "Invalid image keys. Only 'full' and 'thumbnail' are allowed"
+                    )
+                    continue
+                if "full" in value and "thumbnail" not in value:
+                    value["thumbnail"] = value["full"]
+                elif "thumbnail" in value and "full" not in value:
+                    value["full"] = value["thumbnail"]
+                validated_updates[field] = value
+            else:
+                validated_updates[field] = value
+        return validated_updates
+
     async def update_event(self, event_id: int, updates: dict) -> EventData | None:
         """Update specific fields of a cached event.
 
@@ -701,52 +726,23 @@ class EventImporter:
                 f"Updating event ID: {event_id} with fields: {list(updates.keys())}"
             )
 
-            # Get the cached event
             event_data_dict = get_cached_event(event_id=event_id)
             if not event_data_dict:
                 logger.warning(f"Event not found for ID: {event_id}")
                 return None
 
-            # Remove the _db_id before creating EventData
             event_data_dict.pop("_db_id", None)
-
-            # Parse the event data
             event_data = EventData(**event_data_dict)
 
-            # Prepare updates with proper validation
-            validated_updates = {}
-            for field, value in updates.items():
-                if hasattr(event_data, field):
-                    # Special handling for complex fields
-                    if field == "time" and isinstance(value, dict):
-                        validated_updates[field] = EventTime(**value)
-                    elif field == "images" and isinstance(value, dict):
-                        # Validate images structure
-                        if not all(k in ["full", "thumbnail"] for k in value):
-                            logger.warning("Invalid image keys. Only 'full' and 'thumbnail' are allowed")
-                            continue
-                        # Ensure both full and thumbnail are provided if updating images
-                        if "full" in value and "thumbnail" not in value:
-                            value["thumbnail"] = value["full"]  # Use full as thumbnail if not provided
-                        elif "thumbnail" in value and "full" not in value:
-                            value["full"] = value["thumbnail"]  # Use thumbnail as full if not provided
-                        validated_updates[field] = value
-                    else:
-                        validated_updates[field] = value
-                else:
-                    logger.warning(f"Field '{field}' does not exist on EventData")
-
+            validated_updates = await self._prepare_updates(updates, event_data)
             if not validated_updates:
                 logger.warning("No valid updates to apply")
                 return event_data
 
-            # Create updated event data using model_copy to preserve field types like HttpUrl
-            # But first create a dict that will be validated by EventData constructor
             current_data = event_data.model_dump()
             current_data.update(validated_updates)
             updated_event_data = EventData(**current_data)
 
-            # Cache the updated event data
             cache_event(
                 str(updated_event_data.source_url),
                 updated_event_data.model_dump(mode="json"),
