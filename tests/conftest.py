@@ -7,11 +7,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.config import get_config
-from app.services.claude import ClaudeService
 from app.services.genre import GenreService
 from app.services.image import ImageService
-from app.services.llm import LLMService
-from app.services.openai import OpenAIService
+from app.services.llm.providers.claude import Claude
+from app.services.llm.providers.openai import OpenAI
+from app.services.llm.service import LLMService
 from app.shared.database.connection import (
     get_db_session,
     init_db,
@@ -49,15 +49,15 @@ def http_service() -> HTTPService:
 
 
 @pytest.fixture(scope="function")
-def claude_service() -> ClaudeService:
-    """Return a ClaudeService instance."""
-    return ClaudeService(get_config())
+def claude_service() -> Claude:
+    """Return a Claude instance."""
+    return Claude(get_config())
 
 
 @pytest.fixture(scope="function")
-def openai_service() -> OpenAIService:
-    """Return an OpenAIService instance."""
-    return OpenAIService(get_config())
+def openai_service() -> OpenAI:
+    """Return an OpenAI instance."""
+    return OpenAI(get_config())
 
 
 @pytest.fixture(scope="function")

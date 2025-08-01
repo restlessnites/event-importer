@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 
-from app.schemas import EventData, ImportProgress, ServiceFailure
+from app.core.schemas import EventData, ImportProgress, ServiceFailure
 
 
 class ImportEventResponse(BaseModel):

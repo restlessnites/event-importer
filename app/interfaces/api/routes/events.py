@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from app.core.router import Router
+from app.core.schemas import EventData
 from app.interfaces.api.models.requests import (
     ImportEventRequest,
     RebuildDescriptionRequest,
@@ -21,13 +22,15 @@ from app.interfaces.api.models.responses import (
     RebuildImageResponse,
     UpdateEventResponse,
 )
+from app.shared.database.connection import get_db_session
+from app.shared.database.models import EventCache
 from app.shared.service_errors import ServiceErrorFormatter
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/events", tags=["events"])
 
-# Global router instance
+# Global router instance - reset on reload
 _router: Router | None = None
 
 
@@ -98,6 +101,108 @@ async def get_import_progress(request_id: str) -> ProgressResponse:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@router.get("")
+async def list_events(
+    limit: int = 50,
+    source: str | None = None,
+    skip: int = 0,
+) -> dict[str, Any]:
+    """List events with optional filtering."""
+
+    try:
+        with get_db_session() as db:
+            query = db.query(EventCache)
+
+            # Filter by source domain if specified
+            if source:
+                query = query.filter(EventCache.source_url.like(f"%{source}%"))
+
+            # Get total count
+            total = query.count()
+
+            # Get paginated results
+            events = (
+                query.order_by(EventCache.scraped_at.desc())
+                .offset(skip)
+                .limit(limit)
+                .all()
+            )
+
+            # Format results
+            results = []
+            for event in events:
+                data = event.scraped_data or {}
+                results.append(
+                    {
+                        "id": event.id,
+                        "title": data.get("title", "Untitled Event"),
+                        "venue": data.get("venue"),
+                        "date": data.get("date"),
+                        "source_url": event.source_url,
+                        "scraped_at": event.scraped_at.isoformat()
+                        if event.scraped_at
+                        else None,
+                        "genres": data.get("genres", []),
+                        "lineup": data.get("lineup", []),
+                    }
+                )
+
+            return {
+                "total": total,
+                "limit": limit,
+                "skip": skip,
+                "events": results,
+            }
+
+    except Exception as e:
+        logger.exception("List events error")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/{event_id}")
+async def get_event(event_id: int) -> dict[str, Any]:
+    """Get a single event by ID."""
+
+    try:
+        with get_db_session() as db:
+            event = db.query(EventCache).filter(EventCache.id == event_id).first()
+
+            if not event:
+                raise HTTPException(
+                    status_code=404, detail=f"Event {event_id} not found"
+                )
+
+            data = event.scraped_data or {}
+            return {
+                "id": event.id,
+                "title": data.get("title", "Untitled Event"),
+                "venue": data.get("venue"),
+                "date": data.get("date"),
+                "end_date": data.get("end_date"),
+                "time": data.get("time"),
+                "location": data.get("location"),
+                "lineup": data.get("lineup", []),
+                "genres": data.get("genres", []),
+                "short_description": data.get("short_description"),
+                "long_description": data.get("long_description"),
+                "images": data.get("images", {}),
+                "cost": data.get("cost"),
+                "ticket_url": data.get("ticket_url"),
+                "source_url": event.source_url,
+                "scraped_at": event.scraped_at.isoformat()
+                if event.scraped_at
+                else None,
+                "promoters": data.get("promoters", []),
+                "minimum_age": data.get("minimum_age"),
+            }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Get event error for ID {event_id}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 @router.post(
     "/{event_id}/rebuild/description", response_model=RebuildDescriptionResponse
 )
@@ -108,19 +213,30 @@ async def rebuild_event_description(
     """Rebuild a specific description for an event (preview only)."""
     try:
         router_instance = get_router()
-        updated_event = await router_instance.importer.rebuild_description(
+        description_result = await router_instance.importer.rebuild_description(
             event_id,
             description_type=request.description_type,
             supplementary_context=request.supplementary_context,
         )
 
-        if updated_event:
-            return RebuildDescriptionResponse(
-                success=True,
-                event_id=event_id,
-                message=f"{request.description_type.capitalize()} description regenerated (preview only)",
-                data=updated_event,
-            )
+        if description_result:
+            # Get the full event data to return
+            with get_db_session() as db:
+                event = db.query(EventCache).filter(EventCache.id == event_id).first()
+                if event and event.scraped_data:
+                    # Create EventData with updated descriptions
+                    event_data = EventData(**event.scraped_data)
+                    if description_result.short_description is not None:
+                        event_data.short_description = description_result.short_description
+                    if description_result.long_description is not None:
+                        event_data.long_description = description_result.long_description
+
+                    return RebuildDescriptionResponse(
+                        success=True,
+                        event_id=event_id,
+                        message=f"{request.description_type.capitalize()} description regenerated (preview only)",
+                        data=event_data,
+                    )
         raise HTTPException(
             status_code=404,
             detail=f"Event not found or failed to rebuild for ID: {event_id}",
@@ -181,7 +297,7 @@ async def rebuild_event_genres(
     """Rebuild genres for an event (preview only)."""
     try:
         router_instance = get_router()
-        updated_event, service_failures = await router_instance.importer.rebuild_genres(
+        genre_result, service_failures = await router_instance.importer.rebuild_genres(
             event_id,
             supplementary_context=request.supplementary_context,
         )
@@ -195,15 +311,23 @@ async def rebuild_event_genres(
             failure_info = ServiceErrorFormatter.format_for_api(failure_dicts)
             result.update(failure_info)
 
-        if updated_event:
-            return RebuildGenresResponse(
-                success=True,
-                event_id=event_id,
-                message="Genres regenerated (preview only)",
-                data=updated_event,
-                genres_found=updated_event.genres,
-                **result,  # Include service failure info
-            )
+        if genre_result:
+            # Get the full event data to return
+            with get_db_session() as db:
+                event = db.query(EventCache).filter(EventCache.id == event_id).first()
+                if event and event.scraped_data:
+                    # Create EventData with updated genres
+                    event_data = EventData(**event.scraped_data)
+                    event_data.genres = genre_result.genres
+
+                    return RebuildGenresResponse(
+                        success=True,
+                        event_id=event_id,
+                        message="Genres regenerated (preview only)",
+                        data=event_data,
+                        genres_found=genre_result.genres,
+                        **result,  # Include service failure info
+                    )
 
         # If no event data returned, include error info
         error_msg = f"Event not found or failed to rebuild genres for ID: {event_id}"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.schemas import EventData
+from app.core.schemas import EventData
 
 
 class EventPrompts:
@@ -12,69 +12,74 @@ class EventPrompts:
 
     # Core extraction rules that apply to all extractions
     BASE_EXTRACTION_RULES = """
-EXTRACTION RULES:
+**EXTRACTION RULES**
 
-- **TIME EXTRACTION**:
-   - Look for "Show time", "Event time", "Start time", "Doors at", "Doors open at", or similar phrases
-   - If you see both "Doors: 7pm" and "Show: 8pm", use 7pm as the event time
-   - Ignore venue opening hours, business hours, or box office hours
-   - Only extract actual event performance times
-   - Common patterns: "7:00 PM", "19:00", "8pm", "Show at 8:30pm"
-   - An end time is optional, but if present, it should be extracted
-   - "End time" is not "show time"
-   - If you can't find an end time, leave it blank
+TIME EXTRACTION:
+  - Look for "Show time", "Event time", "Start time", "Doors at", "Doors open at", or similar phrases
+  - If you see both "Doors: 7pm" and "Show: 8pm", use 7pm as the event time
+  - Ignore venue opening hours, business hours, or box office hours
+  - Only extract actual event performance times
+  - Common patterns: "7:00 PM", "19:00", "8pm", "Show at 8:30pm"
+  - An end time is optional, but if present, it should be extracted
+  - "End time" is not "show time"
+  - If you can't find an end time, leave it blank
 
-- **DATE EXTRACTION**:
-    - If the year is not present, do not fill it in, provide the date without the year.
+DATE EXTRACTION:
+  - If the year is not present, do not fill it in, provide the date without the year.
 
-- **REMOVE TRAILING "..." FROM ALL FIELDS**:
-   - If any text ends with "..." remove those dots completely and make it a complete sentence.
+FIELD CLEANING:
+  - If any text ends with "..." remove those dots completely and make it a complete sentence.
 
-- Extract all available event information:
-   - Title, venue, date, time (start/end), lineup, promoters
-   - Location details (address, city, state, country, coordinates)
-   - Cost, age restrictions, ticket URLs, image URLs
-   - At least one genre is required (multiple preferred over single)
-
-- Look for the venue name in the content:
-   - Use the most prominent venu found in the content
-
-- Be thorough - extract every piece of information available. Pay attention to the city and venue name, as they are often mentioned in the content."""
+  - Extract all available event information:
+    - Title, venue, date, time (start/end), lineup, promoters
+    - Location details (address, city, state, country, coordinates)
+    - Cost, age restrictions, ticket URLs, image URLs
+    - At least one genre is required (multiple preferred over single)
+  - Look for the venue name in the content:
+    - Use the most prominent venu found in the content
+  - Be thorough - extract every piece of information available. Pay attention to the city and venue name, as they are often mentioned in the content."""
 
     # Rules for generating long descriptions when missing
     LONG_DESCRIPTION_GENERATION = """
-- **LONG DESCRIPTION** (only if NO description exists in the source):
-   - Generate a comprehensive description using ALL extracted information
-   - Include: lineup/artists, venue, date, genres, promoters, location
-   - Make it natural and informative, 2-4 sentences
-   - Example: "Electronic music showcase featuring DJ Shadow and Cut Chemist at The Fillmore. This special event brings together two legendary turntablists for an evening of experimental hip-hop and breaks. Presented by Goldenvoice, the show features opening sets from local DJs."
-   - If a description DOES exist in the source, use it as-is (just clean it up)"""
+**LONG DESCRIPTION**
+   - Generate a comprehensive description using the extracted information between 150 and 500 characters
+   - Include facts about the artists and related factual annecdotes.
+   - Make it natural and informative, 2-4 sentences.
+   - Good examples:
+      - "Dive into an electrifying evening of jazz fusion with the legendary Miles Davis Quartet! Experience soulful improvisation and unforgettable melodies in an intimate setting. Grab your tickets now before they're gone!"
+      - "Get ready to move at the IndieFest Music Celebration! Discover your new favorite bands, enjoy incredible live performances, and soak in the vibrant festival atmosphere. Secure your spot and join the movement."
+      - "Escape into the world of classical masterpieces with a captivating evening featuring the works of Beethoven and Mozart. Allow the symphony orchestra to transport you to a realm of beauty and emotion. An unforgettable experience awaits."
+    - Bad examples (too much event information, not enough artist information)
+      - "Concert at The Forum on August 15th at 7:00 PM. Doors open at 6:30 PM. Parking is available in Lot 4 for $20, or you can take the Metro to the Forum station. Restrooms are located on the upper and lower levels. Accessible seating is available upon request. Concessions will be open."
+      - "Music Night at the Orpheum Theatre on October 28th at 8:00 PM. The show will run for approximately 2 hours and 30 minutes, with a 20-minute intermission. Please arrive on time to ensure you don't miss the beginning of the performance. Late arrivals may be seated at the discretion of the usher."
+"""
 
     # Rules for generating short descriptions when missing
     SHORT_DESCRIPTION_GENERATION = """
-- **SHORT DESCRIPTION** (only if NO short description exists in the source):
+**SHORT DESCRIPTION**
    - Generate a factual summary under 100 characters
-   - NO adjectives, NO marketing language, just facts
-   - Format: "[Genre] with [Artist]" or "[Type] featuring [Artists]" or "[Genre] at [Venue]"
+   - Stick to the facts
    - Good examples:
-     * "Electronic music with DJ Shadow"
-     * "Jazz quartet at Blue Note"
-     * "Rock concert featuring local bands"
-     * "Hip-hop showcase with 5 artists"
-   - Bad examples (too marketing-y):
-     * "Amazing night of electronic music!"
-     * "Legendary DJ Shadow performance"
-     * "Don't miss this incredible show"
-   - If a short description exists in the source, extract it as-is"""
+     - "Electronic music with the legendary DJ Shadow"
+     - "Classic Jazz quartet at Blue Note"
+     - "Rock concert featuring up and coming local bands"
+     - "Hip-hop showcase with 5 artists you don't want to miss"
+     - "The best electronic music festival in the world"
+   - Bad examples (non-specific and vague):
+     - "Amazing night of electronic music!"
+     - "Local DJ performance"
+     - "Don't miss this incredible show"
+"""
 
     # Rules for genre enhancement
     GENRE_ENHANCEMENT = """
+**GENRE ENHANCEMENT**
 Review and enhance the event genres.
 - Consider:
-- - Primary music or event style
-- - Sub-genres and related styles
-- - Cultural or regional influences
-- - Event format or type
+  - Primary music or event style
+  - Sub-genres and related styles
+  - Cultural or regional influences
+  - Event format or type
 
 Genre Guidelines:
 - Use specific but established genre names

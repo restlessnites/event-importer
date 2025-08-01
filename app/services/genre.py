@@ -6,12 +6,12 @@ import re
 from typing import Any
 
 from app.config import Config
-from app.error_messages import ServiceMessages
-from app.errors import APIError, retry_on_error
-from app.genres import MusicGenres
-from app.prompts import GenrePrompts
-from app.schemas import EventData
-from app.services.llm import LLMService
+from app.core.error_messages import ServiceMessages
+from app.core.errors import APIError, retry_on_error
+from app.core.schemas import EventData
+from app.services.llm.prompts import GenrePrompts
+from app.services.llm.service import LLMService
+from app.shared.data.genres import MusicGenres
 from app.shared.http import HTTPService
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class GenreService:
         self: "GenreService",
         event_data: EventData,
         supplementary_context: str | None = None,
-    ) -> EventData:
+    ) -> list[str]:
         """Enhance event with missing genre information.
 
         Only searches if:
@@ -54,15 +54,18 @@ class GenreService:
         Args:
             event_data: Event data to enhance
             supplementary_context: Optional context to help identify genres
+
+        Returns:
+            List of enhanced genres (or original genres if enhancement fails)
         """
         # Check if we already have genres
         if event_data.genres:
-            return event_data
+            return event_data.genres
 
         # Check if Google is enabled
         if not self.google_enabled:
             logger.warning("Genre enhancement skipped: Google Search not configured")
-            return event_data
+            return event_data.genres
 
         # Check if we have artists to search for
         if not event_data.lineup:
@@ -98,15 +101,16 @@ class GenreService:
                 # Validate and normalize genres
                 validated = MusicGenres.validate_genres(found_genres)
                 if validated:
-                    event_data.genres = validated[:4]  # Limit to 4 genres
-                    logger.info(f"Enhanced event with genres: {event_data.genres}")
+                    genres = validated[:4]  # Limit to 4 genres
+                    logger.info(f"Enhanced genres: {genres}")
+                    return genres
 
         except (ValueError, TypeError, KeyError) as e:
             logger.warning(
                 f"{ServiceMessages.GENRE_ENHANCEMENT_FAILED} for {primary_artist}: {e}"
             )
 
-        return event_data
+        return event_data.genres
 
     def _build_event_context(
         self: "GenreService",

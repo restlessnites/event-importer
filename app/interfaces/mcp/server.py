@@ -14,8 +14,8 @@ from sqlalchemy import asc, desc, or_
 
 from app import __version__
 from app.config import get_config
+from app.core.error_messages import CommonMessages, InterfaceMessages
 from app.core.router import Router
-from app.error_messages import CommonMessages, InterfaceMessages
 from app.services.integration_discovery import get_available_integrations
 from app.shared.database.connection import get_db_session, init_db
 from app.shared.database.models import EventCache

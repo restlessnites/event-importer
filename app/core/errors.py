@@ -62,6 +62,10 @@ class AuthenticationError(APIError):
         super().__init__(service, "Authentication failed", 401)
 
 
+class AgentNotFoundError(Exception):
+    """Raised when no suitable agent is found for a given URL or import method."""
+
+
 class RateLimitError(APIError):
     """Raised for rate limit exceeded errors (429)."""
 

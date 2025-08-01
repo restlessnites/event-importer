@@ -6,8 +6,8 @@ from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
 
+from app.core.schemas import EventData, EventLocation, EventTime
 from app.interfaces.cli.commands import cli
-from app.schemas import EventData, EventLocation, EventTime
 from app.shared.database.models import EventCache
 
 

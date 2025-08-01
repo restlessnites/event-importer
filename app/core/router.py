@@ -8,7 +8,7 @@ from typing import Any
 
 from app.config import get_config
 from app.core.importer import EventImporter
-from app.schemas import ImportRequest, ImportStatus
+from app.core.schemas import ImportRequest, ImportStatus
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ class Router:
             logger.info(f"Routing import request for: {request.url}")
 
             # Execute import
-            result = await self.importer.import_event(request)
+            result = await self.importer.import_event(request.url)
 
             # Convert to response format
             response = {
@@ -83,9 +83,15 @@ class Router:
 
     async def get_progress(self: Router, request_id: str) -> dict[str, Any]:
         """Get progress history for a request."""
-        history = self.importer.get_progress_history(request_id)
+        history = self.importer.progress_tracker.get_history(request_id)
 
         return {
             "request_id": request_id,
             "updates": [update.model_dump(mode="json") for update in history],
         }
+
+    async def close(self: Router) -> None:
+        """Close any resources held by the router."""
+        # Close HTTP service in the importer
+        if hasattr(self.importer, "close"):
+            await self.importer.close()

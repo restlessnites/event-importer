@@ -10,12 +10,13 @@ from fastapi import FastAPI
 
 from app import __version__
 from app.config import get_config
-from app.error_messages import CommonMessages
+from app.core.error_messages import CommonMessages
+from app.core.startup import startup_checks
 from app.interfaces.api.middleware.cors import add_cors_middleware
 from app.interfaces.api.routes import events, health, statistics
+from app.interfaces.api.routes.events import get_router
 from app.services.integration_discovery import get_available_integrations
 from app.shared.http import close_http_service
-from app.startup import startup_checks
 
 # Configure logging
 logging.basicConfig(
@@ -50,6 +51,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Shutdown
     logger.info(f"Shutting down {app.title}")
     await close_http_service()
+
+    # Close the router if it exists
+    router = get_router()
+    if router and hasattr(router, "close"):
+        await router.close()
 
 
 def create_app() -> FastAPI:

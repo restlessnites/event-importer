@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.core.progress import ProgressTracker
-from app.schemas import ImportProgress, ImportStatus
+from app.core.schemas import ImportProgress, ImportStatus
 
 
 @pytest.fixture

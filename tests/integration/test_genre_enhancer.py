@@ -8,7 +8,7 @@ import clicycle
 import pytest
 from dotenv import load_dotenv
 
-from app.schemas import EventData
+from app.core.schemas import EventData
 from app.services.genre import GenreService
 
 # Load environment variables
@@ -51,8 +51,8 @@ async def test_genre_service(
 
     # Test case 1: Event with existing genres should be skipped
     clicycle.section("Test 1: Event with existing genres (should be skipped)")
-    enhanced_event = await genre_service.enhance_genres(modest_mouse_event)
-    assert enhanced_event.genres == ["Indie", "Alternative"]
+    enhanced_genres = await genre_service.enhance_genres(modest_mouse_event)
+    assert enhanced_genres == ["Indie", "Alternative"]
     clicycle.success("Skipped enhancement as expected.")
 
     # Test case 2: Event with no genres
@@ -65,10 +65,10 @@ async def test_genre_service(
 
     genre_service._search_artist_genres = mock_search_artist_genres
 
-    enhanced_event_no_genres = await genre_service.enhance_genres(aphex_twin_event)
-    clicycle.table([enhanced_event_no_genres.model_dump()], title="Enhanced Event Data")
-    assert "electronic" in enhanced_event_no_genres.genres
-    assert "idm" in enhanced_event_no_genres.genres
+    enhanced_genres_no_genres = await genre_service.enhance_genres(aphex_twin_event)
+    clicycle.table([{"genres": enhanced_genres_no_genres}], title="Enhanced Genres")
+    assert "electronic" in enhanced_genres_no_genres
+    assert "idm" in enhanced_genres_no_genres
 
 
 @pytest.mark.asyncio

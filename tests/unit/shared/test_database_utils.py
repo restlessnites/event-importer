@@ -1,9 +1,10 @@
 """Tests for database utility functions."""
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from app.schemas import EventData
+from app.core.schemas import EventData
 from app.shared.database.utils import cache_event, get_cached_event
 
 
@@ -34,17 +35,16 @@ def test_cache_event_success(db_session: Session, sample_event):
 
 
 def test_cache_event_empty(db_session: Session):
-    """Test caching an event with empty data."""
+    """Test caching an event with empty data raises validation error."""
     url = "https://example.com/event/empty"
 
-    cache_event(url=url, event_data={}, db=db_session)
+    # Empty data should fail validation
+    with pytest.raises(ValidationError) as exc_info:
+        cache_event(url=url, event_data={}, db=db_session)
 
-    # Retrieve it to verify
-    cached_data = get_cached_event(url, db=db_session)
-    assert cached_data is not None
-    # Remove _db_id for comparison
-    cached_data.pop("_db_id", None)
-    assert cached_data == {}
+    # Verify it's missing required fields
+    assert "title" in str(exc_info.value)
+    assert "Field required" in str(exc_info.value)
 
 
 def test_cache_event_update_existing(db_session: Session, sample_event):

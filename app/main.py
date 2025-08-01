@@ -4,8 +4,8 @@ import logging
 import sys
 from multiprocessing import freeze_support
 
+from app.core.startup import startup_checks
 from app.interfaces.cli.commands import cli
-from app.startup import startup_checks
 
 # Configure logging
 logging.basicConfig(

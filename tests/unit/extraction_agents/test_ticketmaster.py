@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.agents.ticketmaster_agent import TicketmasterAgent
-from app.schemas import EventData, EventLocation
+from app.core.schemas import EventData, EventLocation
+from app.extraction_agents.providers.ticketmaster import Ticketmaster
 
 
 @pytest.fixture
@@ -25,11 +25,14 @@ def http_service():
 @pytest.fixture
 def llm_service():
     """Return a mock llm service."""
-    return AsyncMock()
+    mock = MagicMock()
+    # Set up default behavior for commonly used methods
+    mock.needs_description_generation.return_value = (False, False)
+    return mock
 
 
 @pytest.mark.asyncio
-@patch("app.agents.ticketmaster_agent.logger")
+@patch("app.extraction_agents.providers.ticketmaster.logger")
 async def test_import_event_api_error(
     mock_logger, mock_config, http_service, llm_service
 ):
@@ -52,9 +55,10 @@ async def test_import_event_api_error(
     )
 
     # Configure http_service to return different responses for each call
-    http_service.get.side_effect = [direct_lookup_response, search_response]
+    # Mock get_json to return errors
+    http_service.get_json.side_effect = Exception("HTTP 401 Unauthorized")
 
-    agent = TicketmasterAgent(
+    agent = Ticketmaster(
         mock_config, services={"http": http_service, "llm": llm_service}
     )
 
@@ -92,13 +96,18 @@ async def test_import_event_success(mock_config, http_service, llm_service):
         },
         "classifications": [{"segment": {"name": "Music"}, "genre": {"name": "Rock"}}],
     }
-    http_service.get.return_value.json = AsyncMock(return_value=api_response)
-    http_service.get.return_value.status = 200
+    # Mock get_json to return the API response directly
+    http_service.get_json.return_value = api_response
 
     # Mock the llm_service to return the event data directly
-    llm_service.generate_descriptions.side_effect = lambda event_data: event_data
+    llm_service.needs_description_generation.return_value = (False, False)
 
-    agent = TicketmasterAgent(
+    async def mock_generate_descriptions(event_data, **_):
+        return event_data
+
+    llm_service.generate_descriptions.side_effect = mock_generate_descriptions
+
+    agent = Ticketmaster(
         mock_config, services={"http": http_service, "llm": llm_service}
     )
 
@@ -130,13 +139,18 @@ async def test_import_event_no_embedded_data(mock_config, http_service, llm_serv
         "name": "Test Event with No Venue",
         "dates": {"start": {"localDate": "2025-01-01", "localTime": "20:00:00"}},
     }
-    http_service.get.return_value.json = AsyncMock(return_value=api_response)
-    http_service.get.return_value.status = 200
+    # Mock get_json to return the API response directly
+    http_service.get_json.return_value = api_response
 
     # Mock the llm_service to return the event data directly
-    llm_service.generate_descriptions.side_effect = lambda event_data: event_data
+    llm_service.needs_description_generation.return_value = (False, False)
 
-    agent = TicketmasterAgent(
+    async def mock_generate_descriptions(event_data, **_):
+        return event_data
+
+    llm_service.generate_descriptions.side_effect = mock_generate_descriptions
+
+    agent = Ticketmaster(
         mock_config, services={"http": http_service, "llm": llm_service}
     )
 
@@ -156,13 +170,18 @@ async def test_import_event_no_dates(mock_config, http_service, llm_service):
     # Arrange
     url = "https://www.ticketmaster.com/event/no-dates"
     api_response = {"name": "Test Event with No Dates"}
-    http_service.get.return_value.json = AsyncMock(return_value=api_response)
-    http_service.get.return_value.status = 200
+    # Mock get_json to return the API response directly
+    http_service.get_json.return_value = api_response
 
     # Mock the llm_service to return the event data directly
-    llm_service.generate_descriptions.side_effect = lambda event_data: event_data
+    llm_service.needs_description_generation.return_value = (False, False)
 
-    agent = TicketmasterAgent(
+    async def mock_generate_descriptions(event_data, **_):
+        return event_data
+
+    llm_service.generate_descriptions.side_effect = mock_generate_descriptions
+
+    agent = Ticketmaster(
         mock_config, services={"http": http_service, "llm": llm_service}
     )
 
@@ -180,9 +199,9 @@ async def test_import_event_not_found(mock_config, http_service, llm_service):
     """Test that the agent handles a 404 Not Found response."""
     # Arrange
     url = "https://www.ticketmaster.com/event/notfound"
-    http_service.get.return_value.json = AsyncMock(return_value={})
-    http_service.get.return_value.status = 404
-    agent = TicketmasterAgent(
+    # Mock get_json to raise 404 error
+    http_service.get_json.side_effect = Exception("HTTP 404 Not Found")
+    agent = Ticketmaster(
         mock_config, services={"http": http_service, "llm": llm_service}
     )
 

@@ -90,6 +90,13 @@ class APIConfig(BaseSettings):
     )
 
 
+class ProcessingConfig(BaseSettings):
+    """Configuration for data processing rules."""
+
+    long_description_min_length: int = 200
+    short_description_max_length: int = 100
+
+
 class Config(BaseSettings):
     """Main configuration container."""
 
@@ -98,6 +105,9 @@ class Config(BaseSettings):
 
     # HTTP configurations
     http: HTTPConfig = Field(default_factory=HTTPConfig)
+
+    # Processing configurations
+    processing: ProcessingConfig = Field(default_factory=ProcessingConfig)
 
     # Runtime settings
     debug: bool = Field(False, alias="DEBUG")

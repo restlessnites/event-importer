@@ -11,9 +11,10 @@ from typing import Any
 from openai import AsyncOpenAI
 
 from app.config import Config
-from app.errors import APIError, ConfigurationError, handle_errors_async
-from app.prompts import EventPrompts
-from app.schemas import EventData, EventTime
+from app.core.errors import APIError, ConfigurationError, handle_errors_async
+from app.core.schemas import EventData
+from app.services.llm.base import BaseLLMService
+from app.services.llm.prompts import EventPrompts
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,8 @@ OPENAI_CLIENT_NOT_INITIALIZED = "OpenAI client not initialized - check API key"
 OPENAI_API_KEY_NOT_FOUND = "OpenAI API key not found in configuration"
 
 
-class OpenAIService:
-    # Tool definition for structured extraction
+class OpenAI(BaseLLMService):
+    # Tool definitions...
     EXTRACTION_TOOL = {
         "type": "function",
         "function": {
@@ -88,8 +89,6 @@ class OpenAIService:
             },
         },
     }
-
-    # Tool for description generation
     DESCRIPTION_TOOL = {
         "type": "function",
         "function": {
@@ -105,8 +104,6 @@ class OpenAIService:
             },
         },
     }
-
-    # Tool for genre enhancement
     GENRE_TOOL = {
         "type": "function",
         "function": {
@@ -126,199 +123,103 @@ class OpenAIService:
         },
     }
 
-    def __init__(self: OpenAIService, config: Config) -> None:
+    def __init__(self: OpenAI, config: Config) -> None:
         """Initialize OpenAI service."""
+        super().__init__(config)
         if not config.api.openai_api_key:
             raise ConfigurationError(OPENAI_API_KEY_NOT_FOUND)
         self.client = AsyncOpenAI(api_key=config.api.openai_api_key)
         self.model = "gpt-4-turbo-preview"
         self.max_tokens = 4096
 
-    def _add_json_requirement(self: OpenAIService, prompt: str) -> str:
+    def _add_json_requirement(self: OpenAI, prompt: str) -> str:
         """Add JSON requirement to any prompt used with OpenAI."""
-        return f"Return the information as a valid JSON object.\\n{prompt}"
-
-    def _clean_response_data(
-        self: OpenAIService,
-        data: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Clean and validate response data before creating EventData."""
-        cleaned = self._filter_null_and_empty_values(data)
-        self._process_images_field(cleaned)
-        self._process_time_field(cleaned)
-        return cleaned
-
-    def _filter_null_and_empty_values(
-        self: OpenAIService,
-        data: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Filter out None values and empty strings."""
-        return {
-            key: value
-            for key, value in data.items()
-            if value is not None and not (isinstance(value, str) and not value.strip())
-        }
-
-    def _process_images_field(self: OpenAIService, data: dict[str, Any]) -> None:
-        """Clean and validate the 'images' field in the data dictionary."""
-        images_value = data.get("images")
-        if not isinstance(images_value, dict):
-            data.pop("images", None)
-            return
-
-        cleaned_images = {
-            key: val.strip()
-            for key, val in images_value.items()
-            if val and isinstance(val, str) and val.strip()
-        }
-
-        if cleaned_images:
-            data["images"] = cleaned_images
-        else:
-            data.pop("images", None)
-
-    def _process_time_field(self: OpenAIService, data: dict[str, Any]) -> None:
-        """Parse and validate the 'time' field in the data dictionary."""
-        time_value = data.get("time")
-        if not time_value:
-            return
-
-        parsed_time = None
-        if isinstance(time_value, str):
-            parsed_time = self._parse_time_from_string(time_value)
-        elif isinstance(time_value, dict):
-            parsed_time = self._parse_time_from_dict(time_value)
-
-        if parsed_time:
-            data["time"] = parsed_time
-        else:
-            data.pop("time", None)
-
-    def _parse_time_from_string(
-        self: OpenAIService,
-        time_str: str,
-    ) -> EventTime | None:
-        """Parse an EventTime object from a string."""
-        parts = re.split(r"\s*-\s*|\s+to\s+", time_str, maxsplit=1)
-        start_time = parts[0].strip() if parts else None
-        end_time = parts[1].strip() if len(parts) > 1 else None
-
-        if start_time and start_time.lower() not in ["", "null", "none", "n/a"]:
-            try:
-                return EventTime(start=start_time, end=end_time)
-            except (ValueError, TypeError) as e:
-                logger.warning(f"Failed to parse time '{time_str}': {e}")
-        return None
-
-    def _parse_time_from_dict(
-        self: OpenAIService,
-        time_dict: dict[str, Any],
-    ) -> EventTime | None:
-        """Parse an EventTime object from a dictionary."""
-        try:
-            return EventTime(**time_dict)
-        except (ValueError, TypeError) as e:
-            logger.warning(f"Failed to create EventTime from dict {time_dict}: {e}")
-        return None
+        return f"Return the information as a valid JSON object.\n{prompt}"
 
     @handle_errors_async(reraise=True)
     async def extract_from_html(
-        self: OpenAIService,
+        self: OpenAI,
         html: str,
         url: str,
+        needs_long_description: bool = True,
+        needs_short_description: bool = True,
         max_length: int = 50000,
     ) -> EventData | None:
         """Extract event data from HTML content."""
         if not self.client:
             raise ConfigurationError(OPENAI_CLIENT_NOT_INITIALIZED)
 
-        # Truncate if too long
         if len(html) > max_length:
             html = html[:max_length] + "\n<!-- truncated -->"
 
-        # Build prompt using EventPrompts
         prompt = EventPrompts.build_extraction_prompt(
             content=html,
             url=url,
             content_type="html",
-            needs_long_description=True,
-            needs_short_description=True,
+            needs_long_description=needs_long_description,
+            needs_short_description=needs_short_description,
         )
-        # Add JSON requirement for OpenAI
         prompt = self._add_json_requirement(prompt)
 
         result = await self._call_with_tool(prompt)
         if result:
             result["source_url"] = url
-            # Clean the response data before validation
             cleaned_result = self._clean_response_data(result)
             return EventData(**cleaned_result)
         return None
 
     @handle_errors_async(reraise=True)
     async def extract_from_image(
-        self: OpenAIService,
+        self: OpenAI,
         image_data: bytes,
         mime_type: str,
         url: str,
+        needs_long_description: bool = True,
+        needs_short_description: bool = True,
     ) -> EventData | None:
         """Extract event data from an image."""
         if not self.client:
             raise ConfigurationError(OPENAI_CLIENT_NOT_INITIALIZED)
 
         image_b64 = base64.b64encode(image_data).decode("utf-8")
-
-        # Build prompt using EventPrompts
         prompt = EventPrompts.build_extraction_prompt(
-            content="",  # Empty for images
+            content="",
             url=url,
             content_type="image",
-            needs_long_description=True,
-            needs_short_description=True,
+            needs_long_description=needs_long_description,
+            needs_short_description=needs_short_description,
         )
-        # Add JSON requirement for OpenAI
         prompt = self._add_json_requirement(prompt)
 
         result = await self._call_with_vision(prompt, image_b64, mime_type)
         if result:
             result["source_url"] = url
-            # Set the image URL since we know it's an image
             result["images"] = {"full": url, "thumbnail": url}
-            # Clean the response data before validation
             cleaned_result = self._clean_response_data(result)
             return EventData(**cleaned_result)
         return None
 
     @handle_errors_async(reraise=True)
     async def generate_descriptions(
-        self: OpenAIService,
+        self: OpenAI,
         event_data: EventData,
-        force_rebuild: bool = False,
+        needs_long: bool,
+        needs_short: bool,
         supplementary_context: str | None = None,
     ) -> EventData:
-        """Generate missing descriptions for an event."""
+        """Generate missing descriptions for an event based on explicit needs."""
         if not self.client:
             raise ConfigurationError(OPENAI_CLIENT_NOT_INITIALIZED)
 
-        # Check if we need to generate descriptions (missing or too short)
-        needs_long = (
-            not event_data.long_description or len(event_data.long_description) < 200
-        )
-        needs_short = (
-            not event_data.short_description or len(event_data.short_description) > 100
-        )
-
-        if not force_rebuild and not needs_long and not needs_short:
+        if not needs_long and not needs_short:
             return event_data
 
-        # Build prompt using centralized EventPrompts
         prompt = EventPrompts.build_description_generation_prompt(
             event_data,
             needs_long=needs_long,
             needs_short=needs_short,
             supplementary_context=supplementary_context,
         )
-        # Add JSON requirement for OpenAI
         prompt = self._add_json_requirement(prompt)
 
         result = await self._call_with_tool(
@@ -327,18 +228,18 @@ class OpenAIService:
             tool_name="generate_descriptions",
         )
 
+        updated_event = event_data.model_copy(deep=True)
         if result:
-            # Update only missing descriptions
-            if force_rebuild or (needs_long and result.get("long_description")):
-                event_data.long_description = result.get("long_description")
-            if force_rebuild or (needs_short and result.get("short_description")):
-                # Ensure it's under 100 chars
-                event_data.short_description = result.get("short_description", "")[:100]
-
-        return event_data
+            if needs_long and result.get("long_description"):
+                updated_event.long_description = result.get("long_description")
+            if needs_short and result.get("short_description"):
+                short_desc = result.get("short_description", "")
+                max_len = self.config.processing.short_description_max_length
+                updated_event.short_description = short_desc[:max_len]
+        return updated_event
 
     @handle_errors_async(reraise=True)
-    async def analyze_text(self: OpenAIService, prompt: str) -> str | None:
+    async def analyze_text(self: OpenAI, prompt: str) -> str | None:
         """Analyze text with OpenAI and return raw response."""
         if not self.client:
             raise ConfigurationError(OPENAI_CLIENT_NOT_INITIALIZED)
@@ -353,7 +254,7 @@ class OpenAIService:
 
     @handle_errors_async(reraise=True)
     async def extract_event_data(
-        self: OpenAIService,
+        self: OpenAI,
         prompt: str,
         image_b64: str | None = None,
         mime_type: str | None = None,
@@ -363,41 +264,33 @@ class OpenAIService:
             raise ConfigurationError(OPENAI_CLIENT_NOT_INITIALIZED)
 
         if image_b64 and mime_type:
-            # Use vision for image extraction
             return await self._call_with_vision(prompt, image_b64, mime_type)
-        # Use regular tool for text extraction
         return await self._call_with_tool(prompt)
 
-    async def enhance_genres(self: OpenAIService, event_data: EventData) -> EventData:
+    async def enhance_genres(self: OpenAI, event_data: EventData) -> EventData:
         """Enhance event genres using OpenAI."""
         if not self.client:
             raise ConfigurationError(OPENAI_CLIENT_NOT_INITIALIZED)
-
         if not event_data.genres:
             return event_data
 
-        # Build prompt using EventPrompts
         prompt = EventPrompts.build_genre_enhancement_prompt(
-            event_data.model_dump(exclude_unset=True),
+            event_data.model_dump(exclude_unset=True)
         )
-        # Add JSON requirement for OpenAI
         prompt = self._add_json_requirement(prompt)
 
         try:
             result = await self._call_with_tool(
-                prompt,
-                tool=self.GENRE_TOOL,
-                tool_name="enhance_genres",
+                prompt, tool=self.GENRE_TOOL, tool_name="enhance_genres"
             )
             if result and result.get("genres"):
                 event_data.genres = result["genres"]
         except Exception:
             logger.exception("Failed to enhance genres")
-
         return event_data
 
     async def _call_with_tool(
-        self: OpenAIService,
+        self: OpenAI,
         prompt: str,
         tool: dict[str, Any] | None = None,
         tool_name: str | None = None,
@@ -420,15 +313,13 @@ class OpenAIService:
             except Exception as e:
                 logger.exception("Failed to parse JSON from OpenAI response")
                 error_msg = f"Failed to parse JSON: {e}"
-                service_name = "OpenAI"
-                raise APIError(service_name, error_msg) from e
+                raise APIError("OpenAI", error_msg) from e
         except Exception as e:
             logger.exception("OpenAI tool call failed")
-            service_name = "OpenAI"
-            raise APIError(service_name, str(e)) from e
+            raise APIError("OpenAI", str(e)) from e
 
     async def _call_with_vision(
-        self: OpenAIService,
+        self: OpenAI,
         prompt: str,
         image_b64: str,
         mime_type: str,
@@ -457,25 +348,19 @@ class OpenAIService:
                 ],
                 max_tokens=self.max_tokens,
             )
-
-            # The response should be a JSON object, so we look for that.
             response_text = response.choices[0].message.content
             if not response_text:
                 return None
 
-            # Extract JSON from the response text
-            match = re.search(r"```json\n(.*?)\n```", response_text, re.DOTALL)
+            match = re.search(r"```json\n(.*)\n```", response_text, re.DOTALL)
             json_str = match.group(1) if match else response_text
-
             return json.loads(json_str)
 
         except json.JSONDecodeError as e:
             logger.exception("Failed to decode JSON from vision response")
             error_msg = f"JSON decode error: {e}"
-            service_name = "OpenAI"
-            raise APIError(service_name, error_msg) from e
+            raise APIError("OpenAI", error_msg) from e
         except Exception as e:
             logger.exception("OpenAI vision call failed")
             error_msg = f"Vision call failed: {e}"
-            service_name = "OpenAI"
-            raise APIError(service_name, error_msg) from e
+            raise APIError("OpenAI", error_msg) from e

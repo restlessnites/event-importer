@@ -15,7 +15,7 @@ import certifi
 from aiohttp import BasicAuth, ClientResponse, ClientSession, ClientTimeout
 
 from app.config import Config, get_config
-from app.errors import (
+from app.core.errors import (
     APIError,
     AuthenticationError,
     RateLimitError,

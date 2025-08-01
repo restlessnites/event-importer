@@ -9,7 +9,7 @@ from typing import Any, final
 
 from sqlalchemy.orm import Session
 
-from app.errors import handle_errors_async
+from app.core.errors import handle_errors_async
 from app.shared.database.connection import get_db_session
 from app.shared.database.models import EventCache, Submission
 

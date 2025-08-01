@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.schemas import EventLocation
+from app.core.schemas import EventLocation
 
 TIMEZONE_MAPPINGS = {
     "country_defaults": {

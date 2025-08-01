@@ -5,7 +5,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
 
-from app.schemas import ImportProgress, ImportStatus
+from app.core.schemas import ImportProgress, ImportStatus
 
 logger = logging.getLogger(__name__)
 
@@ -22,18 +22,19 @@ class ProgressTracker:
     def add_listener(
         self: "ProgressTracker",
         request_id: str,
-        callback: Callable[[ImportProgress], Awaitable[None]],
+        callback: Callable[[ImportProgress], Awaitable[None]] | None,
     ) -> None:
         """Add a progress listener for a request."""
-        self._listeners[request_id].append(callback)
+        if callback is not None:
+            self._listeners[request_id].append(callback)
 
     def remove_listener(
         self: "ProgressTracker",
         request_id: str,
-        callback: Callable[[ImportProgress], Awaitable[None]],
+        callback: Callable[[ImportProgress], Awaitable[None]] | None,
     ) -> None:
         """Remove a progress listener."""
-        if request_id in self._listeners:
+        if callback is not None and request_id in self._listeners:
             try:
                 self._listeners[request_id].remove(callback)
                 if not self._listeners[request_id]:

@@ -5,37 +5,34 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from app.error_messages import AgentMessages, ServiceMessages
-from app.schemas import EventData, ImportMethod, ImportStatus
+from app.core.error_messages import AgentMessages, ServiceMessages
+from app.core.schemas import EventData, ImportMethod, ImportStatus
+from app.extraction_agents.base import BaseExtractionAgent
 from app.services.image import ImageService
-from app.shared.agent import Agent
-from app.shared.http import HTTPService
+from app.services.llm.service import LLMService
 
 logger = logging.getLogger(__name__)
 
 
-class ImageAgent(Agent):
+class Image(BaseExtractionAgent):
     """Agent for importing events from image URLs (flyers/posters)."""
 
-    http: HTTPService
     image_service: ImageService
 
     def __init__(self, *args: tuple[Any, ...], **kwargs: dict[str, Any]) -> None:
         super().__init__(*args, **kwargs)
-        # Use shared services with proper error handling
-        self.http = self.get_service("http")
         self.image_service = self.get_service("image")
 
     @property
-    def name(self: ImageAgent) -> str:
-        return "ImageAgent"
+    def name(self: Image) -> str:
+        return "Image"
 
     @property
-    def import_method(self: ImageAgent) -> ImportMethod:
+    def import_method(self: Image) -> ImportMethod:
         return ImportMethod.IMAGE
 
     async def import_event(
-        self: ImageAgent,
+        self: Image,
         url: str,
         request_id: str,
     ) -> EventData | None:
@@ -53,8 +50,7 @@ class ImageAgent(Agent):
             # Download and validate image
             result = await self.image_service.validate_and_download(url)
             if not result:
-                error_msg = "Invalid or inaccessible image"
-                raise Exception(error_msg)
+                raise Exception("Invalid or inaccessible image")
 
             image_data, mime_type = result
 
@@ -65,9 +61,9 @@ class ImageAgent(Agent):
                 0.5,
             )
 
-            # Extract with LLM service - use safe service access
+            # Extract with LLM service
             try:
-                llm_service = self.get_service("llm")
+                llm_service: LLMService = self.get_service("llm")
                 event_data = await llm_service.extract_from_image(
                     image_data,
                     mime_type,
@@ -75,12 +71,13 @@ class ImageAgent(Agent):
                 )
             except Exception as e:
                 logger.exception(ServiceMessages.LLM_EXTRACTION_FAILED)
-                error_msg = AgentMessages.IMAGE_EXTRACT_FAILED
-                raise Exception(error_msg) from e
+                raise Exception(AgentMessages.IMAGE_EXTRACT_FAILED) from e
 
             if not event_data:
-                error_msg = AgentMessages.IMAGE_EXTRACT_FAILED
-                raise Exception(error_msg)
+                raise Exception(AgentMessages.IMAGE_EXTRACT_FAILED)
+
+            # Enhance descriptions for consistency with other agents
+            event_data = await self.enhance_descriptions(event_data, request_id)
 
             await self.send_progress(
                 request_id,
@@ -92,7 +89,7 @@ class ImageAgent(Agent):
 
             return event_data
 
-        except (ValueError, TypeError, KeyError) as e:
+        except Exception as e:
             logger.exception(AgentMessages.IMAGE_IMPORT_FAILED)
             await self.send_progress(
                 request_id,

@@ -117,7 +117,7 @@ The import process is orchestrated by `EventImporter` in `app/core/importer.py`.
 
 The `LLMService` (`app/services/llm.py`) provides a resilient AI backend.
 
-- It wraps both `ClaudeService` and `OpenAIService`.
+- It wraps both `Claude` and `OpenAI`.
 - For any given operation (e.g., `extract_event_data`), it first tries the primary provider (Claude).
 - If the primary provider fails for any reason (API error, timeout), the `LLMService` automatically retries the operation with the fallback provider (OpenAI).
 - This ensures high availability for critical AI-powered features.

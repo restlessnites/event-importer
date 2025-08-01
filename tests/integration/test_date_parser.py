@@ -16,7 +16,7 @@ import pytest
 from dateutil import parser as date_parser
 
 from app.core.router import Router
-from app.schemas import EventData
+from app.core.schemas import EventData
 
 
 def test_dateutil_directly() -> None:

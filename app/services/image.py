@@ -11,8 +11,8 @@ from urllib.parse import urlparse
 from PIL import Image, UnidentifiedImageError
 
 from app.config import Config
-from app.errors import APIError, handle_errors_async
-from app.schemas import EventData, ImageCandidate, ImageSearchResult
+from app.core.errors import APIError, handle_errors_async
+from app.core.schemas import EventData, ImageCandidate, ImageResult, ImageSearchResult
 from app.shared.http import HTTPService
 
 logger = logging.getLogger(__name__)
@@ -178,11 +178,19 @@ class ImageService:
         failure_collector: Any | None = None,
         force_search: bool = False,
         supplementary_context: str | None = None,
-    ) -> EventData:
-        """Enhance the image for an event by searching for better alternatives."""
+    ) -> ImageResult:
+        """Enhance the image for an event by searching for better alternatives.
+
+        Returns:
+            ImageResult with original and enhanced image URLs
+        """
+        # Start with original image info
+        original_url = event_data.images.get("full") if event_data.images else None
+        result = ImageResult(original_image_url=original_url)
+
         if not self.google_enabled:
             logger.warning("Image enhancement skipped: Google Search not configured.")
-            return event_data
+            return result
 
         logger.info(f"Starting image enhancement for event: {event_data.title}")
         search_result = ImageSearchResult()
@@ -203,12 +211,23 @@ class ImageService:
         )
 
         await send_progress("Selecting best image", 0.95)
-        self._select_and_update_best_image(
-            event_data, search_result, original_url, force_search
+        best_image_url = self._select_best_image(
+            search_result, original_url, force_search
         )
 
-        event_data.image_search = search_result
-        return event_data
+        # Set the selected candidate on search_result
+        if best_image_url:
+            for candidate in [search_result.original] + search_result.candidates:
+                if candidate and candidate.url == best_image_url:
+                    search_result.selected = candidate
+                    break
+
+        # Build result
+        result.enhanced_image_url = best_image_url if best_image_url != original_url else original_url
+        result.thumbnail_url = result.enhanced_image_url
+        result.search_result = search_result
+
+        return result
 
     async def _rate_original_image_if_present(
         self: "ImageService",
@@ -343,14 +362,13 @@ class ImageService:
                         failure_collector.add_failure("ImageService", e)
         return rated_candidates
 
-    def _select_and_update_best_image(
+    def _select_best_image(
         self: "ImageService",
-        event_data: EventData,
         search_result: ImageSearchResult,
         original_url: str | None,
         force_search: bool = False,
-    ) -> None:
-        """Select the best image from candidates and update event_data."""
+    ) -> str | None:
+        """Select the best image from candidates and return its URL."""
         best_candidate = search_result.get_best_candidate()
 
         # If force_search is True, prefer search results over original
@@ -367,27 +385,37 @@ class ImageService:
                 logger.info(
                     f"Force search: Selected new image (score: {best_search_candidate.score}): {best_search_candidate.url}"
                 )
-                event_data.images = {
-                    "full": best_search_candidate.url,
-                    "thumbnail": best_search_candidate.url,
-                }
-                search_result.selected = best_search_candidate
-                return
+                return best_search_candidate.url
 
         # Normal flow: select best overall candidate
         if best_candidate and best_candidate.url != original_url:
             logger.info(
                 f"Selected new image (score: {best_candidate.score}): {best_candidate.url}"
             )
+            return best_candidate.url
+        logger.info("Keeping original image.")
+        return original_url
+
+    def _select_and_update_best_image(
+        self: "ImageService",
+        event_data: EventData,
+        search_result: ImageSearchResult,
+        original_url: str | None,
+        force_search: bool = False,
+    ) -> None:
+        """Select the best image from candidates and update event_data (legacy method)."""
+        best_url = self._select_best_image(search_result, original_url, force_search)
+        if best_url:
             event_data.images = {
-                "full": best_candidate.url,
-                "thumbnail": best_candidate.url,
+                "full": best_url,
+                "thumbnail": best_url,
             }
-            search_result.selected = best_candidate
-        else:
-            logger.info("Keeping original image.")
-            if search_result.original:
-                search_result.selected = search_result.original
+            # Find and set the selected candidate
+            for candidate in [search_result.original] + search_result.candidates:
+                if candidate and candidate.url == best_url:
+                    search_result.selected = candidate
+                    break
+            return
 
     def _get_primary_artist_for_search(
         self: "ImageService", event_data: EventData

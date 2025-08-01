@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.schemas import EventData, EventTime
+from app.core.schemas import EventData, EventTime
 
 
 @pytest.mark.parametrize(

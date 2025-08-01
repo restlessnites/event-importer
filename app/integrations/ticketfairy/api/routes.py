@@ -22,7 +22,7 @@ class URLSubmissionRequest(BaseModel):
     dry_run: bool = False
 
 
-router = APIRouter(prefix="/integrations/ticketfairy", tags=["ticketfairy"])
+router = APIRouter(prefix="/api/v1/integrations/ticketfairy", tags=["ticketfairy"])
 
 
 @router.post("/submit")

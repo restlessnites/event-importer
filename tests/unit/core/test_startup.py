@@ -6,12 +6,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 from sqlalchemy.exc import OperationalError
 
-from app.startup import ensure_database_ready, startup_checks
+from app.core.startup import ensure_database_ready, startup_checks
 
 
 def test_startup_checks_calls_ensure_database_ready():
     """Test that startup_checks calls ensure_database_ready."""
-    with patch("app.startup.ensure_database_ready") as mock_ensure_db:
+    with patch("app.core.startup.ensure_database_ready") as mock_ensure_db:
         startup_checks()
 
         # Check that ensure_database_ready was called
@@ -21,8 +21,8 @@ def test_startup_checks_calls_ensure_database_ready():
 def test_ensure_database_ready_initializes_missing_tables():
     """Test that missing tables trigger database initialization."""
     with (
-        patch("app.startup.get_db_session") as mock_get_db,
-        patch("app.startup.init_db") as mock_init_db,
+        patch("app.core.startup.get_db_session") as mock_get_db,
+        patch("app.core.startup.init_db") as mock_init_db,
     ):
         # Mock the context manager and session
         mock_session = MagicMock()
@@ -45,7 +45,7 @@ def test_ensure_database_ready_initializes_missing_tables():
 
 def test_ensure_database_ready_reraises_other_errors():
     """Test that non-table errors are re-raised."""
-    with patch("app.startup.get_db_session") as mock_get_db:
+    with patch("app.core.startup.get_db_session") as mock_get_db:
         # Mock the context manager and session
         mock_session = MagicMock()
         mock_context = MagicMock()

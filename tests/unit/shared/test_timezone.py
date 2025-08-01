@@ -1,6 +1,6 @@
 """Tests for timezone utilities."""
 
-from app.schemas import Coordinates, EventLocation
+from app.core.schemas import Coordinates, EventLocation
 from app.shared.timezone import get_timezone_from_location
 
 

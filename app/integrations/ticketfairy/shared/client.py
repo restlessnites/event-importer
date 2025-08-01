@@ -7,8 +7,8 @@ import logging
 from typing import Any
 
 from app.config import get_config
-from app.error_messages import CommonMessages
-from app.errors import APIError, handle_errors_async
+from app.core.error_messages import CommonMessages
+from app.core.errors import APIError, handle_errors_async
 from app.integrations.base import BaseClient
 from app.shared.http import get_http_service
 

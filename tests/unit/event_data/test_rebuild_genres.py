@@ -5,10 +5,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.importer import EventImporter
-from app.errors import APIError
+from app.core.errors import APIError
+from app.core.schemas import EventData, ServiceFailure
 from app.interfaces.api.server import create_app
-from app.schemas import EventData, ServiceFailure
+from tests.helpers import create_test_importer
 
 
 class TestRebuildGenres:
@@ -38,37 +38,37 @@ class TestRebuildGenres:
     @pytest.mark.asyncio
     async def test_rebuild_genres_with_lineup(self, mock_config, mock_event_data):
         """Test rebuilding genres for event with lineup."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock database - return dict with _db_id
-        cached_data = mock_event_data.model_dump()
+        cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
         with patch("app.core.importer.get_cached_event") as mock_get:
             mock_get.return_value = cached_data
 
-            # Mock genre service to update the event's genres
+            # Mock genre service to return enhanced genres
             async def mock_enhance_genres(event_data, supplementary_context=None):
-                # Return the same event with updated genres
-                event_data.genres = ["Electronic", "House", "Techno"]
-                return event_data
+                # enhance_genres now returns just a list of genres
+                return ["Electronic", "House", "Techno"]
 
             # Mock the services dictionary in importer
             mock_genre_service = MagicMock()
             mock_genre_service.enhance_genres = mock_enhance_genres
-            importer._services = {"genre": mock_genre_service}
+            importer.services["genre"] = mock_genre_service
 
             # Execute rebuild
             result, failures = await importer.rebuild_genres(1)
 
-            # Verify
+            # Verify GenreResult has original_genres and enhanced_genres
             assert result is not None
-            assert result.genres == ["Electronic", "House", "Techno"]
+            assert result.original_genres == ["Rock"]  # From mock_event_data
+            assert result.enhanced_genres == ["Electronic", "House", "Techno"]
             assert failures == []
 
     @pytest.mark.asyncio
     async def test_rebuild_genres_without_lineup(self, mock_config):
         """Test rebuilding genres for event without lineup requires context."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock event without lineup
         mock_event = EventData(
@@ -79,7 +79,7 @@ class TestRebuildGenres:
         )
 
         # Mock database
-        cached_data = mock_event.model_dump()
+        cached_data = mock_event.model_dump(mode="json")
         cached_data["_db_id"] = 1
         with patch("app.core.importer.get_cached_event") as mock_get:
             mock_get.return_value = cached_data
@@ -91,25 +91,27 @@ class TestRebuildGenres:
                         "Cannot search for genres: Event has no lineup. "
                         "Please provide artist names in supplementary_context parameter."
                     )
-                return event_data
+                # enhance_genres now returns just genres
+                return event_data.genres
 
             mock_genre_service = MagicMock()
             mock_genre_service.enhance_genres = mock_enhance_genres
-            importer._services = {"genre": mock_genre_service}
+            importer.services["genre"] = mock_genre_service
 
             # Should return the event but with empty genres and error in failures
             result, failures = await importer.rebuild_genres(1)
 
-            # The method returns the event even if enhancement fails
+            # The method returns GenreResult even if enhancement fails
             assert result is not None
-            assert result.genres == []
+            assert result.original_genres == []
+            assert result.enhanced_genres == []
             assert len(failures) == 1
-            assert "no lineup" in str(failures[0])
+            assert "no lineup" in str(failures[0].error)
 
     @pytest.mark.asyncio
     async def test_rebuild_genres_with_supplementary_context(self, mock_config):
         """Test rebuilding genres with supplementary context."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock event without lineup
         mock_event = EventData(
@@ -120,7 +122,7 @@ class TestRebuildGenres:
         )
 
         # Mock database
-        cached_data = mock_event.model_dump()
+        cached_data = mock_event.model_dump(mode="json")
         cached_data["_db_id"] = 1
         with patch("app.core.importer.get_cached_event") as mock_get:
             mock_get.return_value = cached_data
@@ -128,12 +130,12 @@ class TestRebuildGenres:
             # Mock genre service
             async def mock_enhance_genres(event_data, supplementary_context=None):
                 if supplementary_context:
-                    event_data.genres = ["Ambient", "IDM"]
-                return event_data
+                    return ["Ambient", "IDM"]
+                return []
 
             mock_genre_service = MagicMock()
             mock_genre_service.enhance_genres = mock_enhance_genres
-            importer._services = {"genre": mock_genre_service}
+            importer.services["genre"] = mock_genre_service
 
             # Execute rebuild with context
             result, failures = await importer.rebuild_genres(
@@ -143,12 +145,13 @@ class TestRebuildGenres:
             # Verify
             assert result is not None
             # The mock should have updated genres since supplementary_context was provided
-            assert result.genres == ["Ambient", "IDM"]
+            assert result.original_genres == []
+            assert result.enhanced_genres == ["Ambient", "IDM"]
 
     @pytest.mark.asyncio
     async def test_rebuild_genres_not_found(self, mock_config):
         """Test rebuilding genres for non-existent event."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock database returns None
         with patch("app.core.importer.get_cached_event") as mock_get:
@@ -193,7 +196,7 @@ class TestRebuildGenres:
             assert response.status_code == 200
             data = response.json()
             assert data["success"] is True
-            assert "genres" in data["data"] or data.get("genres") == [
+            assert "genres" in data["data"] and data["data"]["genres"] == [
                 "Electronic",
                 "House",
             ]
@@ -205,10 +208,10 @@ class TestRebuildGenres:
         self, mock_config, mock_event_data
     ):
         """Test rebuilding genres with service failures."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock database
-        cached_data = mock_event_data.model_dump()
+        cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
         with patch("app.core.importer.get_cached_event") as mock_get:
             mock_get.return_value = cached_data
@@ -222,18 +225,15 @@ class TestRebuildGenres:
 
             mock_genre_service = MagicMock()
             mock_genre_service.enhance_genres = mock_enhance_genres
-            importer._services = {"genre": mock_genre_service}
+            importer.services["genre"] = mock_genre_service
 
             # Execute rebuild
             result, failures = await importer.rebuild_genres(1)
 
             # Verify
             assert result is not None
-            # When enhance_genres fails, genres are cleared (as per line 598 in importer.py)
-            assert result.genres == []  # Genres were cleared before enhancement
+            # When enhance_genres fails, genres are not modified
+            assert result.original_genres == ["Rock"]  # From mock_event_data
+            assert result.enhanced_genres == ["Rock"]  # Same as original due to failure
             assert len(failures) == 1
-            assert (
-                failures[0].service == "GoogleSearch"
-                if hasattr(failures[0], "service")
-                else failures[0]["service"] == "GoogleSearch"
-            )
+            assert failures[0].service == "genre"

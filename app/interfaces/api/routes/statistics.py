@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.shared.statistics import StatisticsService
 
-router = APIRouter(prefix="/statistics", tags=["statistics"])
+router = APIRouter(prefix="/api/v1/statistics", tags=["statistics"])
 
 
 @router.get("/events")

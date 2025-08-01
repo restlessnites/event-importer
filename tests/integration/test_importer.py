@@ -7,8 +7,9 @@ from pathlib import Path
 import pytest
 from pytest_mock import MockerFixture
 
+from app.config import get_config
 from app.core.importer import EventImporter
-from app.schemas import ImportRequest
+from app.core.schemas import ImportRequest
 
 # Define the URLs for the tests
 RA_URL = "https://ra.co/events/1908868"
@@ -57,12 +58,11 @@ async def test_import(url: str, db_session, mock_http_calls, monkeypatch) -> Non
     """Test importing an event with mocked API responses."""
     monkeypatch.setattr("app.shared.database.utils.get_db_session", lambda: db_session)
     request = ImportRequest(url=url)
-    importer = EventImporter()
+    importer = EventImporter(get_config())
 
-    result = await importer.import_event(request)
+    result = await importer.import_event(request.url)
 
     assert result, f"Import failed for {url}"
-    assert result.status == "success", f"Import status was not success for {url}"
     assert result.event_data, f"Event data is missing for {url}"
     assert result.event_data.title, f"Event title is missing for {url}"
     assert result.event_data.venue, f"Event venue is missing for {url}"

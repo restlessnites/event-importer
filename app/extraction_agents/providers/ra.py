@@ -7,16 +7,15 @@ from typing import Any
 
 from dateutil import parser as date_parser
 
-from app.error_messages import AgentMessages
-from app.schemas import EventData, EventLocation, ImportMethod, ImportStatus
-from app.shared.agent import Agent
+from app.core.schemas import EventData, EventLocation, ImportMethod, ImportStatus
+from app.extraction_agents.base import BaseExtractionAgent
 from app.shared.http import HTTPService
 from app.shared.url_analyzer import URLAnalyzer
 
 logger = logging.getLogger(__name__)
 
 
-class ResidentAdvisorAgent(Agent):
+class ResidentAdvisor(BaseExtractionAgent):
     """Agent for importing events from Resident Advisor."""
 
     GRAPHQL_URL = "https://ra.co/graphql"
@@ -25,26 +24,22 @@ class ResidentAdvisorAgent(Agent):
     def __init__(self, *args: tuple[Any, ...], **kwargs: dict[str, Any]) -> None:
         super().__init__(*args, **kwargs)
         self.url_analyzer = URLAnalyzer()
-        # Use shared services with proper error handling
-        self.http = self.get_service("http")
+        self.http = self.get_service("http")  # type: ignore[assignment]
 
     @property
-    def name(self: ResidentAdvisorAgent) -> str:
+    def name(self: ResidentAdvisor) -> str:
         return "ResidentAdvisor"
 
     @property
-    def import_method(self: ResidentAdvisorAgent) -> ImportMethod:
+    def import_method(self: ResidentAdvisor) -> ImportMethod:
         return ImportMethod.API
 
-    async def import_event(
-        self: ResidentAdvisorAgent,
+    async def _perform_extraction(
+        self: ResidentAdvisor,
         url: str,
         request_id: str,
     ) -> EventData | None:
-        """Import event from RA GraphQL API."""
-        self.start_timer()
-
-        # Extract event ID
+        """Provider-specific logic for Resident Advisor."""
         analysis = self.url_analyzer.analyze(url)
         event_id = analysis.get("event_id")
         if not event_id:
@@ -57,61 +52,20 @@ class ResidentAdvisorAgent(Agent):
             0.3,
         )
 
-        try:
-            # Fetch event data
-            event_json = await self._fetch_event(event_id)
-            if not event_json:
-                error_msg = "No event data returned"
-                raise Exception(error_msg)
+        event_json = await self._fetch_event(event_id)
+        if not event_json:
+            raise Exception("No event data returned from RA API")
 
-            await self.send_progress(
-                request_id,
-                ImportStatus.RUNNING,
-                "Parsing event data",
-                0.7,
-            )
+        await self.send_progress(
+            request_id,
+            ImportStatus.RUNNING,
+            "Parsing event data",
+            0.7,
+        )
 
-            # Parse to our format
-            event_data = self._parse_event(event_json, url)
+        return self._parse_event(event_json, url)
 
-            # Genre enhancement now handled by importer for better error tracking
-
-            # Enhance descriptions
-            await self.send_progress(
-                request_id,
-                ImportStatus.RUNNING,
-                "Enhancing descriptions",
-                0.85,
-            )
-            try:
-                llm_service = self.get_service("llm")
-                event_data = await llm_service.generate_descriptions(event_data)
-            except (ValueError, TypeError, KeyError):
-                logger.exception(AgentMessages.DESCRIPTION_GENERATION_FAILED)
-                # Continue without descriptions rather than failing completely
-
-            await self.send_progress(
-                request_id,
-                ImportStatus.SUCCESS,
-                "Successfully imported event",
-                1.0,
-                data=event_data,
-            )
-
-            return event_data
-
-        except (ValueError, TypeError, KeyError) as e:
-            logger.exception(AgentMessages.RA_IMPORT_FAILED)
-            await self.send_progress(
-                request_id,
-                ImportStatus.FAILED,
-                f"Import failed: {e!s}",
-                1.0,
-                error=str(e),
-            )
-            return None
-
-    async def _fetch_event(self: ResidentAdvisorAgent, event_id: str) -> dict | None:
+    async def _fetch_event(self: ResidentAdvisor, event_id: str) -> dict | None:
         """Fetch event from GraphQL API."""
         query = """
         query GET_EVENT($id: ID!) {
@@ -153,14 +107,12 @@ class ResidentAdvisorAgent(Agent):
           }
         }
         """
-
         headers = {
             "accept": "*/*",
             "content-type": "application/json",
             "origin": "https://ra.co",
             "ra-content-language": "en",
         }
-
         data = await self.http.post_json(
             self.GRAPHQL_URL,
             service="RA",
@@ -171,10 +123,9 @@ class ResidentAdvisorAgent(Agent):
                 "query": query,
             },
         )
-
         return data.get("data", {}).get("event")
 
-    def _parse_images(self: ResidentAdvisorAgent, event: dict) -> dict[str, str] | None:
+    def _parse_images(self: ResidentAdvisor, event: dict) -> dict[str, str] | None:
         """Parse images from RA event data, returning the first valid image."""
         if (images_list := event.get("images")) and isinstance(images_list, list):
             for img in images_list:
@@ -182,53 +133,33 @@ class ResidentAdvisorAgent(Agent):
                     return {"full": filename, "thumbnail": filename}
         return None
 
-    def _parse_event(self: ResidentAdvisorAgent, event: dict, url: str) -> EventData:
+    def _parse_event(self: ResidentAdvisor, event: dict, url: str) -> EventData:
         """Parse RA event data to our schema."""
-        # Build location
         location = None
-        if event.get("venue"):
-            venue = event["venue"]
-            if venue.get("area"):
-                location = EventLocation(
-                    city=venue["area"].get("name"),
-                    country=venue["area"].get("country", {}).get("name"),
-                )
-
-        # Build time
-        time = None
-        if event.get("startTime") or event.get("endTime"):
-            time = self.create_event_time(
-                start=event.get("startTime"),
-                end=event.get("endTime"),
-                location=location,
+        if (venue_data := event.get("venue")) and (area_data := venue_data.get("area")):
+            location = EventLocation(
+                city=area_data.get("name"),
+                country=area_data.get("country", {}).get("name"),
             )
-
-        # Extract lineup
+        time = self.create_event_time(
+            start=event.get("startTime"),
+            end=event.get("endTime"),
+            location=location,
+        )
         lineup = [a["name"] for a in event.get("artists") or []]
-
-        # Extract promoters
         promoters = [p["name"] for p in event.get("promoters") or []]
-
-        # Extract genres
         genres = [g["name"] for g in event.get("genres") or []]
-
-        # Build images from the images array
         images = self._parse_images(event)
-
-        # Generate ticket URL from contentUrl
-        ticket_url = None
-        if content_url := event.get("contentUrl"):
-            ticket_url = f"https://ra.co{content_url}"
-
-        # Extract end_date from endTime
+        ticket_url = (
+            f"https://ra.co{event['contentUrl']}" if event.get("contentUrl") else None
+        )
         end_date_str = None
         if end_time_str := event.get("endTime"):
             try:
                 end_date_obj = date_parser.parse(end_time_str)
                 end_date_str = end_date_obj.strftime("%Y-%m-%d")
             except (ValueError, TypeError):
-                pass  # Ignore if parsing fails
-
+                pass
         return EventData(
             title=event["title"],
             venue=event.get("venue", {}).get("name"),
@@ -239,7 +170,7 @@ class ResidentAdvisorAgent(Agent):
             promoters=promoters,
             genres=genres,
             long_description=event.get("content"),
-            short_description=None,  # Will be generated by Claude if needed
+            short_description=None,
             location=location,
             images=images,
             cost=event.get("cost"),

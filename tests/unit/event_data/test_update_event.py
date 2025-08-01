@@ -4,11 +4,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import HttpUrl
+from pydantic import HttpUrl, ValidationError
 
-from app.core.importer import EventImporter
+from app.core.schemas import EventData
 from app.interfaces.api.server import create_app
-from app.schemas import EventData
+from tests.helpers import create_test_importer
 
 
 class TestUpdateEventExtended:
@@ -35,7 +35,7 @@ class TestUpdateEventExtended:
     @pytest.mark.asyncio
     async def test_update_ticket_url(self, mock_config, mock_event_data):
         """Test updating ticket URL."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock database - use model_dump with mode="json" to ensure proper serialization
         cached_data = mock_event_data.model_dump(mode="json")
@@ -57,7 +57,7 @@ class TestUpdateEventExtended:
     @pytest.mark.asyncio
     async def test_update_promoters(self, mock_config, mock_event_data):
         """Test updating promoters list."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock database - use model_dump with mode="json" to ensure proper serialization
         cached_data = mock_event_data.model_dump(mode="json")
@@ -79,7 +79,7 @@ class TestUpdateEventExtended:
     @pytest.mark.asyncio
     async def test_update_images(self, mock_config, mock_event_data):
         """Test updating images."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock database - use model_dump with mode="json" to ensure proper serialization
         cached_data = mock_event_data.model_dump(mode="json")
@@ -104,7 +104,7 @@ class TestUpdateEventExtended:
     @pytest.mark.asyncio
     async def test_update_multiple_extended_fields(self, mock_config, mock_event_data):
         """Test updating multiple extended fields at once."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock database - use model_dump with mode="json" to ensure proper serialization
         cached_data = mock_event_data.model_dump(mode="json")
@@ -123,7 +123,7 @@ class TestUpdateEventExtended:
 
                 # Verify all fields updated
                 assert result is not None
-                assert str(result.ticket_url) == "https://newtickets.com/"
+                assert str(result.ticket_url).rstrip("/") == "https://newtickets.com"
                 assert result.promoters == ["Promoter A", "Promoter B", "Promoter C"]
                 assert result.images["full"] == "https://new.com/image.jpg"
                 mock_cache.assert_called_once()
@@ -131,7 +131,7 @@ class TestUpdateEventExtended:
     @pytest.mark.asyncio
     async def test_update_invalid_ticket_url(self, mock_config, mock_event_data):
         """Test updating with invalid ticket URL."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock database - use model_dump with mode="json" to ensure proper serialization
         cached_data = mock_event_data.model_dump(mode="json")
@@ -139,14 +139,9 @@ class TestUpdateEventExtended:
         with patch("app.core.importer.get_cached_event") as mock_get:
             mock_get.return_value = cached_data
 
-            # Update with invalid URL - should still work as EventData validates it
-            result = await importer.update_event(1, {"ticket_url": "not-a-url"})
-
-            # The update method doesn't validate URLs, EventData does
-            # So this will succeed if EventData accepts it
-            assert (
-                result is not None or result is None
-            )  # Either way is fine for this test
+            # Update with invalid URL - should raise validation error with proper validation
+            with pytest.raises(ValidationError):
+                await importer.update_event(1, {"ticket_url": "not-a-url"})
 
     @pytest.mark.asyncio
     async def test_update_event_api_extended_fields(self, mock_event_data):
@@ -197,7 +192,7 @@ class TestUpdateEventExtended:
     @pytest.mark.asyncio
     async def test_update_empty_promoters_list(self, mock_config, mock_event_data):
         """Test clearing promoters by providing empty list."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock database - use model_dump with mode="json" to ensure proper serialization
         cached_data = mock_event_data.model_dump(mode="json")
@@ -217,7 +212,7 @@ class TestUpdateEventExtended:
     @pytest.mark.asyncio
     async def test_update_invalid_image_structure(self, mock_config, mock_event_data):
         """Test updating with invalid image structure."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock database - use model_dump with mode="json" to ensure proper serialization
         cached_data = mock_event_data.model_dump(mode="json")
@@ -226,21 +221,21 @@ class TestUpdateEventExtended:
             mock_get.return_value = cached_data
 
             with patch("app.core.importer.cache_event") as _mock_cache:
-                # The update method doesn't validate structure, EventData does
-                # This will fail at the EventData validation level
+                # The update method validates with the field validator
+                # Images field has a validator that converts non-dict to None
                 result = await importer.update_event(1, {"images": "not-a-dict"})
 
-                # The event is returned but images becomes None due to validation
+                # The validator converts invalid images to None
                 assert result is not None
                 assert result.images is None
 
     @pytest.mark.asyncio
     async def test_update_partial_images(self, mock_config, mock_event_data):
         """Test updating only one image field."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock database with both full and thumbnail
-        cached_data = mock_event_data.model_dump()
+        cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
         cached_data["images"] = {
             "full": "https://old.com/full.jpg",
@@ -250,7 +245,7 @@ class TestUpdateEventExtended:
         with patch("app.core.importer.get_cached_event") as mock_get:
             mock_get.return_value = cached_data
 
-            with patch("app.core.importer.cache_event"):
+            with patch("app.shared.database.utils.cache_event"):
                 # Update only full image
                 result = await importer.update_event(
                     1, {"images": {"full": "https://new.com/full.jpg"}}

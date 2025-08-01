@@ -194,6 +194,37 @@ class ImageCandidate(BaseModel):
         return self.score > other.score
 
 
+class DescriptionResult(BaseModel):
+    """Result of description generation/rebuild."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    short_description: str | None = None
+    long_description: str | None = None
+
+
+class GenreResult(BaseModel):
+    """Result of genre enhancement/rebuild."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    original_genres: list[str] = Field(default_factory=list)
+    enhanced_genres: list[str] = Field(default_factory=list)
+    service_failure: ServiceFailure | None = None
+
+
+class ImageResult(BaseModel):
+    """Result of image enhancement operation."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    original_image_url: str | None = None
+    enhanced_image_url: str | None = None
+    thumbnail_url: str | None = None
+    search_result: ImageSearchResult | None = None
+    service_failure: ServiceFailure | None = None
+
+
 class ImageSearchResult(BaseModel):
     """Results from image search/enhancement for non-API imports."""
 

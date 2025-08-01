@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.importer import EventImporter
+from app.core.schemas import EventData, ImageCandidate, ImageResult, ImageSearchResult
 from app.interfaces.api.server import create_app
-from app.schemas import EventData, ImageCandidate, ImageSearchResult
+from tests.helpers import create_test_importer
 
 
 class TestRebuildImage:
@@ -67,38 +67,40 @@ class TestRebuildImage:
         self, mock_config, mock_event_data, mock_image_search_result
     ):
         """Test successful image rebuild."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock database
-        cached_data = mock_event_data.model_dump()
+        cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
         with patch("app.core.importer.get_cached_event") as mock_get:
             mock_get.return_value = cached_data
 
             # Mock image service
-            async def mock_enhance_image(
+            async def mock_enhance_event_image(
                 event_data,
-                progress_callback=None,
-                failure_collector=None,
-                force_search=False,
                 supplementary_context=None,
+                force_search=False,
             ):
-                # Add the search result to the event
-                event_data.image_search = mock_image_search_result
-                return event_data
+                # enhance_event_image now returns ImageResult
+                return ImageResult(
+                    original_image_url=event_data.images.get("full") if event_data.images else None,
+                    enhanced_image_url=mock_image_search_result.selected.url,
+                    thumbnail_url=mock_image_search_result.selected.url,
+                    search_result=mock_image_search_result
+                )
 
             mock_image_service = MagicMock()
-            mock_image_service.enhance_event_image = mock_enhance_image
-            importer._services = {"image": mock_image_service}
+            mock_image_service.enhance_event_image = mock_enhance_event_image
+            importer.services["image"] = mock_image_service
 
             # Execute rebuild
             result, failures = await importer.rebuild_image(1)
 
-            # Verify
+            # Verify ImageResult
             assert result is not None
-            assert result.image_search == mock_image_search_result
-            assert len(result.image_search.candidates) == 2
-            assert result.image_search.selected.score == 90
+            assert result.enhanced_image_url == mock_image_search_result.selected.url
+            assert result.thumbnail_url == mock_image_search_result.selected.url
+            assert result.search_result == mock_image_search_result
             assert failures == []
 
     @pytest.mark.asyncio
@@ -106,10 +108,10 @@ class TestRebuildImage:
         self, mock_config, mock_event_data
     ):
         """Test rebuilding image with supplementary context."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock database
-        cached_data = mock_event_data.model_dump()
+        cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
         with patch("app.core.importer.get_cached_event") as mock_get:
             mock_get.return_value = cached_data
@@ -117,24 +119,22 @@ class TestRebuildImage:
             # Track the call to verify context was passed
             context_passed = None
 
-            async def mock_enhance_image(
+            async def mock_enhance_event_image(
                 event_data,
-                progress_callback=None,
-                failure_collector=None,
-                force_search=False,
                 supplementary_context=None,
+                force_search=False,
             ):
                 nonlocal context_passed
                 context_passed = supplementary_context
-                event_data.image_search = ImageSearchResult(
-                    candidates=[],
-                    selected=None,
+                # Return ImageResult with no enhancement
+                return ImageResult(
+                    original_image_url=event_data.images.get("full") if event_data.images else None,
+                    enhanced_image_url=event_data.images.get("full") if event_data.images else None,
                 )
-                return event_data
 
             mock_image_service = MagicMock()
-            mock_image_service.enhance_event_image = mock_enhance_image
-            importer._services = {"image": mock_image_service}
+            mock_image_service.enhance_event_image = mock_enhance_event_image
+            importer.services["image"] = mock_image_service
 
             # Execute rebuild with context
             result, failures = await importer.rebuild_image(
@@ -143,11 +143,12 @@ class TestRebuildImage:
 
             # Verify context was passed
             assert context_passed == "official poster 2024"
+            assert result is not None
 
     @pytest.mark.asyncio
     async def test_rebuild_image_not_found(self, mock_config):
         """Test rebuilding image for non-existent event."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock database returns None
         with patch("app.core.importer.get_cached_event") as mock_get:
@@ -163,39 +164,37 @@ class TestRebuildImage:
     @pytest.mark.asyncio
     async def test_rebuild_image_no_candidates(self, mock_config, mock_event_data):
         """Test rebuilding image when no candidates found."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock database
-        cached_data = mock_event_data.model_dump()
+        cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
         with patch("app.core.importer.get_cached_event") as mock_get:
             mock_get.return_value = cached_data
 
             # Mock image service returns no candidates
-            async def mock_enhance_image(
+            async def mock_enhance_event_image(
                 event_data,
-                progress_callback=None,
-                failure_collector=None,
-                force_search=False,
                 supplementary_context=None,
+                force_search=False,
             ):
-                event_data.image_search = ImageSearchResult(
-                    candidates=[],
-                    selected=None,
+                # Return ImageResult with no enhancement
+                return ImageResult(
+                    original_image_url=event_data.images.get("full") if event_data.images else None,
+                    enhanced_image_url=event_data.images.get("full") if event_data.images else None,
                 )
-                return event_data
 
             mock_image_service = MagicMock()
-            mock_image_service.enhance_event_image = mock_enhance_image
-            importer._services = {"image": mock_image_service}
+            mock_image_service.enhance_event_image = mock_enhance_event_image
+            importer.services["image"] = mock_image_service
 
             # Execute rebuild
             result, failures = await importer.rebuild_image(1)
 
-            # Verify
+            # Verify - no image change when no better image found
             assert result is not None
-            assert result.image_search.candidates == []
-            assert result.image_search.selected is None
+            assert result.original_image_url == mock_event_data.images.get("full")
+            assert result.enhanced_image_url == mock_event_data.images.get("full")  # Same as original
 
     @pytest.mark.asyncio
     async def test_rebuild_image_api_endpoint(
@@ -239,37 +238,26 @@ class TestRebuildImage:
         self, mock_config, mock_event_data
     ):
         """Test rebuilding image with service failures."""
-        importer = EventImporter(mock_config)
+        importer = create_test_importer(mock_config)
 
         # Mock database
-        cached_data = mock_event_data.model_dump()
+        cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
         with patch("app.core.importer.get_cached_event") as mock_get:
             mock_get.return_value = cached_data
 
             # Mock image service with failures
-            async def mock_enhance_image(
+            async def mock_enhance_event_image(
                 event_data,
-                progress_callback=None,
-                failure_collector=None,
-                force_search=False,
                 supplementary_context=None,
+                force_search=False,
             ):
-                # Add a failure to the collector
-                if failure_collector:
-                    failure_collector.add_failure(
-                        "GoogleImageSearch", Exception("Invalid CSE ID")
-                    )
-                # Still return with no images
-                event_data.image_search = ImageSearchResult(
-                    candidates=[],
-                    selected=None,
-                )
-                return event_data
+                # Raise an exception to simulate failure
+                raise Exception("Invalid CSE ID")
 
             mock_image_service = MagicMock()
-            mock_image_service.enhance_event_image = mock_enhance_image
-            importer._services = {"image": mock_image_service}
+            mock_image_service.enhance_event_image = mock_enhance_event_image
+            importer.services["image"] = mock_image_service
 
             # Execute rebuild
             result, failures = await importer.rebuild_image(1)
@@ -277,11 +265,8 @@ class TestRebuildImage:
             # Verify
             assert result is not None
             assert len(failures) == 1
-            assert (
-                failures[0].service == "GoogleImageSearch"
-                if hasattr(failures[0], "service")
-                else failures[0]["service"] == "GoogleImageSearch"
-            )
+            assert failures[0].service == "image"
+            assert "Invalid CSE ID" in failures[0].error
 
     @pytest.mark.asyncio
     async def test_rebuild_image_api_endpoint_not_found(self):

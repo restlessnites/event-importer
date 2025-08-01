@@ -1,11 +1,18 @@
 import hashlib
 import json
+
+# Log the validation error
+import logging
 from typing import Any
 
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from .connection import get_db_session
-from .models import EventCache, Submission
+from app.core.schemas import EventData
+from app.shared.database.connection import get_db_session
+from app.shared.database.models import EventCache, Submission
+
+logger = logging.getLogger(__name__)
 
 
 def hash_event_data(event_data: dict[str, Any]) -> str:
@@ -18,7 +25,20 @@ def hash_event_data(event_data: dict[str, Any]) -> str:
 def cache_event(
     url: str, event_data: dict[str, Any], db: Session | None = None
 ) -> EventCache:
-    """Cache scraped event data"""
+    """Cache scraped event data
+
+    Validates event data before caching to ensure data integrity.
+    """
+    # Validate the event data before caching
+    try:
+        # This will raise ValidationError if data is invalid
+        validated = EventData(**event_data)
+        # Use the validated model's data to ensure proper types
+        event_data = validated.model_dump(mode="json")
+    except ValidationError as e:
+        logger.error(f"Invalid event data for {url}: {e}")
+        raise
+
     data_hash = hash_event_data(event_data)
 
     def _cache(db_session: Session) -> EventCache:
