@@ -170,21 +170,31 @@ class TestRebuildGenres:
         app = create_app()
         client = TestClient(app)
 
-        # Mock the importer
-        with patch("app.interfaces.api.routes.events.get_router") as mock_get_router:
+        # Mock the importer and database
+        with (
+            patch("app.interfaces.api.routes.events.get_router") as mock_get_router,
+            patch("app.interfaces.api.routes.events.get_db_session") as mock_get_db,
+        ):
             mock_router = MagicMock()
             mock_importer = AsyncMock()
 
-            # Return updated event data with new genres
-            updated_event = mock_event_data.model_copy()
-            updated_event.genres = ["Electronic", "House"]
+            # Create result object with GenreResult structure
+            genre_result = MagicMock()
+            genre_result.genres = ["Electronic", "House"]
 
             mock_importer.rebuild_genres.return_value = (
-                updated_event,
+                genre_result,
                 [ServiceFailure(service="TestService", error="Test error")],
             )
             mock_router.importer = mock_importer
             mock_get_router.return_value = mock_router
+
+            # Mock database query
+            mock_db_session = MagicMock()
+            mock_event = MagicMock()
+            mock_event.scraped_data = mock_event_data.model_dump(mode="json")
+            mock_db_session.query().filter().first.return_value = mock_event
+            mock_get_db.return_value.__enter__.return_value = mock_db_session
 
             # Make request
             response = client.post(
