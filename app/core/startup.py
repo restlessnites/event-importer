@@ -16,9 +16,11 @@ def ensure_database_ready() -> None:
     This should be called once at application startup.
     """
     try:
-        # Test if database is accessible by trying a simple query
+        # Test if all required tables exist
         with get_db_session() as db:
+            # Check both events and submissions tables
             db.execute(text("SELECT 1 FROM events LIMIT 1"))
+            db.execute(text("SELECT 1 FROM submissions LIMIT 1"))
         logger.debug("Database is ready")
 
     except (OperationalError, sqlite3.OperationalError) as e:

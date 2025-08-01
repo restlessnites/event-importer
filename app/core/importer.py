@@ -223,7 +223,22 @@ class EventImporter:
             service_failures.extend(enhancement_failures)
 
             # 4. Save to database
-            save_event(str(event_data.source_url), event_data.model_dump(mode="json"))
+            try:
+                save_event(
+                    str(event_data.source_url), event_data.model_dump(mode="json")
+                )
+            except Exception as db_error:
+                logger.exception(f"Failed to save event to database: {db_error}")
+                # Add database failure to service failures
+                service_failures.append(
+                    ServiceFailure(
+                        service="Database",
+                        error=str(db_error),
+                        detail="Failed to save event to database",
+                    )
+                )
+                # Re-raise to fail the import
+                raise Exception(f"Database save failed: {db_error}") from db_error
 
             await self.send_progress(
                 request_id,
