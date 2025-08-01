@@ -6,8 +6,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.interfaces.api.server import create_app
-from config import Config
-from config.api import APIConfig
 
 
 @pytest.fixture
