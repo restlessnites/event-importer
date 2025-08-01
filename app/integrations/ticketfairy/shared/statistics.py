@@ -27,7 +27,7 @@ class TicketFairyStatistics:
             )
 
             # Get unsubmitted count - fix SQLAlchemy warning by using select() explicitly
-            submitted_event_ids_query = select(Submission.event_cache_id).where(
+            submitted_event_ids_query = select(Submission.event_id).where(
                 Submission.service_name == self.service_name,
             )
             unsubmitted_count = (

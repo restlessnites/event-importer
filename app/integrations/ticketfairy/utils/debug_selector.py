@@ -64,7 +64,7 @@ class DebugURLSelector(BaseSelector):
                 db.query(Submission)
                 .filter(
                     and_(
-                        Submission.event_cache_id == event.id,
+                        Submission.event_id == event.id,
                         Submission.service_name == service_name,
                         Submission.status.in_(["success", "pending"]),
                     )

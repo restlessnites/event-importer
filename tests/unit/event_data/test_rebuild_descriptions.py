@@ -33,13 +33,13 @@ def sample_event_data():
 
 
 @pytest.fixture
-def mock_event_cache(sample_event_data):
-    """Create a mock event cache entry."""
-    cache = MagicMock(spec=Event)
-    cache.id = 123
-    cache.source_url = sample_event_data.source_url
-    cache.scraped_data = sample_event_data.model_dump(mode="json")
-    return cache
+def mock_event(sample_event_data):
+    """Create a mock event entry."""
+    event = MagicMock(spec=Event)
+    event.id = 123
+    event.source_url = sample_event_data.source_url
+    event.scraped_data = sample_event_data.model_dump(mode="json")
+    return event
 
 
 class TestRebuildDescriptions:
