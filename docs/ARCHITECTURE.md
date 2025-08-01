@@ -16,36 +16,40 @@ The application follows **Hexagonal Architecture** (Ports and Adapters pattern) 
 
 ```plaintext
 app/
-├── __init__.py                 # Package exports
+├── __init__.py                 # Package exports and version
 ├── main.py                     # Application factory and entry point router
 ├── config.py                   # Configuration management
-├── schemas.py                  # Shared data models (Pydantic)
-├── errors.py                   # Custom exceptions and error handling
-├── error_messages.py           # Centralized error message definitions
-├── prompts.py                  # LLM prompts for event extraction
-├── startup.py                  # Application startup and initialization
-├── genres.py                   # Genre mappings and enhancements
-├──
 ├── core/                       # Core business logic (domain layer)
 │   ├── importer.py             # Main business logic orchestrator
 │   ├── router.py               # Request routing logic
-│   └── progress.py             # Progress tracking for imports
+│   ├── progress.py             # Progress tracking for imports
+│   ├── schemas.py              # Core data models and schemas
+│   ├── errors.py               # Core error handling
+│   ├── error_messages.py       # Error message constants
+│   └── startup.py              # Application startup checks
 │
 ├── services/                   # External service integrations
-│   ├── llm.py                  # Fallback LLM service (Claude/OpenAI)
-│   ├── claude.py               # Claude AI service
-│   ├── openai.py               # OpenAI service
+│   ├── llm/                    # LLM service layer
+│   │   ├── service.py          # Main LLM service with fallback logic
+│   │   ├── base.py             # Base LLM provider interface
+│   │   ├── prompts.py          # LLM prompts for extraction
+│   │   └── providers/          # LLM provider implementations
+│   │       ├── claude.py       # Claude AI provider
+│   │       └── openai.py       # OpenAI provider
 │   ├── genre.py                # Genre enhancement service
 │   ├── image.py                # Image processing service
 │   ├── security_detector.py    # Security detection service
-│   └── zyte.py                 # Web scraping service
+│   ├── zyte.py                 # Web scraping service
+│   └── integration_discovery.py # Dynamic integration discovery
 │
-├── agents/                     # Import agents for different sources
-│   ├── ra_agent.py             # Resident Advisor agent
-│   ├── ticketmaster_agent.py   # Ticketmaster agent
-│   ├── dice_agent.py           # Dice.fm agent
-│   ├── web_agent.py            # Generic web scraping agent
-│   └── image_agent.py          # Direct image import agent
+├── extraction_agents/          # Import agents for different sources
+│   ├── base.py                 # Base extraction agent
+│   └── providers/              # Agent implementations
+│       ├── ra.py               # Resident Advisor agent
+│       ├── ticketmaster.py     # Ticketmaster agent
+│       ├── dice.py             # Dice.fm agent
+│       ├── web.py              # Generic web scraping agent
+│       └── image.py            # Direct image import agent
 │
 ├── integrations/               # Pluggable output integrations
 │   ├── __init__.py             # Auto-discovery of integrations
@@ -63,14 +67,12 @@ app/
 │
 ├── interfaces/                 # User-facing interfaces
 │   ├── cli/                    # Command-line interface
-│   │   ├── components.py       # Reusable CLI components
-│   │   ├── core.py             # Core CLI setup and commands
-│   │   ├── error_capture.py    # Error handling for CLI
+│   │   ├── commands.py         # Main CLI commands and routing
 │   │   ├── events.py           # Event-related CLI commands
-│   │   ├── formatters.py       # Output formatting utilities
-│   │   ├── runner.py           # CLI command runner
-│   │   ├── theme.py            # CLI theming and styling
-│   │   └── utils.py            # CLI utility functions
+│   │   ├── import_event.py     # Event import CLI command
+│   │   ├── rebuild.py          # Event rebuild CLI commands
+│   │   ├── settings.py         # Settings management CLI
+│   │   └── stats.py            # Statistics display CLI
 │   ├── mcp/                    # MCP server interface for AI assistants
 │   │   └── server.py           # MCP server implementation
 │   └── api/                    # HTTP REST API interface
@@ -88,14 +90,18 @@ app/
 │
 └── shared/                     # Shared utilities across layers
     ├── http.py                 # HTTP client utility
-    ├── agent.py                # Agent base class
     ├── statistics.py           # Statistics and analytics service
     ├── timezone.py             # Timezone handling utilities
     ├── url_analyzer.py         # URL analysis and agent routing
-    └── database/               # Database connection and models
-        ├── connection.py       # Database session management
-        ├── models.py           # SQLAlchemy models (EventCache, Submission)
-        └── utils.py            # Caching and DB helpers
+    ├── service_errors.py       # Service error collection and formatting
+    ├── path.py                 # Path utilities
+    ├── project.py              # Project metadata
+    ├── database/               # Database layer
+    │   ├── connection.py       # Database session management
+    │   ├── models.py           # SQLAlchemy models (EventCache, Submission)
+    │   └── utils.py            # Caching and DB helpers
+    └── data/                   # Static data
+        └── genres.py           # Genre mappings and validation
 ```
 
 ## Core Concepts
@@ -115,7 +121,7 @@ The import process is orchestrated by `EventImporter` in `app/core/importer.py`.
 
 ### 2. LLM Service with Fallback
 
-The `LLMService` (`app/services/llm.py`) provides a resilient AI backend.
+The `LLMService` (`app/services/llm/service.py`) provides a resilient AI backend.
 
 - It wraps both `Claude` and `OpenAI`.
 - For any given operation (e.g., `extract_event_data`), it first tries the primary provider (Claude).
@@ -170,17 +176,17 @@ Integrations Framework (reads from DB, uses HTTP)
 
 ### Adding a New Import Source
 
-1. Create a new `Agent` class in `app/agents/` inheriting from `app.shared.agent.Agent`.
-2. Implement the `import_event` method to fetch and process data from the new source.
+1. Create a new agent class in `app/extraction_agents/providers/` inheriting from `app.extraction_agents.base.BaseExtractionAgent`.
+2. Implement the `_perform_extraction` method to fetch and process data from the new source.
 3. Update the `URLAnalyzer` in `app/shared/url_analyzer.py` to recognize URLs for the new source.
-4. Add the new agent to the list in `app/core/importer.py`.
+4. Add the new agent to the agent mapping in `app/core/importer.py`.
 
 ## Agent Descriptions
 
-- **`ResidentAdvisorAgent`**: Uses the RA GraphQL API.
-- **`TicketmasterAgent`**: Uses the Ticketmaster Discovery API.
-- **`DiceAgent`**: Uses the Dice.fm search API to find event details.
-- **`WebAgent`**: The fallback agent. Uses Zyte for web scraping and screenshotting, then uses an LLM to extract data from the HTML or image.
-- **`ImageAgent`**: For direct image URLs. Downloads the image and uses an LLM to extract data.
+- **`ResidentAdvisor`** (`app/extraction_agents/providers/ra.py`): Uses the RA GraphQL API.
+- **`Ticketmaster`** (`app/extraction_agents/providers/ticketmaster.py`): Uses the Ticketmaster Discovery API.
+- **`Dice`** (`app/extraction_agents/providers/dice.py`): Uses the Dice.fm search API to find event details.
+- **`Web`** (`app/extraction_agents/providers/web.py`): The fallback agent. Uses Zyte for web scraping and screenshotting, then uses an LLM to extract data from the HTML or image.
+- **`Image`** (`app/extraction_agents/providers/image.py`): For direct image URLs. Downloads the image and uses an LLM to extract data.
 
 The `EventImporter`'s `_determine_agent` method uses the `URLAnalyzer` to decide which agent to use for a given URL.

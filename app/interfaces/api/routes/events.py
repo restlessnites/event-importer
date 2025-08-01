@@ -227,9 +227,13 @@ async def rebuild_event_description(
                     # Create EventData with updated descriptions
                     event_data = EventData(**event.scraped_data)
                     if description_result.short_description is not None:
-                        event_data.short_description = description_result.short_description
+                        event_data.short_description = (
+                            description_result.short_description
+                        )
                     if description_result.long_description is not None:
-                        event_data.long_description = description_result.long_description
+                        event_data.long_description = (
+                            description_result.long_description
+                        )
 
                     return RebuildDescriptionResponse(
                         success=True,
@@ -347,6 +351,7 @@ async def rebuild_event_genres(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+# TODO: Move this to a shared location
 def _extract_image_search_results_for_api(
     image_search: Any,
 ) -> tuple[list[dict], dict | None]:

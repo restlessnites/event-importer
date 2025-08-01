@@ -156,6 +156,8 @@ event-importer api
 
 - **POST** `/api/v1/events/import` - Import an event
 - **GET** `/api/v1/events/import/{id}/progress` - Check import progress
+- **GET** `/api/v1/events` - List all events (with pagination)
+- **GET** `/api/v1/events/{event_id}` - Get a specific event
 - **POST** `/api/v1/events/{event_id}/rebuild/description` - Rebuild event description (long or short)
 - **POST** `/api/v1/events/{event_id}/rebuild/genres` - Rebuild event genres
 - **POST** `/api/v1/events/{event_id}/rebuild/image` - Search for and select best image

@@ -1,5 +1,7 @@
 # Event Importer
 
+## v1.3.0
+
 [![Tests](https://github.com/restlessnites/event-importer/actions/workflows/tests.yml/badge.svg)](https://github.com/restlessnites/event-importer/actions/workflows/tests.yml)
 [![Coverage](https://img.shields.io/badge/coverage-54.7%25-green)](https://github.com/restlessnites/event-importer)
 
@@ -118,12 +120,21 @@ After either option, you can use `event-importer` from any directory.
 
 ## Documentation
 
+### Core Guides
 - **[Usage Guide](docs/USAGE.md)**: Detailed instructions for the CLI, API, and MCP interfaces
-- **[Development Guide](docs/DEVELOPMENT.md)**: Technical overview for developers
-- **[Build and Distribution](docs/BUILD_PROCESS.md)**: How to package the application
 - **[Architecture](docs/ARCHITECTURE.md)**: Technical overview of the project architecture
-- **[Integrations](docs/INTEGRATIONS.md)**: How to build and use integrations
-- **[AI Enhancement](docs/AI_ENHANCEMENT.md)**: How AI-powered features work
+- **[Development Guide](docs/DEVELOPMENT.md)**: Setup and guidelines for developers
+
+### Feature Documentation
+- **[API Reference](docs/API.md)**: Complete HTTP API documentation
+- **[MCP Server](docs/MCP.md)**: Model Context Protocol (MCP) integration for AI assistants
+- **[Genre Enhancer](docs/GENRE_ENHANCER.md)**: How the AI-powered genre detection works
+- **[Image Enhancer](docs/IMAGE_ENHANCER.md)**: Image search and enhancement system
+- **[Integrations](docs/INTEGRATIONS.md)**: How to build and use integrations (e.g., TicketFairy)
+
+### Build & Distribution
+- **[Build Process](docs/BUILD_PROCESS.md)**: How to package the application
+- **[Cross Platform](docs/CROSS_PLATFORM.md)**: Platform-specific considerations and support
 
 ---
 
