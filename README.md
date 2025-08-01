@@ -1,6 +1,6 @@
 # Event Importer
 
-## v1.3.3
+## v1.3.4
 
 [![Tests](https://github.com/restlessnites/event-importer/actions/workflows/tests.yml/badge.svg)](https://github.com/restlessnites/event-importer/actions/workflows/tests.yml)
 [![Coverage](https://img.shields.io/badge/coverage-54.7%25-green)](https://github.com/restlessnites/event-importer)
