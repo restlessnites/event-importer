@@ -80,7 +80,7 @@ app/
     ├── constants/              # Application-wide constants
     ├── database/               # Database layer
     │   ├── connection.py       # Database session management
-    │   ├── models.py           # SQLAlchemy models (EventCache, Submission)
+    │   ├── models.py           # SQLAlchemy models (Event, Submission)
     │   └── utils.py            # Caching and DB helpers
     └── data/                   # Static data
         └── genres.py           # Genre mappings and validation
@@ -130,8 +130,8 @@ The key components are:
 
 The system uses two primary SQLAlchemy models in `app/shared/database/models.py`:
 
-- **`EventCache`**: Stores the structured `EventData` for every successfully imported event. This acts as the central source of truth for all events known to the system. It uses a hash to detect if data from a source URL has changed.
-- **`Submission`**: Tracks the status of sending an event from `EventCache` to an external service via the integration framework. It records which service it was sent to, the status (`success`, `failed`), and any error messages. This prevents duplicate submissions and allows for retrying failed attempts.
+- **`Event`**: Stores the structured `EventData` for every successfully imported event. This acts as the central source of truth for all events known to the system. It uses a hash to detect if data from a source URL has changed.
+- **`Submission`**: Tracks the status of sending an event from `Event` to an external service via the integration framework. It records which service it was sent to, the status (`success`, `failed`), and any error messages. This prevents duplicate submissions and allows for retrying failed attempts.
 
 ## Dependency Flow
 

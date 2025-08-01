@@ -72,7 +72,7 @@ class TestRebuildImage:
         # Mock database
         cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = cached_data
 
             # Mock image service
@@ -115,7 +115,7 @@ class TestRebuildImage:
         # Mock database
         cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = cached_data
 
             # Track the call to verify context was passed
@@ -157,7 +157,7 @@ class TestRebuildImage:
         importer = create_test_importer(mock_config)
 
         # Mock database returns None
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = None
 
             # Execute rebuild
@@ -175,7 +175,7 @@ class TestRebuildImage:
         # Mock database
         cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = cached_data
 
             # Mock image service returns no candidates
@@ -255,7 +255,7 @@ class TestRebuildImage:
         # Mock database
         cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = cached_data
 
             # Mock image service with failures

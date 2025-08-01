@@ -2,6 +2,7 @@
 """Test script for the event importer using mocked API responses."""
 
 import json
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,7 @@ from pytest_mock import MockerFixture
 
 from app.core.importer import EventImporter
 from app.core.schemas import ImportRequest
+from app.shared.database.models import Event
 from config import config
 
 # Define the URLs for the tests
@@ -56,7 +58,12 @@ def mock_http_calls(mocker: MockerFixture) -> None:
 @pytest.mark.asyncio
 async def test_import(url: str, db_session, mock_http_calls, monkeypatch) -> None:
     """Test importing an event with mocked API responses."""
-    monkeypatch.setattr("app.shared.database.utils.get_db_session", lambda: db_session)
+
+    @contextmanager
+    def mock_get_db_session():
+        yield db_session
+
+    monkeypatch.setattr("app.shared.database.utils.get_db_session", mock_get_db_session)
     request = ImportRequest(url=url)
     importer = EventImporter(config)
 
@@ -67,3 +74,10 @@ async def test_import(url: str, db_session, mock_http_calls, monkeypatch) -> Non
     assert result.event_data.title, f"Event title is missing for {url}"
     assert result.event_data.venue, f"Event venue is missing for {url}"
     assert result.event_data.date, f"Event date is missing for {url}"
+
+    # CRITICAL: Verify the event was saved to the database
+    saved_event = db_session.query(Event).filter(Event.source_url == str(url)).first()
+    assert saved_event is not None, f"Event was not saved to database for {url}"
+    assert saved_event.scraped_data["title"] == result.event_data.title, (
+        "Saved title doesn't match"
+    )

@@ -3,7 +3,7 @@
 from sqlalchemy import func, select
 
 from app.shared.database.connection import get_db_session
-from app.shared.database.models import EventCache, Submission
+from app.shared.database.models import Event, Submission
 
 
 class TicketFairyStatistics:
@@ -16,9 +16,7 @@ class TicketFairyStatistics:
         """Get submission status statistics."""
         with get_db_session() as session:
             # Get total events in cache
-            total_events = (
-                session.execute(select(func.count(EventCache.id))).scalar() or 0
-            )
+            total_events = session.execute(select(func.count(Event.id))).scalar() or 0
 
             # Get submission counts by status
             status_counts = (
@@ -33,8 +31,8 @@ class TicketFairyStatistics:
                 Submission.service_name == self.service_name,
             )
             unsubmitted_count = (
-                session.query(func.count(EventCache.id))
-                .filter(~EventCache.id.in_(submitted_event_ids_query))
+                session.query(func.count(Event.id))
+                .filter(~Event.id.in_(submitted_event_ids_query))
                 .scalar()
             )
 

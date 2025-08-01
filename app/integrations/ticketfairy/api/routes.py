@@ -8,7 +8,7 @@ from sqlalchemy import func
 
 from app.integrations.ticketfairy.shared.submitter import TicketFairySubmitter
 from app.shared.database.connection import get_db_session, init_db
-from app.shared.database.models import EventCache, Submission
+from app.shared.database.models import Event, Submission
 
 
 class SubmissionRequest(BaseModel):
@@ -76,7 +76,7 @@ async def get_status() -> dict[str, Any]:
             )
 
             # Get total cached events
-            total_events = db.query(func.count(EventCache.id)).scalar()
+            total_events = db.query(func.count(Event.id)).scalar()
 
             # Get unsubmitted count
             submitted_event_ids = (
@@ -85,8 +85,8 @@ async def get_status() -> dict[str, Any]:
                 .subquery()
             )
             unsubmitted_count = (
-                db.query(func.count(EventCache.id))
-                .filter(~EventCache.id.in_(submitted_event_ids))
+                db.query(func.count(Event.id))
+                .filter(~Event.id.in_(submitted_event_ids))
                 .scalar()
             )
 

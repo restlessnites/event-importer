@@ -40,10 +40,10 @@ class TestUpdateEventExtended:
         # Mock database - use model_dump with mode="json" to ensure proper serialization
         cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = cached_data
 
-            with patch("app.core.importer.cache_event") as mock_cache:
+            with patch("app.core.importer.save_event") as mock_cache:
                 # Execute update
                 result = await importer.update_event(
                     1, {"ticket_url": "https://newtickets.com/event"}
@@ -62,10 +62,10 @@ class TestUpdateEventExtended:
         # Mock database - use model_dump with mode="json" to ensure proper serialization
         cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = cached_data
 
-            with patch("app.core.importer.cache_event") as mock_cache:
+            with patch("app.core.importer.save_event") as mock_cache:
                 # Execute update
                 result = await importer.update_event(
                     1, {"promoters": ["New Promoter 1", "New Promoter 2"]}
@@ -84,10 +84,10 @@ class TestUpdateEventExtended:
         # Mock database - use model_dump with mode="json" to ensure proper serialization
         cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = cached_data
 
-            with patch("app.core.importer.cache_event") as mock_cache:
+            with patch("app.core.importer.save_event") as mock_cache:
                 # Execute update
                 new_images = {
                     "full": "https://newimages.com/full.jpg",
@@ -109,10 +109,10 @@ class TestUpdateEventExtended:
         # Mock database - use model_dump with mode="json" to ensure proper serialization
         cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = cached_data
 
-            with patch("app.core.importer.cache_event") as mock_cache:
+            with patch("app.core.importer.save_event") as mock_cache:
                 # Execute update
                 updates = {
                     "ticket_url": "https://newtickets.com",
@@ -136,7 +136,7 @@ class TestUpdateEventExtended:
         # Mock database - use model_dump with mode="json" to ensure proper serialization
         cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = cached_data
 
             # Update with invalid URL - should raise validation error with proper validation
@@ -197,10 +197,10 @@ class TestUpdateEventExtended:
         # Mock database - use model_dump with mode="json" to ensure proper serialization
         cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = cached_data
 
-            with patch("app.core.importer.cache_event") as mock_cache:
+            with patch("app.core.importer.save_event") as mock_cache:
                 # Execute update with empty list
                 result = await importer.update_event(1, {"promoters": []})
 
@@ -217,10 +217,10 @@ class TestUpdateEventExtended:
         # Mock database - use model_dump with mode="json" to ensure proper serialization
         cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = cached_data
 
-            with patch("app.core.importer.cache_event") as _mock_cache:
+            with patch("app.core.importer.save_event") as _mock_cache:
                 # The update method validates with the field validator
                 # Images field has a validator that converts non-dict to None
                 result = await importer.update_event(1, {"images": "not-a-dict"})
@@ -242,10 +242,10 @@ class TestUpdateEventExtended:
             "thumbnail": "https://old.com/thumb.jpg",
         }
 
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = cached_data
 
-            with patch("app.shared.database.utils.cache_event"):
+            with patch("app.shared.database.utils.save_event"):
                 # Update only full image
                 result = await importer.update_event(
                     1, {"images": {"full": "https://new.com/full.jpg"}}

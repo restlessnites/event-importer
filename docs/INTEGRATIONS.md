@@ -33,16 +33,16 @@ The system uses this class to discover and load the other components of the inte
 
 - **Purpose**: To select which events should be processed by the integration.
 - **Base Class**: `BaseSelector`
-- **Method to Implement**: `select_events(self, db: Session, service_name: str) -> List[EventCache]`
+- **Method to Implement**: `select_events(self, db: Session, service_name: str) -> List[Event]`
 
-Selectors query the database and return a list of `EventCache` objects. You can create multiple selectors for different use cases.
+Selectors query the database and return a list of `Event` objects. You can create multiple selectors for different use cases.
 
 **Example (`UnsubmittedSelector`):**
 Selects all events that have never been submitted to a specific service.
 
 ```python
 class UnsubmittedSelector(BaseSelector):
-    def select_events(self, db: Session, service_name: str) -> List[EventCache]:
+    def select_events(self, db: Session, service_name: str) -> List[Event]:
         # ... implementation ...
 ```
 

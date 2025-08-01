@@ -11,7 +11,7 @@ from app.interfaces.api.models.responses import RebuildDescriptionResponse
 from app.interfaces.api.routes.events import rebuild_event_description
 from app.services.llm.providers.claude import Claude
 from app.services.llm.providers.openai import OpenAI
-from app.shared.database.models import EventCache
+from app.shared.database.models import Event
 from config import config
 
 
@@ -35,7 +35,7 @@ def sample_event_data():
 @pytest.fixture
 def mock_event_cache(sample_event_data):
     """Create a mock event cache entry."""
-    cache = MagicMock(spec=EventCache)
+    cache = MagicMock(spec=Event)
     cache.id = 123
     cache.source_url = sample_event_data.source_url
     cache.scraped_data = sample_event_data.model_dump(mode="json")
@@ -66,11 +66,11 @@ class TestRebuildDescriptions:
         # Replace service after creation
         importer.services["llm"] = mock_llm_service
 
-        # Mock get_cached_event to return our sample data with _db_id
+        # Mock get_event to return our sample data with _db_id
         cached_data = sample_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 123
 
-        with patch("app.core.importer.get_cached_event", return_value=cached_data):
+        with patch("app.core.importer.get_event", return_value=cached_data):
             # Test the new singular method
             result = await importer.rebuild_description(123, "short")
 
@@ -99,13 +99,13 @@ class TestRebuildDescriptions:
         # Replace service after creation
         importer.services["llm"] = mock_llm_service
 
-        # Mock get_cached_event
+        # Mock get_event
         cached_data = sample_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 123
 
         supplementary_context = "This is a special holiday concert with surprise guests"
 
-        with patch("app.core.importer.get_cached_event", return_value=cached_data):
+        with patch("app.core.importer.get_event", return_value=cached_data):
             result = await importer.rebuild_description(
                 123, "long", supplementary_context=supplementary_context
             )
@@ -122,7 +122,7 @@ class TestRebuildDescriptions:
         """Test rebuild when event is not found in cache."""
         importer = EventImporter(config)
 
-        with patch("app.shared.database.utils.get_cached_event", return_value=None):
+        with patch("app.shared.database.utils.get_event", return_value=None):
             result = await importer.rebuild_description(999, "short")
             assert result is None
 

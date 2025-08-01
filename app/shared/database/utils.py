@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.schemas import EventData
 from app.shared.database.connection import get_db_session
-from app.shared.database.models import EventCache, Submission
+from app.shared.database.models import Event, Submission
 
 logger = logging.getLogger(__name__)
 
@@ -22,12 +22,12 @@ def hash_event_data(event_data: dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def cache_event(
+def save_event(
     url: str, event_data: dict[str, Any], db: Session | None = None
-) -> EventCache:
-    """Cache scraped event data
+) -> Event:
+    """Save event data to the database
 
-    Validates event data before caching to ensure data integrity.
+    Validates event data before saving to ensure data integrity.
     """
     # Validate the event data before caching
     try:
@@ -41,11 +41,9 @@ def cache_event(
 
     data_hash = hash_event_data(event_data)
 
-    def _cache(db_session: Session) -> EventCache:
+    def _save(db_session: Session) -> Event:
         # Check if event already exists
-        existing = (
-            db_session.query(EventCache).filter(EventCache.source_url == url).first()
-        )
+        existing = db_session.query(Event).filter(Event.source_url == url).first()
 
         if existing:
             # Update if data has changed
@@ -54,41 +52,41 @@ def cache_event(
                 existing.data_hash = data_hash
                 # updated_at will be set automatically
             return existing
-        # Create new cache entry
-        cached_event = EventCache(
+        # Create new event entry
+        event = Event(
             source_url=url,
             scraped_data=event_data,
             data_hash=data_hash,
         )
-        db_session.add(cached_event)
+        db_session.add(event)
         db_session.flush()  # Get the ID
-        return cached_event
+        return event
 
     if db:
-        return _cache(db)
+        return _save(db)
     with get_db_session() as db_session:
-        return _cache(db_session)
+        return _save(db_session)
 
 
-def get_cached_event(
+def get_event(
     url: str | None = None, event_id: int | None = None, db: Session | None = None
 ) -> dict[str, Any] | None:
-    """Get cached event data by URL or ID"""
+    """Get event data by URL or ID"""
 
     def _get(db_session: Session) -> dict[str, Any] | None:
-        query = db_session.query(EventCache)
+        query = db_session.query(Event)
         if url:
-            query = query.filter(EventCache.source_url == url)
+            query = query.filter(Event.source_url == url)
         elif event_id:
-            query = query.filter(EventCache.id == event_id)
+            query = query.filter(Event.id == event_id)
         else:
             return None  # Either URL or event_id must be provided
 
-        event_cache = query.first()
-        if event_cache:
+        event = query.first()
+        if event:
             # Return the scraped_data dict with the database ID included
-            data = event_cache.scraped_data.copy()
-            data["_db_id"] = event_cache.id
+            data = event.scraped_data.copy()
+            data["_db_id"] = event.id
             return data
         return None
 
@@ -104,7 +102,7 @@ def get_submission_status(event_id: int, service_name: str) -> Submission | None
         return (
             db.query(Submission)
             .filter(
-                Submission.event_cache_id == event_id,
+                Submission.event_id == event_id,
                 Submission.service_name == service_name,
             )
             .order_by(Submission.submitted_at.desc())

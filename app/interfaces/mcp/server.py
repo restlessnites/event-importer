@@ -20,7 +20,7 @@ from app.services.integration_discovery import (
     get_enabled_integrations,
 )
 from app.shared.database.connection import get_db_session, init_db
-from app.shared.database.models import EventCache
+from app.shared.database.models import Event
 from app.shared.http import close_http_service
 from app.shared.service_errors import ServiceErrorFormatter
 from app.shared.statistics import StatisticsService
@@ -585,20 +585,20 @@ class CoreMCPTools:
     @staticmethod
     def _build_list_events_query(db_session, arguments: dict):
         """Build the query for listing events based on arguments."""
-        query = db_session.query(EventCache)
+        query = db_session.query(Event)
 
         if search := arguments.get("search"):
             search_term = f"%{search}%"
             query = query.filter(
                 or_(
-                    EventCache.source_url.like(search_term),
-                    EventCache.scraped_data.like(search_term),
+                    Event.source_url.like(search_term),
+                    Event.scraped_data.like(search_term),
                 ),
             )
 
         sort_map = {
-            "date": EventCache.scraped_at,
-            "url": EventCache.source_url,
+            "date": Event.scraped_at,
+            "url": Event.source_url,
         }
         sort_field = arguments.get("sort", "date")
         sort_order = arguments.get("order", "desc")
@@ -613,7 +613,7 @@ class CoreMCPTools:
         return query
 
     @staticmethod
-    def _format_list_event(event: EventCache, summary_only: bool) -> dict:
+    def _format_list_event(event: Event, summary_only: bool) -> dict:
         """Format a single event for the list view."""
         event_info = {
             "id": event.id,
@@ -675,7 +675,7 @@ class CoreMCPTools:
         event_id = arguments["event_id"]
 
         with get_db_session() as db:
-            event = db.query(EventCache).filter(EventCache.id == event_id).first()
+            event = db.query(Event).filter(Event.id == event_id).first()
 
             if not event:
                 return {

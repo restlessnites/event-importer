@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import handle_errors_async
 from app.shared.database.connection import get_db_session
-from app.shared.database.models import EventCache, Submission
+from app.shared.database.models import Event, Submission
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ class BaseSelector(ABC):
         self: BaseSelector,
         db: Session,
         service_name: str,
-    ) -> list[EventCache]:
+    ) -> list[Event]:
         """Select events based on specific criteria
 
         Args:
@@ -140,7 +140,7 @@ class BaseSubmitter(ABC):
             return [e.id for e in events]
 
     def _create_or_get_submission(
-        self: BaseSubmitter, event: EventCache, db: Session
+        self: BaseSubmitter, event: Event, db: Session
     ) -> Submission:
         """Create or get existing submission for event."""
         submission = (
@@ -235,7 +235,7 @@ class BaseSubmitter(ABC):
         source_url = None
 
         with get_db_session() as db:
-            event = db.query(EventCache).get(event_id)
+            event = db.query(Event).get(event_id)
             if not event:
                 logger.warning(f"Event {event_id} not found, skipping.")
                 return {"type": "skip"}

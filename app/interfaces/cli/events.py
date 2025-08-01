@@ -6,14 +6,14 @@ import click
 import clicycle
 
 from app.shared.database.connection import get_db_session
-from app.shared.database.models import EventCache
+from app.shared.database.models import Event
 
 
 def event_details(event_id: int):
     """Show details of a specific event."""
     try:
         with get_db_session() as db:
-            event = db.query(EventCache).filter(EventCache.id == event_id).first()
+            event = db.query(Event).filter(Event.id == event_id).first()
             if not event:
                 raise click.ClickException(f"Event with ID {event_id} not found")
 
@@ -49,15 +49,15 @@ def list_events(limit: int, source: str):
     """List recent events."""
     try:
         with get_db_session() as db:
-            query = db.query(EventCache)
+            query = db.query(Event)
 
             # Filter by source domain if specified
             if source:
                 # Filter by domain in source_url
-                query = query.filter(EventCache.source_url.like(f"%{source}%"))
+                query = query.filter(Event.source_url.like(f"%{source}%"))
 
             # Order by scraped_at instead of created_at
-            events = query.order_by(EventCache.scraped_at.desc()).limit(limit).all()
+            events = query.order_by(Event.scraped_at.desc()).limit(limit).all()
 
             if not events:
                 clicycle.warning("No events found")

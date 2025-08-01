@@ -43,7 +43,7 @@ class TestRebuildGenres:
         # Mock database - return dict with _db_id
         cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = cached_data
 
             # Mock genre service to return enhanced genres
@@ -81,7 +81,7 @@ class TestRebuildGenres:
         # Mock database
         cached_data = mock_event.model_dump(mode="json")
         cached_data["_db_id"] = 1
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = cached_data
 
             # Mock genre service that will raise error
@@ -124,7 +124,7 @@ class TestRebuildGenres:
         # Mock database
         cached_data = mock_event.model_dump(mode="json")
         cached_data["_db_id"] = 1
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = cached_data
 
             # Mock genre service
@@ -154,7 +154,7 @@ class TestRebuildGenres:
         importer = create_test_importer(mock_config)
 
         # Mock database returns None
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = None
 
             # Execute rebuild
@@ -223,7 +223,7 @@ class TestRebuildGenres:
         # Mock database
         cached_data = mock_event_data.model_dump(mode="json")
         cached_data["_db_id"] = 1
-        with patch("app.core.importer.get_cached_event") as mock_get:
+        with patch("app.core.importer.get_event") as mock_get:
             mock_get.return_value = cached_data
 
             # Mock genre service that partially fails

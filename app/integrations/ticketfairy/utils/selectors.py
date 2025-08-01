@@ -6,7 +6,7 @@ from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from app.integrations.base import BaseSelector
-from app.shared.database.models import EventCache, Submission
+from app.shared.database.models import Event, Submission
 
 
 class UnsubmittedSelector(BaseSelector):
@@ -16,13 +16,13 @@ class UnsubmittedSelector(BaseSelector):
         self: UnsubmittedSelector,
         db: Session,
         service_name: str,
-    ) -> list[EventCache]:
+    ) -> list[Event]:
         return (
-            db.query(EventCache)
+            db.query(Event)
             .outerjoin(
                 Submission,
                 and_(
-                    Submission.event_cache_id == EventCache.id,
+                    Submission.event_cache_id == Event.id,
                     Submission.service_name == service_name,
                 ),
             )
@@ -38,9 +38,9 @@ class FailedSelector(BaseSelector):
         self: FailedSelector,
         db: Session,
         service_name: str,
-    ) -> list[EventCache]:
+    ) -> list[Event]:
         return (
-            db.query(EventCache)
+            db.query(Event)
             .join(Submission)
             .filter(
                 and_(
@@ -60,9 +60,9 @@ class PendingSelector(BaseSelector):
         self: PendingSelector,
         db: Session,
         service_name: str,
-    ) -> list[EventCache]:
+    ) -> list[Event]:
         return (
-            db.query(EventCache)
+            db.query(Event)
             .join(Submission)
             .filter(
                 and_(
@@ -85,17 +85,17 @@ class AllEventsSelector(BaseSelector):
         self: AllEventsSelector,
         db: Session,
         service_name: str,
-    ) -> list[EventCache]:
+    ) -> list[Event]:
         if self.include_submitted:
-            return db.query(EventCache).all()
+            return db.query(Event).all()
 
         # Exclude events already submitted to this service
         return (
-            db.query(EventCache)
+            db.query(Event)
             .outerjoin(
                 Submission,
                 and_(
-                    Submission.event_cache_id == EventCache.id,
+                    Submission.event_cache_id == Event.id,
                     Submission.service_name == service_name,
                     Submission.status.in_(["success", "pending"]),
                 ),
@@ -116,8 +116,8 @@ class URLSelector(BaseSelector):
         self: URLSelector,
         db: Session,
         service_name: str,
-    ) -> list[EventCache]:
-        event = db.query(EventCache).filter(EventCache.source_url == self.url).first()
+    ) -> list[Event]:
+        event = db.query(Event).filter(Event.source_url == self.url).first()
 
         if not event:
             return []

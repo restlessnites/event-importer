@@ -23,7 +23,7 @@ from app.interfaces.api.models.responses import (
     UpdateEventResponse,
 )
 from app.shared.database.connection import get_db_session
-from app.shared.database.models import EventCache
+from app.shared.database.models import Event
 from app.shared.service_errors import ServiceErrorFormatter
 
 logger = logging.getLogger(__name__)
@@ -111,21 +111,18 @@ async def list_events(
 
     try:
         with get_db_session() as db:
-            query = db.query(EventCache)
+            query = db.query(Event)
 
             # Filter by source domain if specified
             if source:
-                query = query.filter(EventCache.source_url.like(f"%{source}%"))
+                query = query.filter(Event.source_url.like(f"%{source}%"))
 
             # Get total count
             total = query.count()
 
             # Get paginated results
             events = (
-                query.order_by(EventCache.scraped_at.desc())
-                .offset(skip)
-                .limit(limit)
-                .all()
+                query.order_by(Event.scraped_at.desc()).offset(skip).limit(limit).all()
             )
 
             # Format results
@@ -165,7 +162,7 @@ async def get_event(event_id: int) -> dict[str, Any]:
 
     try:
         with get_db_session() as db:
-            event = db.query(EventCache).filter(EventCache.id == event_id).first()
+            event = db.query(Event).filter(Event.id == event_id).first()
 
             if not event:
                 raise HTTPException(
@@ -222,7 +219,7 @@ async def rebuild_event_description(
         if description_result:
             # Get the full event data to return
             with get_db_session() as db:
-                event = db.query(EventCache).filter(EventCache.id == event_id).first()
+                event = db.query(Event).filter(Event.id == event_id).first()
                 if event and event.scraped_data:
                     # Create EventData with updated descriptions
                     event_data = EventData(**event.scraped_data)
@@ -318,7 +315,7 @@ async def rebuild_event_genres(
         if genre_result:
             # Get the full event data to return
             with get_db_session() as db:
-                event = db.query(EventCache).filter(EventCache.id == event_id).first()
+                event = db.query(Event).filter(Event.id == event_id).first()
                 if event and event.scraped_data:
                     # Create EventData with updated genres
                     event_data = EventData(**event.scraped_data)

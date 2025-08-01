@@ -34,7 +34,7 @@ from app.services.image import ImageService
 from app.services.integration_discovery import get_available_integrations
 from app.services.llm.service import LLMService
 from app.services.security_detector import SecurityPageDetector
-from app.shared.database.utils import cache_event, get_cached_event
+from app.shared.database.utils import get_event, save_event
 from app.shared.http import HTTPService
 from app.shared.url_analyzer import URLAnalyzer
 from config import Config
@@ -222,6 +222,9 @@ class EventImporter:
             )
             service_failures.extend(enhancement_failures)
 
+            # 4. Save to database
+            save_event(str(event_data.source_url), event_data.model_dump(mode="json"))
+
             await self.send_progress(
                 request_id,
                 ImportStatus.SUCCESS,
@@ -350,11 +353,11 @@ class EventImporter:
         supplementary_context: str | None = None,
     ) -> DescriptionResult | None:
         """Rebuild the description for a cached event."""
-        cached_event_data = get_cached_event(event_id=event_id)
-        if not cached_event_data:
+        event_data_dict = get_event(event_id=event_id)
+        if not event_data_dict:
             return None
 
-        event_data = EventData(**cached_event_data)
+        event_data = EventData(**event_data_dict)
         llm_service: LLMService = self.get_service("llm")
 
         # Determine which description to rebuild
@@ -391,11 +394,11 @@ class EventImporter:
         supplementary_context: str | None = None,
     ) -> tuple[GenreResult | None, list[ServiceFailure]]:
         """Rebuild the genres for a cached event."""
-        cached_event_data = get_cached_event(event_id=event_id)
-        if not cached_event_data:
+        event_data_dict = get_event(event_id=event_id)
+        if not event_data_dict:
             return None, []
 
-        event_data = EventData(**cached_event_data)
+        event_data = EventData(**event_data_dict)
         genre_service: GenreService = self.get_service("genre")
         failures = []
         try:
@@ -418,11 +421,11 @@ class EventImporter:
         supplementary_context: str | None = None,
     ) -> tuple[ImageResult | None, list[ServiceFailure]]:
         """Rebuild the image for a cached event."""
-        cached_event_data = get_cached_event(event_id=event_id)
-        if not cached_event_data:
+        event_data_dict = get_event(event_id=event_id)
+        if not event_data_dict:
             return None, []
 
-        event_data = EventData(**cached_event_data)
+        event_data = EventData(**event_data_dict)
         image_service: ImageService = self.get_service("image")
         failures = []
         try:
@@ -443,15 +446,13 @@ class EventImporter:
         updates: dict[str, Any],
     ) -> EventData | None:
         """Update a cached event with new data."""
-        cached_event_data = get_cached_event(event_id=event_id)
-        if not cached_event_data:
+        event_data_dict = get_event(event_id=event_id)
+        if not event_data_dict:
             return None
 
-        # Merge updates with cached data
-        merged_data = {**cached_event_data, **updates}
+        # Merge updates with event data
+        merged_data = {**event_data_dict, **updates}
         # Create new EventData to ensure validation
         updated_event = EventData(**merged_data)
-        cache_event(
-            str(updated_event.source_url), updated_event.model_dump(mode="json")
-        )
+        save_event(str(updated_event.source_url), updated_event.model_dump(mode="json"))
         return updated_event

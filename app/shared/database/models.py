@@ -19,8 +19,8 @@ from sqlalchemy.orm import Mapped, declarative_base, relationship
 Base = declarative_base()
 
 
-class EventCache(Base):
-    """Cache scraped event data with change detection"""
+class Event(Base):
+    """Store event data with change detection"""
 
     __tablename__ = "events"
 
@@ -50,8 +50,8 @@ class EventCache(Base):
         Index("idx_data_hash", "data_hash"),
     )
 
-    def __repr__(self: EventCache) -> str:
-        return f"<EventCache(id={self.id}, url='{self.source_url}')>"
+    def __repr__(self: Event) -> str:
+        return f"<Event(id={self.id}, url='{self.source_url}')>"
 
 
 class Submission(Base):
@@ -60,7 +60,7 @@ class Submission(Base):
     __tablename__ = "submissions"
 
     id: Mapped[int] = Column(Integer, primary_key=True)
-    event_cache_id: Mapped[int] = Column(
+    event_id: Mapped[int] = Column(
         Integer,
         ForeignKey("events.id"),
         nullable=False,
@@ -86,14 +86,14 @@ class Submission(Base):
     )  # UUID for batching
 
     # Relationship to event
-    event: Mapped[EventCache] = relationship("EventCache", back_populates="submissions")
+    event: Mapped[Event] = relationship("Event", back_populates="submissions")
 
     # Indexes for common queries
     __table_args__ = (
         Index("idx_service_status", "service_name", "status"),
         Index("idx_submitted_at", "submitted_at"),
         Index("idx_batch_id", "batch_id"),
-        Index("idx_event_service", "event_cache_id", "service_name"),
+        Index("idx_event_service", "event_id", "service_name"),
     )
 
     def __repr__(self: Submission) -> str:

@@ -40,7 +40,7 @@ class TestRebuildDescription:
         cached_event = sample_event_data.model_dump(mode="json")
         cached_event["_db_id"] = 123
 
-        with patch("app.core.importer.get_cached_event") as mock_get_cached:
+        with patch("app.core.importer.get_event") as mock_get_cached:
             mock_get_cached.return_value = cached_event
 
             # Create a mock provider with generate_descriptions method
@@ -82,7 +82,7 @@ class TestRebuildDescription:
         cached_event = sample_event_data.model_dump(mode="json")
         cached_event["_db_id"] = 123
 
-        with patch("app.core.importer.get_cached_event") as mock_get_cached:
+        with patch("app.core.importer.get_event") as mock_get_cached:
             mock_get_cached.return_value = cached_event
 
             # Create a mock provider with generate_descriptions method
@@ -126,7 +126,7 @@ class TestRebuildDescription:
     @pytest.mark.asyncio
     async def test_rebuild_description_not_found(self):
         """Test rebuilding description for non-existent event."""
-        with patch("app.core.importer.get_cached_event") as mock_get_cached:
+        with patch("app.core.importer.get_event") as mock_get_cached:
             mock_get_cached.return_value = None
 
             importer = create_test_importer(config)

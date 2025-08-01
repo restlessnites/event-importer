@@ -8,7 +8,7 @@ from click.testing import CliRunner
 
 from app.core.schemas import EventData, EventLocation, EventTime
 from app.interfaces.cli.commands import cli
-from app.shared.database.models import EventCache
+from app.shared.database.models import Event
 
 
 @pytest.fixture
@@ -55,7 +55,7 @@ class TestEventsCLI:
         )
 
         # Add a test event to the database
-        event = EventCache(
+        event = Event(
             source_url="https://example.com/event/123",
             scraped_data=mock_event_data.model_dump(mode="json"),
             data_hash="test_hash",
@@ -77,7 +77,7 @@ class TestEventsCLI:
         )
 
         # Add a test event to the database
-        event = EventCache(
+        event = Event(
             source_url="https://example.com/event/123",
             scraped_data=mock_event_data.model_dump(mode="json"),
             data_hash="test_hash",

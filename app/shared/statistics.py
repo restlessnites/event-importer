@@ -5,7 +5,7 @@ from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
 from app.shared.database.connection import get_db_session
-from app.shared.database.models import EventCache, Submission
+from app.shared.database.models import Event, Submission
 
 
 class StatisticsService:
@@ -24,7 +24,7 @@ class StatisticsService:
         """Get core event statistics without integration dependencies"""
         with self._get_session() as db:
             # Basic event counts
-            total_events = db.query(EventCache).count()
+            total_events = db.query(Event).count()
 
             # Recent activity (today)
             today_start = datetime.now().replace(
@@ -34,20 +34,18 @@ class StatisticsService:
                 microsecond=0,
             )
             events_today = (
-                db.query(EventCache)
-                .filter(EventCache.scraped_at >= today_start)
-                .count()
+                db.query(Event).filter(Event.scraped_at >= today_start).count()
             )
 
             # This week - use timedelta for proper date arithmetic
             week_start = today_start - timedelta(days=today_start.weekday())
             events_this_week = (
-                db.query(EventCache).filter(EventCache.scraped_at >= week_start).count()
+                db.query(Event).filter(Event.scraped_at >= week_start).count()
             )
 
             # Events by status (based on whether they have any submissions)
             events_with_submissions = (
-                db.query(EventCache).join(Submission).distinct().count()
+                db.query(Event).join(Submission).distinct().count()
             )
             unsubmitted_events = total_events - events_with_submissions
 
@@ -135,11 +133,11 @@ class StatisticsService:
                 day_end = day_start + timedelta(days=1) - timedelta(microseconds=1)
 
                 count = (
-                    db.query(EventCache)
+                    db.query(Event)
                     .filter(
                         and_(
-                            EventCache.scraped_at >= day_start,
-                            EventCache.scraped_at <= day_end,
+                            Event.scraped_at >= day_start,
+                            Event.scraped_at <= day_end,
                         ),
                     )
                     .count()
