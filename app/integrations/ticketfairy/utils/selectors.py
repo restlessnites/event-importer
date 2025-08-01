@@ -22,7 +22,7 @@ class UnsubmittedSelector(BaseSelector):
             .outerjoin(
                 Submission,
                 and_(
-                    Submission.event_cache_id == Event.id,
+                    Submission.event_id == Event.id,
                     Submission.service_name == service_name,
                 ),
             )
@@ -95,7 +95,7 @@ class AllEventsSelector(BaseSelector):
             .outerjoin(
                 Submission,
                 and_(
-                    Submission.event_cache_id == Event.id,
+                    Submission.event_id == Event.id,
                     Submission.service_name == service_name,
                     Submission.status.in_(["success", "pending"]),
                 ),
@@ -128,7 +128,7 @@ class URLSelector(BaseSelector):
                 db.query(Submission)
                 .filter(
                     and_(
-                        Submission.event_cache_id == event.id,
+                        Submission.event_id == event.id,
                         Submission.service_name == service_name,
                         Submission.status.in_(["success", "pending"]),
                     )

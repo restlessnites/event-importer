@@ -146,7 +146,7 @@ class BaseSubmitter(ABC):
         submission = (
             db.query(Submission)
             .filter_by(
-                event_cache_id=event.id,
+                event_id=event.id,
                 service_name=self.service_name,
                 status="pending",
             )

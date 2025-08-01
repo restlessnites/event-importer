@@ -32,7 +32,7 @@ async def diagnose_dry_run():
             submission = (
                 db.query(Submission)
                 .filter(
-                    Submission.event_cache_id == event.id,
+                    Submission.event_id == event.id,
                     Submission.service_name == "ticketfairy",
                 )
                 .first()

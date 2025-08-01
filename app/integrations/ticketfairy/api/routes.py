@@ -80,7 +80,7 @@ async def get_status() -> dict[str, Any]:
 
             # Get unsubmitted count
             submitted_event_ids = (
-                db.query(Submission.event_cache_id)
+                db.query(Submission.event_id)
                 .filter(Submission.service_name == "ticketfairy")
                 .subquery()
             )
