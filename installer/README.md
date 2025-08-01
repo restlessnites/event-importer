@@ -49,23 +49,27 @@ installer/
 ## Key Components
 
 ### CLI Layer (`cli/`)
+
 - Handles all user interaction
 - Uses `clicycle` for consistent terminal UI
 - Organized into focused display modules
 - Main orchestration in `app.py`
 
 ### Services Layer (`services/`)
+
 - Pure business logic - no UI imports
 - Returns data/status, not formatted strings
 - Uses callbacks for progress updates
 - Each service has a single responsibility
 
 ### Operations Layer (`operations/`)
+
 - Thin orchestration layer
 - Bridges services and CLI
 - Handles service composition
 
 ### Components (`components/`)
+
 - Required installer components (e.g., Claude Desktop)
 - Self-contained functionality
 
@@ -94,6 +98,7 @@ python installer/__main__.py
 ## Key Patterns
 
 ### Progress Callbacks
+
 Services use callbacks instead of direct UI:
 
 ```python
@@ -108,6 +113,7 @@ def create_progress_callback():
 ```
 
 ### Status Returns
+
 Services return tuples for status:
 
 ```python
@@ -116,6 +122,7 @@ def migrate_from_path(self, path) -> tuple[bool, str]:
 ```
 
 ### No UI in Services
+
 Services NEVER import or use clicycle/display functions.
 
 ## Extension Points
@@ -130,6 +137,7 @@ To add new functionality:
 ## Testing
 
 The clean separation makes testing straightforward:
+
 - Services can be tested without UI
 - Display modules can be tested with mock data
 - Operations can be tested with mock services

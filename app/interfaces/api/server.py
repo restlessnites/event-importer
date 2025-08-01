@@ -14,7 +14,10 @@ from app.core.startup import startup_checks
 from app.interfaces.api.middleware.cors import add_cors_middleware
 from app.interfaces.api.routes import events, health, statistics
 from app.interfaces.api.routes.events import get_router
-from app.services.integration_discovery import get_available_integrations
+from app.services.integration_discovery import (
+    get_available_integrations,
+    get_enabled_integrations,
+)
 from app.shared.http import close_http_service
 from config import config
 
@@ -37,7 +40,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         startup_checks()
 
         features = config.get_enabled_features()
-        integrations = config.get_enabled_integrations()
+        integrations = get_enabled_integrations()
         logger.info(f"Enabled features: {features}")
         if integrations:
             logger.info(f"Enabled integrations: {integrations}")
