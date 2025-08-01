@@ -1,22 +1,20 @@
 from __future__ import annotations
 
-import os
 from collections.abc import Generator
 from contextlib import contextmanager
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.shared.database.models import Base
 from config.paths import get_user_data_dir
-
-from .models import Base
 
 # Database configuration
 DB_PATH = get_user_data_dir() / "events.db"
 DB_URL = f"sqlite:///{DB_PATH}"
 
 # Ensure the directory for the database exists
-os.makedirs(DB_PATH.parent, exist_ok=True)
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # Create engine with SQLite optimizations
 engine = create_engine(
