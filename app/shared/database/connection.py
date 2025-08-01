@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.shared.path import get_user_data_dir
+from config.paths import get_user_data_dir
 
 from .models import Base
 

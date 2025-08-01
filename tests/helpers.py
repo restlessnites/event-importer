@@ -1,10 +1,12 @@
 """Test helpers and utilities."""
 
-from app.config import Config
 from app.core.importer import EventImporter
+from config import Config
 
 
-def create_test_importer(config: Config, service_mocks: dict | None = None) -> EventImporter:
+def create_test_importer(
+    config: Config, service_mocks: dict | None = None
+) -> EventImporter:
     """Create an EventImporter instance with optional service mocks.
 
     Args:

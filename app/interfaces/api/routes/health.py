@@ -5,8 +5,9 @@ import logging
 from fastapi import APIRouter
 
 from app import __version__
-from app.config import get_config
 from app.interfaces.api.models.responses import HealthResponse
+from app.services.integration_discovery import get_enabled_integrations
+from config import config
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +18,8 @@ router = APIRouter(prefix="/api/v1", tags=["health"])
 async def health_check() -> HealthResponse:
     """Health check endpoint."""
     try:
-        config = get_config()
         features = config.get_enabled_features()
-        integrations = config.get_enabled_integrations()
+        integrations = get_enabled_integrations()
 
         return HealthResponse(
             status="healthy",

@@ -104,25 +104,4 @@ This will create an `Event Importer.app` bundle in the `dist/` directory.
 
 ## Project Structure
 
-```plaintext
-app/
-├── core/               # Business logic
-├── interfaces/         # CLI, API, MCP interfaces
-├── services/           # External service integrations (LLMs, Zyte, etc.)
-├── agents/             # Import agents for different sources
-├── integrations/       # Integrations (e.g., TicketFairy)
-├── shared/             # Shared utilities
-└── data/               # Reference data
-
-config/                 # Shared configuration system
-├── settings.py         # Pydantic settings definitions
-└── storage.py          # SQLite settings storage
-
-installer/              # Standalone installer
-├── components/         # Installer components
-├── main.py            # Installer entry point
-├── downloader.py      # App download functionality
-└── paths.py           # Path utilities
-```
-
 For detailed architecture information, see [docs/ARCHITECTURE.md](ARCHITECTURE.md).

@@ -13,15 +13,18 @@ from mcp.server.models import InitializationOptions
 from sqlalchemy import asc, desc, or_
 
 from app import __version__
-from app.config import get_config
 from app.core.error_messages import CommonMessages, InterfaceMessages
 from app.core.router import Router
-from app.services.integration_discovery import get_available_integrations
+from app.services.integration_discovery import (
+    get_available_integrations,
+    get_enabled_integrations,
+)
 from app.shared.database.connection import get_db_session, init_db
 from app.shared.database.models import EventCache
 from app.shared.http import close_http_service
 from app.shared.service_errors import ServiceErrorFormatter
 from app.shared.statistics import StatisticsService
+from config import config
 
 # Configure logging
 logging.basicConfig(
@@ -835,9 +838,8 @@ async def main() -> None:
 
     # Validate configuration
     try:
-        config = get_config()
         features = config.get_enabled_features()
-        integrations = config.get_enabled_integrations()
+        integrations = get_enabled_integrations()
         logger.info(f"Enabled features: {features}")
         if integrations:
             logger.info(f"Enabled integrations: {integrations}")

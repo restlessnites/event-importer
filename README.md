@@ -121,11 +121,13 @@ After either option, you can use `event-importer` from any directory.
 ## Documentation
 
 ### Core Guides
+
 - **[Usage Guide](docs/USAGE.md)**: Detailed instructions for the CLI, API, and MCP interfaces
 - **[Architecture](docs/ARCHITECTURE.md)**: Technical overview of the project architecture
 - **[Development Guide](docs/DEVELOPMENT.md)**: Setup and guidelines for developers
 
 ### Feature Documentation
+
 - **[API Reference](docs/API.md)**: Complete HTTP API documentation
 - **[MCP Server](docs/MCP.md)**: Model Context Protocol (MCP) integration for AI assistants
 - **[Genre Enhancer](docs/GENRE_ENHANCER.md)**: How the AI-powered genre detection works
@@ -133,6 +135,7 @@ After either option, you can use `event-importer` from any directory.
 - **[Integrations](docs/INTEGRATIONS.md)**: How to build and use integrations (e.g., TicketFairy)
 
 ### Build & Distribution
+
 - **[Build Process](docs/BUILD_PROCESS.md)**: How to package the application
 - **[Cross Platform](docs/CROSS_PLATFORM.md)**: Platform-specific considerations and support
 

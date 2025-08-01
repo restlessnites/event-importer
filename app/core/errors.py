@@ -16,6 +16,8 @@ from tenacity import (
     wait_exponential,
 )
 
+from config.retry import get_retry_config
+
 logger = logging.getLogger(__name__)
 
 
@@ -213,20 +215,28 @@ def handle_errors_async[T](
 
 
 def retry_on_error(
-    max_attempts: int = 3,
-    delay: float = 1.0,
-    backoff: float = 2.0,
+    max_attempts: int | None = None,
+    delay: float | None = None,
+    backoff: float | None = None,
     exceptions: tuple = (APIError, TimeoutError),
 ) -> Callable:
     """Decorator to retry a function on specific errors using tenacity.
 
     Args:
-        max_attempts: Maximum number of attempts
-        delay: Initial delay between retries in seconds
-        backoff: Backoff multiplier for exponential backoff
+        max_attempts: Maximum number of attempts (uses config default if None)
+        delay: Initial delay between retries in seconds (uses config default if None)
+        backoff: Backoff multiplier for exponential backoff (uses config default if None)
         exceptions: Tuple of exceptions to retry on
 
     """
+    retry_config = get_retry_config()
+
+    # Use config defaults if not specified
+    max_attempts = (
+        max_attempts if max_attempts is not None else retry_config.max_attempts
+    )
+    delay = delay if delay is not None else retry_config.delay
+    backoff = backoff if backoff is not None else retry_config.backoff
 
     def should_retry(retry_state: RetryCallState) -> bool:
         """Custom retry condition that excludes non-retryable errors."""

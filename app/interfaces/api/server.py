@@ -9,7 +9,6 @@ import uvicorn
 from fastapi import FastAPI
 
 from app import __version__
-from app.config import get_config
 from app.core.error_messages import CommonMessages
 from app.core.startup import startup_checks
 from app.interfaces.api.middleware.cors import add_cors_middleware
@@ -17,6 +16,7 @@ from app.interfaces.api.routes import events, health, statistics
 from app.interfaces.api.routes.events import get_router
 from app.services.integration_discovery import get_available_integrations
 from app.shared.http import close_http_service
+from config import config
 
 # Configure logging
 logging.basicConfig(
@@ -36,7 +36,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Run startup checks including database initialization
         startup_checks()
 
-        config = get_config()
         features = config.get_enabled_features()
         integrations = config.get_enabled_integrations()
         logger.info(f"Enabled features: {features}")

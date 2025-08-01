@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.config import get_config
 from app.core.importer import EventImporter
 from app.core.schemas import DescriptionResult, EventData, EventLocation, EventTime
 from app.interfaces.api.models.requests import RebuildDescriptionRequest
@@ -13,6 +12,7 @@ from app.interfaces.api.routes.events import rebuild_event_description
 from app.services.llm.providers.claude import Claude
 from app.services.llm.providers.openai import OpenAI
 from app.shared.database.models import EventCache
+from config import config
 
 
 @pytest.fixture
@@ -49,7 +49,7 @@ class TestRebuildDescriptions:
     async def test_rebuild_descriptions_basic(self, sample_event_data):
         """Test basic description rebuild without supplementary context."""
         # This test maintains backwards compatibility by testing the old flow
-        importer = EventImporter(get_config())
+        importer = EventImporter(config)
 
         # Mock the provider with generate_descriptions method
         mock_provider = MagicMock()
@@ -82,7 +82,7 @@ class TestRebuildDescriptions:
     @pytest.mark.asyncio
     async def test_rebuild_descriptions_with_context(self, sample_event_data):
         """Test description rebuild with supplementary context."""
-        importer = EventImporter(get_config())
+        importer = EventImporter(config)
 
         # Mock the provider to return modified descriptions
         modified_event = sample_event_data.model_copy()
@@ -120,7 +120,7 @@ class TestRebuildDescriptions:
     @pytest.mark.asyncio
     async def test_rebuild_descriptions_not_found(self):
         """Test rebuild when event is not found in cache."""
-        importer = EventImporter(get_config())
+        importer = EventImporter(config)
 
         with patch("app.shared.database.utils.get_cached_event", return_value=None):
             result = await importer.rebuild_description(999, "short")
@@ -234,7 +234,6 @@ class TestLLMServiceIntegration:
     @pytest.mark.asyncio
     async def test_claude_service_with_context(self, sample_event_data):
         """Test Claude service generates descriptions with context."""
-        config = get_config()
         service = Claude(config)
 
         # Mock the Claude API call
@@ -260,7 +259,6 @@ class TestLLMServiceIntegration:
     @pytest.mark.asyncio
     async def test_openai_service_with_context(self, sample_event_data):
         """Test OpenAI service generates descriptions with context."""
-        config = get_config()
         service = OpenAI(config)
         service.client = MagicMock()  # Mock the client
 

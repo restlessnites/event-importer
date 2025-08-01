@@ -138,9 +138,7 @@ uv run python scripts/test_genre_enhancer.py --artist-only
 
 ```python
 from app.services.genre import GenreService
-from app.config import get_config
-
-config = get_config()
+from config import config
 genre_service = GenreService(config, http_service, claude_service)
 
 # Enhance an event

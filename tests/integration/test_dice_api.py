@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 from pytest_mock import MockerFixture
 
-from app.config import get_config
 from app.shared.http import HTTPService
+from config import config
 
 
 # Load fixture data
@@ -40,7 +40,7 @@ async def test_dice_search_clean(
     query: str, expected_artist_id: str, mock_http_calls: None
 ) -> None:
     """Test that Dice search returns the correct artist ID from a mocked response."""
-    http = HTTPService(get_config())
+    http = HTTPService(config)
     try:
         response = await http.post_json(
             "https://api.dice.fm/unified_search",

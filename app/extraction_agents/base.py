@@ -8,7 +8,6 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from app.config import Config
 from app.core.error_messages import AgentMessages
 from app.core.schemas import (
     EventData,
@@ -19,70 +18,21 @@ from app.core.schemas import (
     ImportStatus,
 )
 from app.services.llm.service import LLMService
+from app.shared.constants.error_messages import (
+    SERVICES_DICT_NOT_INITIALIZED,
+    SERVICES_DICT_REQUIRED,
+)
+from app.shared.constants.state_mappings import US_STATE_MAPPING
 from app.shared.timezone import get_timezone_from_location
+from config import Config
 
 logger = logging.getLogger(__name__)
-
-SERVICES_DICT_REQUIRED = "services dictionary is required but was None"
-SERVICES_DICT_NOT_INITIALIZED = "Services dictionary is not initialized"
 
 
 class BaseExtractionAgent(ABC):
     """Abstract base class for agents that extract event data."""
 
-    state_mapping = {
-        "alabama": "AL",
-        "alaska": "AK",
-        "arizona": "AZ",
-        "arkansas": "AR",
-        "california": "CA",
-        "colorado": "CO",
-        "connecticut": "CT",
-        "delaware": "DE",
-        "florida": "FL",
-        "georgia": "GA",
-        "hawaii": "HI",
-        "idaho": "ID",
-        "illinois": "IL",
-        "indiana": "IN",
-        "iowa": "IA",
-        "kansas": "KS",
-        "kentucky": "KY",
-        "louisiana": "LA",
-        "maine": "ME",
-        "maryland": "MD",
-        "massachusetts": "MA",
-        "michigan": "MI",
-        "minnesota": "MN",
-        "mississippi": "MS",
-        "missouri": "MO",
-        "montana": "MT",
-        "nebraska": "NE",
-        "nevada": "NV",
-        "new-hampshire": "NH",
-        "new-jersey": "NJ",
-        "new-mexico": "NM",
-        "new-york": "NY",
-        "north-carolina": "NC",
-        "north-dakota": "ND",
-        "ohio": "OH",
-        "oklahoma": "OK",
-        "oregon": "OR",
-        "pennsylvania": "PA",
-        "rhode-island": "RI",
-        "south-carolina": "SC",
-        "south-dakota": "SD",
-        "tennessee": "TN",
-        "texas": "TX",
-        "utah": "UT",
-        "vermont": "VT",
-        "virginia": "VA",
-        "washington": "WA",
-        "west-virginia": "WV",
-        "wisconsin": "WI",
-        "wyoming": "WY",
-        "district-of-columbia": "DC",
-    }
+    state_mapping = US_STATE_MAPPING
 
     def __init__(
         self: BaseExtractionAgent,

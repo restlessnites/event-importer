@@ -7,7 +7,6 @@ import re
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from app.config import Config
 from app.core.error_messages import AgentMessages
 from app.core.schemas import (
     EventData,
@@ -18,6 +17,7 @@ from app.core.schemas import (
 )
 from app.extraction_agents.base import BaseExtractionAgent
 from app.shared.http import HTTPService
+from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +149,7 @@ class Dice(BaseExtractionAgent):
                 service="Dice Search",
                 headers=headers,
                 json=payload,
-                timeout=10,
+                timeout=self.config.http.short_timeout,
             )
             await self.send_progress(
                 request_id,
@@ -195,7 +195,7 @@ class Dice(BaseExtractionAgent):
                 api_url,
                 service="Dice API",
                 headers=headers,
-                timeout=30.0,
+                timeout=self.config.http.timeout,
             )
             await self.send_progress(
                 request_id,

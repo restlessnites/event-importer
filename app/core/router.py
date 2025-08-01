@@ -6,9 +6,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from app.config import get_config
 from app.core.importer import EventImporter
 from app.core.schemas import ImportRequest, ImportStatus
+from config import config
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ class Router:
 
     def __init__(self: Router) -> None:
         """Initialize router with importer."""
-        self.config = get_config()
+        self.config = config
         self.importer = EventImporter(self.config)
 
     async def route_request(

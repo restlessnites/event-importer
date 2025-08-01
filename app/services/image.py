@@ -10,10 +10,10 @@ from urllib.parse import urlparse
 
 from PIL import Image, UnidentifiedImageError
 
-from app.config import Config
 from app.core.errors import APIError, handle_errors_async
 from app.core.schemas import EventData, ImageCandidate, ImageResult, ImageSearchResult
 from app.shared.http import HTTPService
+from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +223,9 @@ class ImageService:
                     break
 
         # Build result
-        result.enhanced_image_url = best_image_url if best_image_url != original_url else original_url
+        result.enhanced_image_url = (
+            best_image_url if best_image_url != original_url else original_url
+        )
         result.thumbnail_url = result.enhanced_image_url
         result.search_result = search_result
 

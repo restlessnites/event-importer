@@ -4,10 +4,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.config import Config
 from app.core.errors import ConfigurationError
 from app.core.schemas import EventData
 from app.services.llm.service import LLMService
+from config import Config
 
 
 @pytest.fixture

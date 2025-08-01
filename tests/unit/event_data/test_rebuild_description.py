@@ -4,12 +4,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.config import get_config
 from app.core.schemas import DescriptionResult, EventData, EventLocation, EventTime
 from app.interfaces.api.models.requests import RebuildDescriptionRequest
 from app.interfaces.api.routes.events import rebuild_event_description
 from app.services.llm.providers.claude import Claude
 from app.services.llm.service import LLMService
+from config import config
 from tests.helpers import create_test_importer
 
 
@@ -56,7 +56,7 @@ class TestRebuildDescription:
             mock_llm_service.primary_provider = mock_provider
             mock_llm_service.fallback_provider = None
 
-            importer = create_test_importer(get_config(), {"llm": mock_llm_service})
+            importer = create_test_importer(config, {"llm": mock_llm_service})
 
             result = await importer.rebuild_description(
                 123, description_type="short", supplementary_context="Make it exciting"
@@ -100,7 +100,7 @@ class TestRebuildDescription:
             mock_llm_service.primary_provider = mock_provider
             mock_llm_service.fallback_provider = None
 
-            importer = create_test_importer(get_config(), {"llm": mock_llm_service})
+            importer = create_test_importer(config, {"llm": mock_llm_service})
 
             result = await importer.rebuild_description(
                 123, description_type="long", supplementary_context="Add venue details"
@@ -129,7 +129,7 @@ class TestRebuildDescription:
         with patch("app.core.importer.get_cached_event") as mock_get_cached:
             mock_get_cached.return_value = None
 
-            importer = create_test_importer(get_config())
+            importer = create_test_importer(config)
             result = await importer.rebuild_description(999, "short")
 
             assert result is None
@@ -192,7 +192,7 @@ class TestLLMServiceGeneration:
             )
         )
 
-        llm_service = LLMService(get_config())
+        llm_service = LLMService(config)
         llm_service.primary_provider = mock_claude
 
         # Remove long description to ensure short is generated
@@ -211,7 +211,7 @@ class TestLLMServiceGeneration:
             )
         )
 
-        llm_service = LLMService(get_config())
+        llm_service = LLMService(config)
         llm_service.primary_provider = mock_claude
 
         # Remove short description to ensure long is generated

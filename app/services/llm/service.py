@@ -7,12 +7,12 @@ import re
 from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
 
-from app.config import Config
 from app.core.errors import ConfigurationError, retry_on_error
 from app.core.schemas import EventData
 from app.services.llm.base import BaseLLMService
 from app.services.llm.providers.claude import Claude
 from app.services.llm.providers.openai import OpenAI
+from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -197,7 +197,9 @@ class LLMService:
         operation = LLMOperation(
             "extract_event_data",
             self.primary_provider.extract_event_data,
-            self.fallback_provider.extract_event_data if self.fallback_provider else None,
+            self.fallback_provider.extract_event_data
+            if self.fallback_provider
+            else None,
             prompt=prompt,
             image_b64=image_b64,
             mime_type=mime_type,
@@ -229,7 +231,9 @@ class LLMService:
         operation = LLMOperation(
             "extract_from_html",
             self.primary_provider.extract_from_html,
-            self.fallback_provider.extract_from_html if self.fallback_provider else None,
+            self.fallback_provider.extract_from_html
+            if self.fallback_provider
+            else None,
             html,
             url,
             needs_long_description=needs_long_description,
@@ -250,7 +254,9 @@ class LLMService:
         operation = LLMOperation(
             "extract_from_image",
             self.primary_provider.extract_from_image,
-            self.fallback_provider.extract_from_image if self.fallback_provider else None,
+            self.fallback_provider.extract_from_image
+            if self.fallback_provider
+            else None,
             image_data,
             mime_type,
             url,

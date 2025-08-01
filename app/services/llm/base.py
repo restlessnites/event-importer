@@ -7,8 +7,8 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any
 
-from app.config import Config
 from app.core.schemas import EventData, EventTime
+from config import Config
 
 logger = logging.getLogger(__name__)
 

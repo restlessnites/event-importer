@@ -5,8 +5,9 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from app.config import APIConfig, Config
 from app.interfaces.api.server import create_app
+from config import Config
+from config.api import APIConfig
 
 
 @pytest.fixture
@@ -32,20 +33,29 @@ def test_health_check(client):
 
 def test_health_check_with_api_keys(client):
     """Test health check with API keys configured."""
+    with (
+        patch("app.interfaces.api.routes.health.config") as mock_config,
+        patch(
+            "app.interfaces.api.routes.health.get_enabled_integrations"
+        ) as mock_get_enabled_integrations,
+    ):
+        # Configure mock config
+        mock_config.get_enabled_features.return_value = [
+            "dice",
+            "ra",
+            "ticketmaster",
+            "web",
+            "image",
+            "ai_extraction",
+        ]
+        mock_get_enabled_integrations.return_value = ["ticketfairy"]
 
-    # Create a config with some API keys
-    test_config = Config()
-    test_config.api = APIConfig()
-    test_config.api.ticketmaster_api_key = "test-tm-key"
-    test_config.api.zyte_api_key = "test-zyte-key"
-    test_config.api.anthropic_api_key = "test-claude-key"
-
-    with patch("app.interfaces.api.routes.health.get_config", return_value=test_config):
         response = client.get("/api/v1/health")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
         features = data["features"]
+        integrations = data["integrations"]
 
         # Check expected features are enabled
         assert "dice" in features
@@ -54,3 +64,4 @@ def test_health_check_with_api_keys(client):
         assert "web" in features
         assert "image" in features
         assert "ai_extraction" in features
+        assert "ticketfairy" in integrations

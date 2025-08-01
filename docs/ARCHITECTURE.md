@@ -15,10 +15,20 @@ The application follows **Hexagonal Architecture** (Ports and Adapters pattern) 
 ## Directory Structure
 
 ```plaintext
+config/
+├── __init__.py                 # Main configuration orchestrator
+├── api.py                      # API key settings
+├── http.py                     # HTTP client settings
+├── loader.py                   # Configuration loading logic
+├── paths.py                    # Path-related settings
+├── processing.py               # Data processing settings
+├── retry.py                    # Retry settings for HTTP requests
+├── runtime.py                  # Runtime behavior settings
+└── settings.py                 # Pydantic models for different settings groups
+
 app/
 ├── __init__.py                 # Package exports and version
 ├── main.py                     # Application factory and entry point router
-├── config.py                   # Configuration management
 ├── core/                       # Core business logic (domain layer)
 │   ├── importer.py             # Main business logic orchestrator
 │   ├── router.py               # Request routing logic
@@ -55,38 +65,11 @@ app/
 │   ├── __init__.py             # Auto-discovery of integrations
 │   ├── base.py                 # Base classes (Submitter, Transformer, etc.)
 │   └── ticketfairy/            # Example: TicketFairy integration
-│       ├── __init__.py
-│       ├── client.py           # API client for TicketFairy
-│       ├── transformer.py      # Transforms event data to TicketFairy format
-│       ├── selectors.py        # Selects which events to submit
-│       ├── submitter.py        # Orchestrates the submission process
-│       ├── cli.py              # Adds CLI commands (e.g., `uv run event-importer ticketfairy submit`)
-│       ├── routes.py           # Adds API routes (e.g., `/integrations/ticketfairy/submit`)
-│       ├── config.py           # Integration-specific configuration
-│       └── mcp_tools.py        # MCP tools for TicketFairy integration
 │
 ├── interfaces/                 # User-facing interfaces
 │   ├── cli/                    # Command-line interface
-│   │   ├── commands.py         # Main CLI commands and routing
-│   │   ├── events.py           # Event-related CLI commands
-│   │   ├── import_event.py     # Event import CLI command
-│   │   ├── rebuild.py          # Event rebuild CLI commands
-│   │   ├── settings.py         # Settings management CLI
-│   │   └── stats.py            # Statistics display CLI
 │   ├── mcp/                    # MCP server interface for AI assistants
-│   │   └── server.py           # MCP server implementation
 │   └── api/                    # HTTP REST API interface
-│       ├── server.py           # FastAPI server setup
-│       ├── middleware/         # API middleware
-│       │   ├── cors.py         # CORS configuration
-│       │   └── logging.py      # Request/response logging
-│       ├── models/             # API request/response models
-│       │   ├── requests.py     # Request schemas
-│       │   └── responses.py    # Response schemas
-│       └── routes/             # API route handlers
-│           ├── events.py       # Event import endpoints
-│           ├── health.py       # Health check endpoints
-│           └── statistics.py   # Statistics endpoints
 │
 └── shared/                     # Shared utilities across layers
     ├── http.py                 # HTTP client utility
@@ -94,8 +77,7 @@ app/
     ├── timezone.py             # Timezone handling utilities
     ├── url_analyzer.py         # URL analysis and agent routing
     ├── service_errors.py       # Service error collection and formatting
-    ├── path.py                 # Path utilities
-    ├── project.py              # Project metadata
+    ├── constants/              # Application-wide constants
     ├── database/               # Database layer
     │   ├── connection.py       # Database session management
     │   ├── models.py           # SQLAlchemy models (EventCache, Submission)

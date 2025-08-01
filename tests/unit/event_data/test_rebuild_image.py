@@ -83,10 +83,12 @@ class TestRebuildImage:
             ):
                 # enhance_event_image now returns ImageResult
                 return ImageResult(
-                    original_image_url=event_data.images.get("full") if event_data.images else None,
+                    original_image_url=event_data.images.get("full")
+                    if event_data.images
+                    else None,
                     enhanced_image_url=mock_image_search_result.selected.url,
                     thumbnail_url=mock_image_search_result.selected.url,
-                    search_result=mock_image_search_result
+                    search_result=mock_image_search_result,
                 )
 
             mock_image_service = MagicMock()
@@ -128,8 +130,12 @@ class TestRebuildImage:
                 context_passed = supplementary_context
                 # Return ImageResult with no enhancement
                 return ImageResult(
-                    original_image_url=event_data.images.get("full") if event_data.images else None,
-                    enhanced_image_url=event_data.images.get("full") if event_data.images else None,
+                    original_image_url=event_data.images.get("full")
+                    if event_data.images
+                    else None,
+                    enhanced_image_url=event_data.images.get("full")
+                    if event_data.images
+                    else None,
                 )
 
             mock_image_service = MagicMock()
@@ -180,8 +186,12 @@ class TestRebuildImage:
             ):
                 # Return ImageResult with no enhancement
                 return ImageResult(
-                    original_image_url=event_data.images.get("full") if event_data.images else None,
-                    enhanced_image_url=event_data.images.get("full") if event_data.images else None,
+                    original_image_url=event_data.images.get("full")
+                    if event_data.images
+                    else None,
+                    enhanced_image_url=event_data.images.get("full")
+                    if event_data.images
+                    else None,
                 )
 
             mock_image_service = MagicMock()
@@ -194,7 +204,9 @@ class TestRebuildImage:
             # Verify - no image change when no better image found
             assert result is not None
             assert result.original_image_url == mock_event_data.images.get("full")
-            assert result.enhanced_image_url == mock_event_data.images.get("full")  # Same as original
+            assert result.enhanced_image_url == mock_event_data.images.get(
+                "full"
+            )  # Same as original
 
     @pytest.mark.asyncio
     async def test_rebuild_image_api_endpoint(

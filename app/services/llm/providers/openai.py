@@ -10,11 +10,11 @@ from typing import Any
 
 from openai import AsyncOpenAI
 
-from app.config import Config
 from app.core.errors import APIError, ConfigurationError, handle_errors_async
 from app.core.schemas import EventData
 from app.services.llm.base import BaseLLMService
 from app.services.llm.prompts import EventPrompts
+from config import Config
 
 logger = logging.getLogger(__name__)
 

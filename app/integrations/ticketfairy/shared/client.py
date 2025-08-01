@@ -6,11 +6,11 @@ import json
 import logging
 from typing import Any
 
-from app.config import get_config
 from app.core.error_messages import CommonMessages
 from app.core.errors import APIError, handle_errors_async
 from app.integrations.base import BaseClient
 from app.shared.http import get_http_service
+from config import config
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +20,12 @@ class TicketFairyClient(BaseClient):
 
     def __init__(self: TicketFairyClient) -> None:
         self.http = get_http_service()
-        self.config = get_config()
+        self.config = config
         # TicketFairy specific settings
         self.api_base_url = "https://www.theticketfairy.com/api"
         self.draft_events_endpoint = "/draft-events"
         self.origin = "https://restlessnites.com"
-        self.timeout = 30
+        self.timeout = self.config.http.timeout
 
     @handle_errors_async(reraise=True)
     async def submit(self: TicketFairyClient, data: dict[str, Any]) -> dict[str, Any]:

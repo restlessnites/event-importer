@@ -5,7 +5,6 @@ import logging
 import re
 from typing import Any
 
-from app.config import Config
 from app.core.error_messages import ServiceMessages
 from app.core.errors import APIError, retry_on_error
 from app.core.schemas import EventData
@@ -13,6 +12,7 @@ from app.services.llm.prompts import GenrePrompts
 from app.services.llm.service import LLMService
 from app.shared.data.genres import MusicGenres
 from app.shared.http import HTTPService
+from config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -215,7 +215,7 @@ class GenreService:
                 "https://www.googleapis.com/customsearch/v1",
                 service="GoogleGenreSearch",
                 params=params,
-                timeout=10,
+                timeout=self.config.http.short_timeout,
             )
 
             # Check for API errors

@@ -10,7 +10,6 @@ from typing import Any
 
 from pydantic import HttpUrl
 
-from app.config import Config
 from app.core.errors import AgentNotFoundError, UnsupportedURLError
 from app.core.progress import ProgressTracker
 from app.core.schemas import (
@@ -38,6 +37,7 @@ from app.services.security_detector import SecurityPageDetector
 from app.shared.database.utils import cache_event, get_cached_event
 from app.shared.http import HTTPService
 from app.shared.url_analyzer import URLAnalyzer
+from config import Config
 
 logger = logging.getLogger(__name__)
 

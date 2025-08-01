@@ -14,7 +14,6 @@ import aiohttp
 import certifi
 from aiohttp import BasicAuth, ClientResponse, ClientSession, ClientTimeout
 
-from app.config import Config, get_config
 from app.core.errors import (
     APIError,
     AuthenticationError,
@@ -22,6 +21,7 @@ from app.core.errors import (
     RequestTimeoutError,
     handle_errors_async,
 )
+from config import Config, config
 
 logger = logging.getLogger(__name__)
 
@@ -432,7 +432,7 @@ def get_http_service() -> HTTPService:
     """Get the global HTTP service instance."""
     global _http_service
     if _http_service is None:
-        _http_service = HTTPService(get_config())
+        _http_service = HTTPService(config)
     return _http_service
 
 

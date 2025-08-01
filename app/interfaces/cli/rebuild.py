@@ -5,9 +5,9 @@ import asyncio
 import click
 import clicycle
 
-from app.config import get_config
 from app.core.importer import EventImporter
 from app.shared.service_errors import ServiceErrorFormatter
+from config import config
 
 
 def rebuild_description(
@@ -19,7 +19,6 @@ def rebuild_description(
     clicycle.configure(app_name="event-importer")
 
     async def _rebuild():
-        config = get_config()
         importer = EventImporter(config)
         return await importer.rebuild_description(
             event_id,
@@ -94,7 +93,6 @@ def rebuild_genres(
     clicycle.configure(app_name="event-importer")
 
     async def _rebuild():
-        config = get_config()
         importer = EventImporter(config)
         return await importer.rebuild_genres(
             event_id,
@@ -175,7 +173,6 @@ def rebuild_image(
     clicycle.configure(app_name="event-importer")
 
     async def _rebuild():
-        config = get_config()
         importer = EventImporter(config)
         return await importer.rebuild_image(
             event_id,
@@ -205,7 +202,6 @@ def update_event(event_id: int, updates: dict):
     clicycle.configure(app_name="event-importer")
 
     async def _update():
-        config = get_config()
         importer = EventImporter(config)
         return await importer.update_event(event_id, updates)
 

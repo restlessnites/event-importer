@@ -1,12 +1,15 @@
 """Integration discovery system."""
 
 import importlib
+import logging
 import sys
 import traceback
 from importlib.metadata import entry_points
 from pathlib import Path
 
 from app.integrations.base import Integration
+
+logger = logging.getLogger(__name__)
 
 
 def get_available_integrations() -> dict[str, type]:
@@ -18,6 +21,23 @@ def get_available_integrations() -> dict[str, type]:
         return _discover_from_directory(integrations_dir)
     # In development, use entry points
     return _discover_from_entry_points()
+
+
+def get_enabled_integrations() -> list[str]:
+    """Get list of enabled integrations based on their configuration."""
+    enabled = []
+    integrations = get_available_integrations()
+
+    for name, integration_class in integrations.items():
+        try:
+            integration = integration_class()
+            if integration.is_enabled():
+                enabled.append(name)
+        except Exception as e:
+            # If we can't instantiate or check, assume not enabled
+            logger.debug(f"Could not check if integration {name} is enabled: {e}")
+
+    return sorted(enabled)
 
 
 def _discover_from_directory(integrations_dir: Path) -> dict[str, type]:

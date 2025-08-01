@@ -6,10 +6,10 @@ import base64
 import logging
 from typing import Any
 
-from app.config import Config
 from app.core.errors import APIError, SecurityPageError
 from app.services.security_detector import SecurityPageDetector
 from app.shared.http import HTTPService
+from config import Config
 
 logger = logging.getLogger(__name__)
 
