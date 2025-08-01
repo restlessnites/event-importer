@@ -35,6 +35,12 @@ jobs:
     - name: Create data directory
       run: mkdir -p data
 
+    - name: Initialize database
+      env:
+        OPENAI_API_KEY: test-key
+        ANTHROPIC_API_KEY: test-key
+      run: uv run python -c "from app.core.startup import startup_checks; startup_checks()"
+
     - name: Lint with Ruff
       run: uv run ruff check .
 
