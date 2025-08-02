@@ -790,11 +790,26 @@ def get_all_tool_handlers() -> dict:
 async def handle_call_tool(
     name: str,
     arguments: dict[str, Any],
-    router: Router,
+    router: Router | None,
     all_handlers: dict[str, Any],
 ) -> list[types.TextContent]:
     """Handle tool calls."""
     try:
+        # Check if router is needed for this tool
+        router_required_tools = {
+            "import_event", "rebuild_event_description", "rebuild_event_genres",
+            "rebuild_event_image", "update_event"
+        }
+        
+        if name in router_required_tools and router is None:
+            return [types.TextContent(
+                type="text",
+                text=json.dumps({
+                    "success": False,
+                    "error": "Service unavailable: API keys not configured. Please configure ANTHROPIC_API_KEY or OPENAI_API_KEY."
+                }, indent=2)
+            )]
+        
         # Special case for import_event (needs router)
         if name == "import_event":
             result = await CoreMCPTools.handle_import_event(arguments, router)
@@ -843,13 +858,21 @@ async def main() -> None:
         logger.info(f"Enabled features: {features}")
         if integrations:
             logger.info(f"Enabled integrations: {integrations}")
-    except (ValueError, TypeError, KeyError):
-        logger.exception(CommonMessages.CONFIGURATION_ERROR)
-        sys.exit(1)
+    except (ValueError, TypeError, KeyError) as e:
+        logger.error(f"Configuration validation failed: {e}")
+        logger.warning("Some features may be limited due to missing configuration")
 
-    # Create server and router
+    # Create server
     server = Server("event-importer")
-    router = Router()
+    
+    # Try to create router - but don't die if config is invalid
+    router = None
+    try:
+        router = Router()
+        logger.info("Router initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize router: {e}")
+        logger.warning("MCP server will run with limited functionality")
 
     # Get all tools and handlers
     tools = get_all_tools()
