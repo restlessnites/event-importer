@@ -39,6 +39,14 @@ from app.shared.url_analyzer import URLAnalyzer, URLType
         ("https://ra.co/news/123", URLType.UNKNOWN, None),
         ("https://ticketmaster.com/browse", URLType.TICKETMASTER, None),
         ("example.com", URLType.UNKNOWN, None),
+        # Shrine Auditorium - the case that was failing
+        ("https://www.shrineauditorium.com/events/detail/event_id=875456", URLType.UNKNOWN, None),
+        # Direct image URLs should still be UNKNOWN at URL analysis stage
+        ("https://example.com/images/event-flyer.jpg", URLType.UNKNOWN, None),
+        ("https://cdn.example.com/flyers/2025/january/event.png", URLType.UNKNOWN, None),
+        # Other venue websites that aren't specifically supported
+        ("https://thebowery.com/events/2025-01-15", URLType.UNKNOWN, None),
+        ("https://www.msg.com/madison-square-garden/event/123", URLType.UNKNOWN, None),
     ],
 )
 def test_url_analyzer_parametrized(
@@ -50,6 +58,8 @@ def test_url_analyzer_parametrized(
 
     assert analysis["type"] == expected_type
     assert analysis.get("event_id") == expected_id
+    # URL analyzer should never set a method field
+    assert "method" not in analysis
 
 
 def run_tests_for_cli_output() -> None:

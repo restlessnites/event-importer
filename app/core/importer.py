@@ -34,6 +34,7 @@ from app.services.image import ImageService
 from app.services.integration_discovery import get_available_integrations
 from app.services.llm.service import LLMService
 from app.services.security_detector import SecurityPageDetector
+from app.services.zyte import ZyteService
 from app.shared.database.utils import get_event, save_event
 from app.shared.http import HTTPService
 from app.shared.url_analyzer import URLAnalyzer
@@ -62,6 +63,7 @@ class EventImporter:
                 config, http_service=http_service, llm_service=llm_service
             ),
             "security_detector": SecurityPageDetector(),
+            "zyte": ZyteService(config, http_service=http_service),
         }
 
         # Dynamically load integrations from the integrations directory
@@ -209,7 +211,7 @@ class EventImporter:
 
         try:
             # 1. Select agent
-            agent = self._select_agent(url_str, request_id)
+            agent = await self._select_agent(url_str, request_id)
 
             # 2. Import event
             event_data = await agent.import_event(url_str, request_id)
@@ -299,11 +301,40 @@ class EventImporter:
             f"No agent found for import method: {import_method.value}"
         )
 
-    def _select_agent(self, url: str, request_id: str) -> Agent:  # noqa: ARG002
+    async def _detect_import_method(self, url: str) -> ImportMethod | None:
+        """Detect import method by checking content-type via HEAD request."""
+        try:
+            http_service = self.get_service("http")
+            response = await http_service.head(url, service="URLAnalyzer")
+            content_type = response.headers.get("content-type", "").lower()
+
+            # Check if it's an image
+            if content_type.startswith(("image/", "application/octet-stream")):
+                logger.info(f"Detected image content-type: {content_type}")
+                return ImportMethod.IMAGE
+
+            # Default to web for HTML/text content
+            if "html" in content_type or "text" in content_type:
+                logger.info(f"Detected web content-type: {content_type}")
+                return ImportMethod.WEB
+
+            logger.info(f"Unknown content-type: {content_type}, defaulting to WEB")
+            return ImportMethod.WEB
+
+        except Exception as e:
+            logger.warning(f"Failed to detect content-type via HEAD request: {e}")
+            # Default to WEB if we can't determine
+            return ImportMethod.WEB
+
+    async def _select_agent(self, url: str, request_id: str) -> Agent:  # noqa: ARG002
         """Select the appropriate agent for the given URL."""
         analysis = self.url_analyzer.analyze(url)
         url_type = analysis.get("type")
         import_method = analysis.get("method")
+
+        # For unknown URLs, check if it's an image by content-type
+        if url_type == "unknown" and not import_method:
+            import_method = await self._detect_import_method(url)
 
         logger.info(
             f"URL analysis result: type={url_type}, method={import_method}",
@@ -335,6 +366,10 @@ class EventImporter:
             logger.info(
                 f"Selected agent '{agent.name}' for import method '{import_method.value}'"
             )
+        elif url_type == "unknown":
+            # For unknown URLs, use the Web agent as fallback
+            logger.info("Unknown URL type, using Web agent as fallback")
+            agent = self._get_agent_for_method(ImportMethod.WEB)
 
         if not agent:
             raise UnsupportedURLError("Could not determine an agent for the given URL.")
