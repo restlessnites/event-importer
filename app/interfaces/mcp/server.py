@@ -3,7 +3,6 @@
 import asyncio
 import json
 import logging
-import sys
 from typing import Any
 
 import mcp.server.stdio
@@ -13,7 +12,7 @@ from mcp.server.models import InitializationOptions
 from sqlalchemy import asc, desc, or_
 
 from app import __version__
-from app.core.error_messages import CommonMessages, InterfaceMessages
+from app.core.error_messages import InterfaceMessages
 from app.core.router import Router
 from app.services.integration_discovery import (
     get_available_integrations,
@@ -797,19 +796,27 @@ async def handle_call_tool(
     try:
         # Check if router is needed for this tool
         router_required_tools = {
-            "import_event", "rebuild_event_description", "rebuild_event_genres",
-            "rebuild_event_image", "update_event"
+            "import_event",
+            "rebuild_event_description",
+            "rebuild_event_genres",
+            "rebuild_event_image",
+            "update_event",
         }
-        
+
         if name in router_required_tools and router is None:
-            return [types.TextContent(
-                type="text",
-                text=json.dumps({
-                    "success": False,
-                    "error": "Service unavailable: API keys not configured. Please configure ANTHROPIC_API_KEY or OPENAI_API_KEY."
-                }, indent=2)
-            )]
-        
+            return [
+                types.TextContent(
+                    type="text",
+                    text=json.dumps(
+                        {
+                            "success": False,
+                            "error": "Service unavailable: API keys not configured. Please configure ANTHROPIC_API_KEY or OPENAI_API_KEY.",
+                        },
+                        indent=2,
+                    ),
+                )
+            ]
+
         # Special case for import_event (needs router)
         if name == "import_event":
             result = await CoreMCPTools.handle_import_event(arguments, router)
@@ -864,7 +871,7 @@ async def main() -> None:
 
     # Create server
     server = Server("event-importer")
-    
+
     # Try to create router - but don't die if config is invalid
     router = None
     try:
