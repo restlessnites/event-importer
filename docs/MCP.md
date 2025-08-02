@@ -315,6 +315,19 @@ These tools are for submitting imported events to the TicketFairy service. This 
 - The installer should have guided you through API key setup
 - You can reconfigure by running the installer again
 
+### "Service unavailable: API keys not configured" error
+
+Starting with v1.3.6, the MCP server will continue running even without API keys configured. However:
+- Basic tools like `list_events`, `show_event`, and `get_statistics` will still work
+- Import and AI-powered features require API keys (ANTHROPIC_API_KEY or OPENAI_API_KEY)
+- Configure API keys using: `event-importer settings set ANTHROPIC_API_KEY your-key-here`
+
+### Database errors or corrupted data
+
+If you encounter database-related errors, you can delete the database to force a fresh rebuild:
+- macOS: `rm ~/Library/Application\ Support/event-importer/events.db`
+- The database will be automatically recreated when you next use Event Importer
+
 ---
 
 ## Getting Help

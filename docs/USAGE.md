@@ -245,6 +245,8 @@ Use with Claude Desktop or other MCP-compatible AI assistants. For full details,
 event-importer mcp
 ```
 
+**Note**: Starting with v1.3.6, the MCP server is more resilient and will continue running even if API keys are not configured. Basic database operations will work, but import and AI features require proper API key configuration.
+
 ### Claude Desktop Configuration
 
 Add the following to your Claude Desktop configuration:
@@ -351,3 +353,24 @@ The HTTP API includes service failures in the response JSON (see example above).
 #### MCP
 
 When using with Claude Desktop, service failures are included in the tool response for visibility.
+
+---
+
+## Troubleshooting
+
+### Database Issues
+
+If you encounter database errors (like schema mismatches or corrupted data), you can delete the database to force a fresh rebuild:
+
+```bash
+# macOS
+rm ~/Library/Application\ Support/event-importer/events.db
+
+# Linux
+rm ~/.local/share/event-importer/events.db
+
+# Windows
+del %APPDATA%\event-importer\events.db
+```
+
+The database will be automatically recreated with the correct schema the next time you run any Event Importer command.
